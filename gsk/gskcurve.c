@@ -459,18 +459,18 @@ gsk_line_curve_segment (const GskCurve *curve,
 static void
 gsk_line_curve_offset (const GskCurve *curve,
                        float           distance,
-                       GskCurve       *offset_curve)
+                       GskCurve       *offset)
 {
   const GskLineCurve *self = &curve->line;
   const graphene_point_t *pts = self->points;
   graphene_vec2_t n;
-  graphene_point_t p[2];
+  graphene_point_t p0, p1;
 
   get_normal (&pts[0], &pts[1], &n);
-  scale_point (&pts[0], &n, distance, &p[0]);
-  scale_point (&pts[1], &n, distance, &p[1]);
+  scale_point (&pts[0], &n, distance, &p0);
+  scale_point (&pts[1], &n, distance, &p1);
 
-  gsk_curve_init (offset_curve, gsk_pathop_encode (GSK_PATH_LINE, p));
+  gsk_line_curve_init_from_points (&offset->line, GSK_PATH_LINE, &p0, &p1);
 }
 
 static gboolean

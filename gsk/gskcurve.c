@@ -2232,6 +2232,19 @@ gsk_curve_get_tangent (const GskCurve   *curve,
   get_class (curve->op)->get_tangent (curve, progress, tangent);
 }
 
+void
+gsk_curve_get_normal (const GskCurve  *curve,
+                      float            t,
+                      graphene_vec2_t *normal)
+{
+  graphene_vec2_t tangent;
+
+  gsk_curve_get_tangent (curve, t, &tangent);
+  graphene_vec2_init (normal,
+                      - graphene_vec2_get_y (&tangent),
+                      graphene_vec2_get_x (&tangent));
+}
+
 float
 gsk_curve_get_curvature (const GskCurve   *curve,
                          float             t,

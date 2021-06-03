@@ -23,6 +23,12 @@
 #include "gtkapplication.h"
 #include "gdkprofilerprivate.h"
 
+#ifdef G_OS_UNIX
+#include <gio/gunixfdlist.h>
+#endif
+
+#include <glib/gstdio.h>
+
 #include <stdlib.h>
 
 #ifdef HAVE_UNISTD_H
@@ -30,6 +36,7 @@
 #endif
 
 #include "gtkapplicationprivate.h"
+#include "gtkapplicationwindowprivate.h"
 #include "gtkmarshalers.h"
 #include "gtkmain.h"
 #include "gtkicontheme.h"
@@ -112,7 +119,7 @@
  * `GtkApplication` optionally registers with a session manager of the
  * users session (if you set the [property@Gtk.Application:register-session]
  * property) and offers various functionality related to the session
- * life-cycle.
+ * life-cycle, such as state saving.
  *
  * An application can block various ways to end the session with
  * the [method@Gtk.Application.inhibit] function. Typical use cases for
@@ -132,6 +139,9 @@ enum {
   WINDOW_ADDED,
   WINDOW_REMOVED,
   QUERY_END,
+  CREATE_WINDOW,
+  SAVE_STATE,
+  RESTORE_STATE,
   LAST_SIGNAL
 };
 
@@ -346,6 +356,26 @@ gtk_application_startup (GApplication *g_application)
 }
 
 static void
+gtk_application_activate (GApplication *g_application)
+{
+  GtkApplication *application = GTK_APPLICATION (g_application);
+  GtkApplicationPrivate *priv = gtk_application_get_instance_private (application);
+  guint activate_id;
+
+  activate_id = g_signal_lookup ("activate", G_TYPE_APPLICATION);
+  if (!g_signal_has_handler_pending (g_application, activate_id, 0, TRUE))
+    {
+      if (!priv->register_session ||
+          !gtk_application_restore (application))
+        {
+          g_signal_emit (application,
+                         gtk_application_signals[CREATE_WINDOW], 0, NULL);
+          gtk_window_present (GTK_WINDOW (priv->windows->data));
+        }
+    }
+}
+
+static void
 gtk_application_shutdown (GApplication *g_application)
 {
   GtkApplication *application = GTK_APPLICATION (g_application);
@@ -353,6 +383,9 @@ gtk_application_shutdown (GApplication *g_application)
 
   if (priv->impl == NULL)
     return;
+
+  if (priv->register_session)
+    gtk_application_save (application);
 
   gtk_application_impl_shutdown (priv->impl);
   g_clear_object (&priv->impl);
@@ -605,6 +638,7 @@ gtk_application_class_init (GtkApplicationClass *class)
   application_class->after_emit = gtk_application_after_emit;
   application_class->startup = gtk_application_startup;
   application_class->shutdown = gtk_application_shutdown;
+  application_class->activate = gtk_application_activate;
   application_class->dbus_register = gtk_application_dbus_register;
   application_class->dbus_unregister = gtk_application_dbus_unregister;
 
@@ -663,12 +697,96 @@ gtk_application_class_init (GtkApplicationClass *class)
                   G_TYPE_NONE, 0);
 
   /**
+   * GtkApplication::create-window:
+   * @application: the `GtkApplication` which emitted the signal
+   * @session_id: (nullable): Session ID to set on the new window
+   *
+   * In response to this signal, you should create a new application window,
+   * and add it to @application.
+   *
+   *`GtkApplication` will call [method@Gtk.Window.present] on the window.
+
+   * If @session_id is passed, it should be set as the [property@Gtk.ApplicationWindow:session-id]
+   * of the newly created window.
+   *
+   * You should handle this signal instead of `::activate` to make automatic
+   * session saving work.
+   *
+   * Since: 4.20
+   */
+  gtk_application_signals[CREATE_WINDOW] =
+    g_signal_new (I_("create-window"), GTK_TYPE_APPLICATION, G_SIGNAL_RUN_FIRST,
+                  G_STRUCT_OFFSET (GtkApplicationClass, create_window),
+                  NULL, NULL,
+                  NULL,
+                  G_TYPE_NONE, 1,
+                  G_TYPE_STRING);
+
+  /**
+   * GtkApplication:save-state:
+   * @application: the `GtkApplication` which emitted the signal
+   * @dict: a `GVariantDict`
+   *
+   * The handler for this signal should persist any state of @application
+   * into @dict.
+   *
+   * See
+   * [signal@Gtk.Application:restore-state],
+   * [signal@Gtk.ApplicationWindow:save-state] and
+   * [signal@Gtk.ApplicationWindow:restore-state].
+   *
+   *
+   * Returns: true to stop stop further handlers from running
+   *
+   * Since: 4.20
+   */
+  gtk_application_signals[SAVE_STATE] =
+    g_signal_new (I_("save-state"),
+                  G_TYPE_FROM_CLASS (class),
+                  G_SIGNAL_RUN_LAST,
+                  G_STRUCT_OFFSET (GtkApplicationClass, save_state),
+                  _gtk_boolean_handled_accumulator, NULL,
+                  NULL,
+                  G_TYPE_BOOLEAN, 1,
+                  G_TYPE_VARIANT_DICT);
+
+  /**
+   * GtkApplication:restore-state:
+   * @application: the `GtkApplication` which emitted the signal
+   * @state: an "a{sv}" `GVariant` with state to restore
+   *
+   * The handler for this signal should do the opposite of what the
+   * corresponding handler for [signal@Gtk.Application:save-state]
+   * does.
+   *
+   * Returns: true to stop stop further handlers from running
+   *
+   * Since: 4.20
+   */
+  gtk_application_signals[RESTORE_STATE] =
+    g_signal_new (I_("restore-state"),
+                  G_TYPE_FROM_CLASS (class),
+                  G_SIGNAL_RUN_LAST,
+                  G_STRUCT_OFFSET (GtkApplicationClass, restore_state),
+                  _gtk_boolean_handled_accumulator, NULL,
+                  NULL,
+                  G_TYPE_BOOLEAN, 1,
+                  G_TYPE_VARIANT);
+
+  /**
    * GtkApplication:register-session:
    *
    * Set this property to true to register with the session manager.
    *
    * This will make GTK track the session state (such as the
-   * [property@Gtk.Application:screensaver-active] property).
+   * [property@Gtk.Application:screensaver-active] property) and
+   * attempt to save and restore it.
+   *
+   * In order to make automatic state restoration work, need to set
+   * [property@Gtk.ApplicationWindow:session-id] on your windows and
+   * handle [signal@Gtk.Application::create-window]. The default
+   * `::activate` handler will emit that signal as needed, and call
+   * [method@Gtk.Application.restore] when it finds saved state.
    */
   gtk_application_props[PROP_REGISTER_SESSION] =
     g_param_spec_boolean ("register-session", NULL, NULL,
@@ -1299,4 +1417,212 @@ gtk_application_set_screensaver_active (GtkApplication *application,
       priv->screensaver_active = active;
       g_object_notify (G_OBJECT (application), "screensaver-active");
     }
+}
+
+static char *
+get_state_file (GtkApplication *application)
+{
+  const char *app_id;
+  const char *dir;
+
+  app_id = g_application_get_application_id (G_APPLICATION (application));
+  dir = g_get_user_cache_dir ();
+  return g_strconcat (dir, G_DIR_SEPARATOR_S, app_id, ".state", NULL);
+}
+
+static GVariant *
+save_global_state (GtkApplication *application)
+{
+  GVariantDict *dict;
+  GVariant *v;
+  gboolean ret;
+
+  dict = g_variant_dict_new (NULL);
+
+  g_signal_emit (application, gtk_application_signals[SAVE_STATE], 0, dict, &ret);
+
+  v = g_variant_dict_end (dict);
+
+  g_variant_dict_unref (dict);
+
+  return v;
+}
+
+static void
+restore_global_state (GtkApplication *application,
+                      GVariant       *state)
+{
+  g_signal_emit (application, gtk_application_signals[RESTORE_STATE], 0, state);
+}
+
+/**
+ * gtk_application_save:
+ * @application: a `GtkApplication`
+ *
+ * Saves the state of application.
+ *
+ * See [method@Gtk.Application.restore] for a way to restore the state.
+ *
+ * See [method@Gtk.Application.forget] for a way to forget the state.
+ *
+ * If [property@Gtk.Application:register-session] is set, `GtkApplication`
+ * calls this function automatically when the application is closed or
+ * the session ends.
+ *
+ * Since: 4.20
+ */
+void
+gtk_application_save (GtkApplication *application)
+{
+  GtkApplicationPrivate *priv = gtk_application_get_instance_private (application);
+  GList *l;
+  GVariantBuilder builder;
+  GVariant *state;
+  const char *session_id = NULL;
+  GVariant *global_state;
+  char *file = get_state_file (application);
+
+  if (priv->impl)
+    session_id = gtk_application_impl_get_current_session_id (priv->impl);
+
+  if (!session_id)
+    session_id = "";
+
+  g_variant_builder_init (&builder, G_VARIANT_TYPE_VARDICT);
+
+  for (l = priv->windows; l != NULL; l = l->next)
+    {
+      const char *id;
+      GVariant *v;
+
+      if (!GTK_IS_APPLICATION_WINDOW (l->data))
+        continue;
+
+      id = gtk_application_window_get_session_id (GTK_APPLICATION_WINDOW (l->data));
+
+      if (!id)
+        continue;
+
+      v = gtk_application_window_save (GTK_APPLICATION_WINDOW (l->data));
+      g_variant_builder_add (&builder, "{sv}", id, v);
+    }
+
+  global_state = save_global_state (application);
+
+  state = g_variant_new ("(sva{sv})", session_id, global_state, &builder);
+
+  g_file_set_contents (file,
+                       g_variant_get_data (state),
+                       g_variant_get_size (state),
+                       NULL);
+
+  g_free (file);
+
+  g_variant_unref (state);
+}
+
+/**
+ * gtk_application_forget:
+ * @application: a `GtkApplication`
+ *
+ * Forget state that has been previously saved.
+ *
+ * Note that `GtkApplication` will save state automatically
+ * as long as [property@Gtk.Application:register-session] is set,
+ * so you probably want to unset that property as well, if
+ * your goal is to implement a “factory reset”.
+ *
+ * See [method@Gtk.Application.save] for more information.
+ *
+ * Since: 4.20
+ */
+void
+gtk_application_forget (GtkApplication *application)
+{
+  char *file = get_state_file (application);
+
+  g_remove (file);
+
+  g_free (file);
+}
+
+/**
+ * gtk_application_restore:
+ * @application: a `GtkApplication`
+ *
+ * Restores previously saved state.
+ *
+ * See [method@Gtk.Application.save] for a way to save application state.
+ *
+ * If [property@Gtk.Application:register-sesion] is set, `GtkApplication` calls this
+ * function automatically in the default `::activate` handler. Note that you
+ * need to handle the [signal@Gtk.Application::create-window] to make restoring
+ * state work.
+ *
+ * Returns: true if any window has been restored
+ *
+ * Since: 4.20
+ */
+gboolean
+gtk_application_restore (GtkApplication *application)
+{
+  GtkApplicationPrivate *priv = gtk_application_get_instance_private (application);
+  char *file = get_state_file (application);
+  char *contents;
+  gsize len;
+  GVariant *state;
+  const char *key;
+  gboolean restored;
+  const char *session_id = NULL;
+  GVariantIter *iter = NULL;
+  GVariant *global_state;
+
+  if (!g_file_get_contents (file, &contents, &len, NULL))
+    {
+      gtk_application_impl_register_session (priv->impl, NULL);
+      g_free (file);
+      return FALSE;
+    }
+
+  state = g_variant_new_from_data (G_VARIANT_TYPE ("(sva{sv})"), contents, len, FALSE, NULL, NULL);
+
+  g_variant_get (state, "(&sva{sv})", &session_id, &global_state, &iter);
+
+  gtk_application_impl_register_session (priv->impl, session_id);
+
+  while (g_variant_iter_next (iter, "{sv}", &key, NULL))
+    g_signal_emit (application, gtk_application_signals[CREATE_WINDOW], 0, key);
+
+  g_variant_iter_free (iter);
+
+  restore_global_state (application, global_state);
+  g_variant_unref (global_state);
+
+  restored = FALSE;
+  for (GList *l = priv->windows; l; l = l->next)
+    {
+      GtkWidget *window = GTK_WIDGET (l->data);
+      const char *id = NULL;
+      GVariant *v;
+
+      if (!GTK_IS_APPLICATION_WINDOW (window))
+        continue;
+
+      id = gtk_application_window_get_session_id (GTK_APPLICATION_WINDOW (window));
+
+      if (id &&
+          (v = g_variant_lookup_value (state, id, NULL)) != NULL)
+        {
+          restored = TRUE;
+          gtk_application_window_restore (GTK_APPLICATION_WINDOW (window), v);
+          g_variant_unref (v);
+        }
+
+      gtk_window_present (GTK_WINDOW (window));
+    }
+
+  g_free (file);
+  g_free (contents);
+
+  return restored;
 }

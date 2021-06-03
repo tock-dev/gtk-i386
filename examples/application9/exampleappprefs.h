@@ -9,3 +9,7 @@ G_DECLARE_FINAL_TYPE (ExampleAppPrefs, example_app_prefs, EXAMPLE, APP_PREFS, Gt
 
 
 ExampleAppPrefs        *example_app_prefs_new          (ExampleAppWindow *win);
+
+GVariant               *example_app_prefs_get          (ExampleAppPrefs *prefs);
+void                    example_app_prefs_set          (ExampleAppPrefs *prefs,
+                                                        GVariant        *data);

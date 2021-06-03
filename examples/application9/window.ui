@@ -4,6 +4,7 @@
     <property name="title" translatable="yes">Example Application</property>
     <property name="default-width">600</property>
     <property name="default-height">400</property>
+    <property name="session-id">window</property>
     <child type="titlebar">
       <object class="GtkHeaderBar" id="header">
         <child>

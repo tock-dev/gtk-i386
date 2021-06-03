@@ -17,6 +17,8 @@ struct _ExampleAppWindow
   GtkWidget *words;
   GtkWidget *lines;
   GtkWidget *lines_label;
+
+  GList *files;
 };
 
 G_DEFINE_TYPE (ExampleAppWindow, example_app_window, GTK_TYPE_APPLICATION_WINDOW)
@@ -211,13 +213,69 @@ example_app_window_dispose (GObject *object)
 
   g_clear_object (&win->settings);
 
+  g_list_free_full (win->files, g_object_unref);
+  win->files = NULL;
+
   G_OBJECT_CLASS (example_app_window_parent_class)->dispose (object);
+}
+
+static gboolean
+example_app_window_save_state (GtkApplicationWindow *window,
+                               GVariantDict         *dict)
+{
+  ExampleAppWindow *win = EXAMPLE_APP_WINDOW (window);
+  GVariantBuilder builder;
+  gboolean show_words;
+  gboolean show_lines;
+
+  g_print ("save state\n");
+
+  g_variant_builder_init (&builder, G_VARIANT_TYPE ("as"));
+  for (GList *l = win->files; l; l = l->next)
+    {
+      g_variant_builder_add (&builder, "s", g_file_peek_path (G_FILE (l->data)));
+    }
+
+  g_variant_dict_insert_value (dict, "files", g_variant_builder_end (&builder));
+
+  show_words = gtk_revealer_get_reveal_child (GTK_REVEALER (win->sidebar));
+  g_variant_dict_insert_value (dict, "show-words", g_variant_new_boolean (show_words));
+
+  show_lines = gtk_widget_get_visible (win->lines);
+  g_variant_dict_insert_value (dict, "show-lines", g_variant_new_boolean (show_lines));
+
+  return TRUE;
+}
+
+static gboolean
+example_app_window_restore_state (GtkApplicationWindow *window,
+                                  GVariant             *state)
+{
+  ExampleAppWindow *win = EXAMPLE_APP_WINDOW (window);
+  GVariantIter *iter;
+
+  if (g_variant_lookup (state, "files", "as", &iter))
+    {
+       const char *path;
+
+       while (g_variant_iter_next (iter, "&s", &path))
+         {
+           GFile *file = g_file_new_for_path (path);
+           example_app_window_open (win, file);
+           g_object_unref (file);
+         }
+    }
+
+  return TRUE;
 }
 
 static void
 example_app_window_class_init (ExampleAppWindowClass *class)
 {
   G_OBJECT_CLASS (class)->dispose = example_app_window_dispose;
+
+  GTK_APPLICATION_WINDOW_CLASS (class)->save_state = example_app_window_save_state;
+  GTK_APPLICATION_WINDOW_CLASS (class)->restore_state = example_app_window_restore_state;
 
   gtk_widget_class_set_template_from_resource (GTK_WIDGET_CLASS (class),
                                                "/org/gtk/exampleapp/window.ui");
@@ -236,10 +294,29 @@ example_app_window_class_init (ExampleAppWindowClass *class)
   gtk_widget_class_bind_template_callback (GTK_WIDGET_CLASS (class), visible_child_changed);
 }
 
+static gboolean
+close_request (GtkWindow *window,
+               gpointer   data)
+{
+  GtkApplication *app;
+
+  app = gtk_window_get_application (window);
+
+  gtk_application_save (app);
+
+  return FALSE;
+}
+
 ExampleAppWindow *
 example_app_window_new (ExampleApp *app)
 {
-  return g_object_new (EXAMPLE_APP_WINDOW_TYPE, "application", app, NULL);
+  ExampleAppWindow *window;
+
+  window = g_object_new (EXAMPLE_APP_WINDOW_TYPE, "application", app, NULL);
+
+  g_signal_connect (window, "close-request", G_CALLBACK (close_request), NULL);
+
+  return window;
 }
 
 void
@@ -288,4 +365,6 @@ example_app_window_open (ExampleAppWindow *win,
 
   update_words (win);
   update_lines (win);
+
+  win->files = g_list_append (win->files, g_object_ref (file));
 }

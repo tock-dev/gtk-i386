@@ -1366,12 +1366,7 @@ handle_dpi_changed (GdkSurface *surface,
 
   _gdk_win32_adjust_client_rect (surface, rect);
 
-  if (impl->drag_move_resize_context.op != GDK_WIN32_DRAGOP_NONE)
-    gdk_win32_surface_move_resize (surface,
-                                   surface->x, surface->y,
-                                   surface->width, surface->height);
-  else
-    gdk_win32_surface_resize (surface, surface->width, surface->height);
+  gdk_win32_surface_resize (surface, surface->width, surface->height);
 }
 
 static void
@@ -2034,13 +2029,6 @@ gdk_event_translate (MSG *msg,
 
       generate_button_event (GDK_BUTTON_RELEASE, button, surface, msg);
 
-      impl = GDK_WIN32_SURFACE (surface);
-
-      /* End a drag op when the same button that started it is released */
-      if (impl->drag_move_resize_context.op != GDK_WIN32_DRAGOP_NONE &&
-          impl->drag_move_resize_context.button == button)
-        gdk_win32_surface_end_move_resize_drag (surface);
-
       if (release_implicit_grab)
         {
           ReleaseCapture ();
@@ -2141,9 +2129,7 @@ gdk_event_translate (MSG *msg,
       win32_display->event_record->current_root_x = msg->pt.x;
       win32_display->event_record->current_root_y = msg->pt.y;
 
-      if (impl->drag_move_resize_context.op != GDK_WIN32_DRAGOP_NONE)
-        gdk_win32_surface_do_move_resize_drag (surface, msg->pt.x, msg->pt.y);
-      else if (GDK_WIN32_DISPLAY (gdk_surface_get_display (surface))->pointer_device_items->input_ignore_core == 0)
+      if (GDK_WIN32_DISPLAY (gdk_surface_get_display (surface))->pointer_device_items->input_ignore_core == 0)
 	{
           double x = (double) GET_X_LPARAM (msg->lParam) / impl->surface_scale;
           double y = (double) GET_Y_LPARAM (msg->lParam) / impl->surface_scale;
@@ -2270,12 +2256,6 @@ gdk_event_translate (MSG *msg,
 
       gdk_winpointer_input_events (surface, NULL, msg);
 
-      impl = GDK_WIN32_SURFACE (surface);
-      if (impl->drag_move_resize_context.op != GDK_WIN32_DRAGOP_NONE)
-        {
-          gdk_win32_surface_end_move_resize_drag (surface);
-        }
-
       *ret_valp = 0;
       return_val = TRUE;
       break;
@@ -2304,18 +2284,7 @@ gdk_event_translate (MSG *msg,
       if (IS_POINTER_PRIMARY_WPARAM (msg->wParam) && win32_display->event_record->mouse_surface != surface)
         crossing_cb = make_crossing_event;
 
-      impl = GDK_WIN32_SURFACE (surface);
-
-      if (impl->drag_move_resize_context.op != GDK_WIN32_DRAGOP_NONE)
-        {
-          gdk_win32_surface_do_move_resize_drag (surface,
-                                                 win32_display->event_record->current_root_x,
-                                                 win32_display->event_record->current_root_y);
-        }
-      else
-        {
-          gdk_winpointer_input_events (surface, crossing_cb, msg);
-        }
+      gdk_winpointer_input_events (surface, crossing_cb, msg);
 
       *ret_valp = 0;
       return_val = TRUE;
@@ -2692,10 +2661,6 @@ gdk_event_translate (MSG *msg,
 	  _gdk_win32_end_modal_call (surface, GDK_WIN32_MODAL_OP_SIZEMOVE_MASK);
 	}
 
-
-      impl = GDK_WIN32_SURFACE (surface);
-      if (impl->drag_move_resize_context.op != GDK_WIN32_DRAGOP_NONE)
-        gdk_win32_surface_end_move_resize_drag (surface);
       break;
 
     case WM_WINDOWPOSCHANGING:

@@ -63,65 +63,6 @@ struct _GdkRectangleDouble
 
 typedef struct _GdkRectangleDouble GdkRectangleDouble;
 
-enum _GdkW32WindowDragOp
-{
-  GDK_WIN32_DRAGOP_NONE = 0,
-  GDK_WIN32_DRAGOP_RESIZE,
-  GDK_WIN32_DRAGOP_MOVE,
-  GDK_WIN32_DRAGOP_COUNT
-};
-
-typedef enum _GdkW32WindowDragOp GdkW32WindowDragOp;
-
-struct _GdkW32DragMoveResizeContext
-{
-  /* The surface that is being moved/resized */
-  GdkSurface         *surface;
-
-  /* The kind of drag-operation going on. */
-  GdkW32WindowDragOp op;
-
-  /* The edge that was grabbed for resizing. Not used for moving. */
-  GdkSurfaceEdge      edge;
-
-  /* The device used to initiate the op.
-   * We grab it at the beginning and ungrab it at the end.
-   */
-  GdkDevice         *device;
-
-  /* The button pressed down to initiate the op.
-   * The op will be canceled only when *this* button
-   * is released.
-   */
-  int                button;
-
-  /* Initial cursor position when the operation began.
-   * Current cursor position is subtracted from it to find how far
-   * to move surface border(s).
-   */
-  int                start_root_x;
-  int                start_root_y;
-
-  /* Last processed cursor position. Values are divided by the surface
-   * scale.
-   */
-  int                current_root_x;
-  int                current_root_y;
-
-  /* Initial surface HWND rectangle (position and size).
-   * The surface is resized/moved relative to this (see start_root_*).
-   */
-  RECT               start_rect;
-
-  /* Not used */
-  guint32            timestamp;
-
-  /* The cursor we should use while the operation is running. */
-  GdkCursor         *cursor;
-};
-
-typedef struct _GdkW32DragMoveResizeContext GdkW32DragMoveResizeContext;
-
 /* defined in gdkdrop-win32.c */
 typedef struct _drop_target_context drop_target_context;
 
@@ -166,8 +107,6 @@ struct _GdkWin32Surface
    * and is unset when WM_WINDOWPOSCHANGING is handled.
    */
   guint maximizing : 1;
-
-  GdkW32DragMoveResizeContext drag_move_resize_context;
 
   /* Enable all decorations? */
   gboolean decorate_all;

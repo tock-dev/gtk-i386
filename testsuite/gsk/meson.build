@@ -614,7 +614,8 @@ tests = [
   [ 'opaque' ],
   [ 'path', [ 'path-utils.c' ], [ 'flaky'] ],
   [ 'path-special-cases' ],
-  ['path-intersect'],
+  [ 'path-intersect' ],
+  [ 'path-stroke' ],
 ]
 
 test_cargs = []
@@ -654,6 +655,7 @@ internal_tests = [
   [ 'rounded-rect'],
   [ 'scaling', [ 'scaling.c', '../gdk/gdktestutils.c' ] ],
   [ 'transform' ],
+  [ 'dash' ],
 ]
 
 foreach t : internal_tests

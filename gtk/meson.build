@@ -576,6 +576,7 @@ gtk_public_headers = files([
   'gtkscrollable.h',
   'gtkscrollbar.h',
   'gtkscrollinfo.h',
+  'gtkscrollinterpolationanimation.h',
   'gtkscrolledwindow.h',
   'gtksearchbar.h',
   'gtksearchentry.h',

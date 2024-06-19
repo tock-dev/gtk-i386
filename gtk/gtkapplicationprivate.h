@@ -100,7 +100,10 @@ typedef struct
 
   gboolean    (* prefers_app_menu)          (GtkApplicationImpl          *impl);
 
+  const char * (* get_current_session_id)   (GtkApplicationImpl          *impl);
 
+  void        (* register_session)          (GtkApplicationImpl          *impl,
+                                             const char                  *session_id);
 } GtkApplicationImplClass;
 
 #define GTK_TYPE_APPLICATION_IMPL_DBUS                      (gtk_application_impl_dbus_get_type ())
@@ -195,6 +198,11 @@ gboolean                gtk_application_impl_prefers_app_menu           (GtkAppl
 
 void                    gtk_application_impl_quartz_setup_menu          (GMenuModel                  *model,
                                                                          GtkActionMuxer              *muxer);
+
+const char *            gtk_application_impl_get_current_session_id     (GtkApplicationImpl          *impl);
+
+void                    gtk_application_impl_register_session           (GtkApplicationImpl          *impl,
+                                                                         const char                  *session_id);
 
 G_END_DECLS
 

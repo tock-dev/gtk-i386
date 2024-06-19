@@ -75,6 +75,7 @@ gtk_application_impl_wayland_handle_window_realize (GtkApplicationImpl *impl,
   GtkApplicationImplDBus *dbus = (GtkApplicationImplDBus *) impl;
   GdkSurface *gdk_surface;
   char *window_path;
+  const char *id = NULL;
 
   gdk_surface = gtk_native_get_surface (GTK_NATIVE (window));
 
@@ -93,6 +94,15 @@ gtk_application_impl_wayland_handle_window_realize (GtkApplicationImpl *impl,
 
   g_free (window_path);
 
+  if (GTK_IS_APPLICATION_WINDOW (window))
+    id = gtk_application_window_get_session_id (GTK_APPLICATION_WINDOW (window));
+
+  if (id)
+    {
+      gdk_wayland_toplevel_set_session_id (GDK_TOPLEVEL (gdk_surface), id);
+      gdk_wayland_toplevel_restore_from_session (GDK_TOPLEVEL (gdk_surface));
+    }
+
   impl_class->handle_window_realize (impl, window);
 }
 
@@ -109,6 +119,22 @@ gtk_application_impl_wayland_before_emit (GtkApplicationImpl *impl,
 G_GNUC_BEGIN_IGNORE_DEPRECATIONS
   gdk_wayland_display_set_startup_notification_id (gdk_display_get_default (), startup_notification_id);
 G_GNUC_END_IGNORE_DEPRECATIONS
+}
+
+static gboolean
+should_remove_from_session (GtkApplicationImpl *impl,
+                            GtkWindow          *window)
+{
+  if (gtk_window_get_transient_for (window))
+    return TRUE;
+
+  if (gtk_window_get_hide_on_close (window))
+    return FALSE;
+
+  if (g_list_length (gtk_application_get_windows (impl->application)) == 1)
+    return FALSE;
+
+  return TRUE;
 }
 
 static void
@@ -132,6 +158,14 @@ gtk_application_impl_wayland_window_removed (GtkApplicationImpl *impl,
               wayland->inhibitors = g_slist_delete_link (wayland->inhibitors, iter);
             }
         }
+    }
+
+  if (!should_remove_from_session (impl, window))
+    {
+      GdkSurface *surface;
+
+      surface = gtk_native_get_surface (GTK_NATIVE (window));
+      gdk_wayland_toplevel_remove_from_session (GDK_TOPLEVEL (surface));
     }
 }
 
@@ -200,6 +234,19 @@ gtk_application_impl_wayland_uninhibit (GtkApplicationImpl *impl,
   g_warning ("Invalid inhibitor cookie");
 }
 
+static const char *
+gtk_application_impl_wayland_get_current_session_id (GtkApplicationImpl *impl)
+{
+  return gdk_wayland_display_get_current_session_id (gdk_display_get_default ());
+}
+
+static void
+gtk_application_impl_wayland_register_session (GtkApplicationImpl *impl,
+                                               const char         *session_id)
+{
+  gdk_wayland_display_register_session (gdk_display_get_default (), session_id);
+}
+
 static void
 gtk_application_impl_wayland_init (GtkApplicationImplWayland *wayland)
 {
@@ -223,4 +270,8 @@ gtk_application_impl_wayland_class_init (GtkApplicationImplWaylandClass *class)
     gtk_application_impl_wayland_inhibit;
   impl_class->uninhibit =
     gtk_application_impl_wayland_uninhibit;
+  impl_class->get_current_session_id =
+    gtk_application_impl_wayland_get_current_session_id;
+  impl_class->register_session =
+    gtk_application_impl_wayland_register_session;
 }

@@ -46,6 +46,7 @@ gtk_application_impl_init (GtkApplicationImpl *impl)
 
 static guint do_nothing (void) { return 0; }
 static gboolean return_false (void) { return FALSE; }
+static gpointer return_null (void) { return NULL; }
 
 static void
 gtk_application_impl_class_init (GtkApplicationImplClass *class)
@@ -64,6 +65,8 @@ gtk_application_impl_class_init (GtkApplicationImplClass *class)
   class->inhibit = (gpointer) do_nothing;
   class->uninhibit = (gpointer) do_nothing;
   class->prefers_app_menu = (gpointer) return_false;
+  class->get_current_session_id = (gpointer) return_null;
+  class->register_session = (gpointer) do_nothing;
 }
 
 void
@@ -155,6 +158,22 @@ gboolean
 gtk_application_impl_prefers_app_menu (GtkApplicationImpl *impl)
 {
   return GTK_APPLICATION_IMPL_GET_CLASS (impl)->prefers_app_menu (impl);
+}
+
+const char *
+gtk_application_impl_get_current_session_id (GtkApplicationImpl *impl)
+{
+  if (!GTK_APPLICATION_IMPL_GET_CLASS (impl)->get_current_session_id)
+    return NULL;
+
+  return GTK_APPLICATION_IMPL_GET_CLASS (impl)->get_current_session_id (impl);
+}
+
+void
+gtk_application_impl_register_session (GtkApplicationImpl *impl,
+                                       const char         *session_id)
+{
+  GTK_APPLICATION_IMPL_GET_CLASS (impl)->register_session (impl, session_id);
 }
 
 GtkApplicationImpl *

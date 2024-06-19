@@ -45,7 +45,7 @@
 #include <gdk/wayland/xdg-system-bell-v1-client-protocol.h>
 #include <gdk/wayland/cursor-shape-v1-client-protocol.h>
 #include <gdk/wayland/xdg-toplevel-icon-v1-client-protocol.h>
-#include <gdk/wayland/xdg-session-management-v1-client-protocol.h>
+#include <gdk/wayland/xx-session-management-v1-client-protocol.h>
 
 #include <glib.h>
 #include <gdk/gdkkeys.h>

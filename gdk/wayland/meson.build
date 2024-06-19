@@ -166,6 +166,11 @@ proto_sources = [
     'stability': 'staging',
     'version': 1,
   },
+  {
+    'name': 'xx-session-management',
+    'stability': 'private',
+    'version': 1,
+  },
 ]
 
 gdk_wayland_gen_headers = []

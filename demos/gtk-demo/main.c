@@ -942,7 +942,8 @@ search_results_update (GObject    *filter_model,
 }
 
 static void
-activate (GApplication *app)
+create_window (GtkApplication *app,
+               const char     *session_id)
 {
   GtkBuilder *builder;
   GListModel *listmodel;
@@ -951,18 +952,13 @@ activate (GApplication *app)
   GtkFilterListModel *filter_model;
   GtkFilter *filter;
   GSimpleAction *action;
-  GList *list;
-
-  if ((list = gtk_application_get_windows (GTK_APPLICATION (app))) != NULL)
-    {
-      gtk_window_present (GTK_WINDOW (list->data));
-      return;
-    }
 
   builder = gtk_builder_new_from_resource ("/ui/main.ui");
 
   window = (GtkWidget *)gtk_builder_get_object (builder, "window");
-  gtk_application_add_window (GTK_APPLICATION (app), GTK_WINDOW (window));
+  if (session_id)
+    gtk_application_window_set_session_id (GTK_APPLICATION_WINDOW (window), session_id);
+  gtk_application_add_window (app, GTK_WINDOW (window));
 
   if (g_strcmp0 (PROFILE, "devel") == 0)
     gtk_widget_add_css_class (window, "devel");
@@ -1050,12 +1046,18 @@ command_line (GApplication            *app,
   GDoDemoFunc func = 0;
   GtkWidget *window, *demo;
 
-  activate (app);
-
   options = g_application_command_line_get_options_dict (cmdline);
   g_variant_dict_lookup (options, "run", "&s", &name);
   g_variant_dict_lookup (options, "autoquit", "b", &autoquit);
   g_variant_dict_lookup (options, "list", "b", &list);
+
+  if (!name && !list)
+    {
+      g_application_activate (app);
+      return 0;
+    }
+
+  create_window (GTK_APPLICATION (app), NULL);
 
   if (list)
     {
@@ -1131,6 +1133,7 @@ main (int argc, char **argv)
   gtk_init ();
 
   app = gtk_application_new ("org.gtk.Demo4", G_APPLICATION_NON_UNIQUE|G_APPLICATION_HANDLES_COMMAND_LINE);
+  g_object_set (app, "register-session", TRUE, NULL);
 
   g_snprintf (version, sizeof (version), "%s%s%s\n",
               PACKAGE_VERSION,
@@ -1150,8 +1153,8 @@ main (int argc, char **argv)
   g_application_add_main_option (G_APPLICATION (app), "list", 0, 0, G_OPTION_ARG_NONE, "List examples", NULL);
   g_application_add_main_option (G_APPLICATION (app), "autoquit", 0, 0, G_OPTION_ARG_NONE, "Quit after a delay", NULL);
 
-  g_signal_connect (app, "activate", G_CALLBACK (activate), NULL);
   g_signal_connect (app, "command-line", G_CALLBACK (command_line), NULL);
+  g_signal_connect (app, "create-window", G_CALLBACK (create_window), NULL);
 
   g_application_run (G_APPLICATION (app), argc, argv);
 

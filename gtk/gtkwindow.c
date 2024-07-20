@@ -276,6 +276,8 @@ struct _GtkWindowPrivate
   GdkWindow *hardcoded_window;
 
   GtkCssNode *decoration_node;
+
+  gboolean is_using_csd;
 };
 
 #ifdef GDK_WINDOWING_X11
@@ -1727,6 +1729,8 @@ gtk_window_init (GtkWindow *window)
   priv->mnemonics_visible = TRUE;
   priv->focus_visible = TRUE;
   priv->initial_fullscreen_monitor = -1;
+
+  priv->is_using_csd = FALSE;
 
   g_object_ref_sink (window);
   priv->has_user_ref_count = TRUE;
@@ -6848,7 +6852,7 @@ get_shadow_width (GtkWindow *window,
     return;
 
   if (!priv->client_decorated &&
-      !(gtk_window_should_use_csd (window) &&
+      !(priv->is_using_csd &&
         gtk_window_supports_client_shadow (window)))
     return;
 
@@ -7403,8 +7407,10 @@ gtk_window_realize (GtkWidget *widget)
   window = GTK_WINDOW (widget);
   priv = window->priv;
 
-  if (!priv->client_decorated && gtk_window_should_use_csd (window))
+  if (!priv->client_decorated && gtk_window_should_use_csd (window)) {
+    priv->is_using_csd = TRUE;
     create_decoration (widget);
+  }
 
   _gtk_widget_get_allocation (widget, &allocation);
 

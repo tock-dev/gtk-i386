@@ -674,7 +674,7 @@ gdk_vulkan_context_begin_frame (GdkDrawContext  *draw_context,
       break;
     }
 
-  priv->draw_semaphore = NULL;
+  memset (&priv->draw_semaphore, 0, sizeof (VkSemaphore));
 
   cairo_region_union (region, priv->regions[priv->draw_index]);
 

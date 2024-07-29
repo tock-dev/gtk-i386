@@ -214,18 +214,14 @@ node_editor_application_startup (GApplication *app)
 }
 
 static void
-node_editor_application_activate (GApplication *app)
+node_editor_application_create_window (GtkApplication *app,
+                                       const char     *session_id)
 {
-  GList *list;
   NodeEditorWindow *win;
 
-  if ((list = gtk_application_get_windows (GTK_APPLICATION (app))) != NULL)
-    {
-      gtk_window_present (GTK_WINDOW (list->data));
-      return;
-    }
-
   win = node_editor_window_new (NODE_EDITOR_APPLICATION (app));
+  if (session_id)
+    gtk_application_window_set_session_id (GTK_APPLICATION_WINDOW (win), session_id);
 
   if (g_strcmp0 (PROFILE, "devel") == 0)
     gtk_widget_add_css_class (GTK_WIDGET (win), "devel");
@@ -254,10 +250,11 @@ static void
 node_editor_application_class_init (NodeEditorApplicationClass *class)
 {
   GApplicationClass *application_class = G_APPLICATION_CLASS (class);
+  GtkApplicationClass *gtk_application_class = GTK_APPLICATION_CLASS (class);
 
   application_class->startup = node_editor_application_startup;
-  application_class->activate = node_editor_application_activate;
   application_class->open = node_editor_application_open;
+  gtk_application_class->create_window = node_editor_application_create_window;
 }
 
 static int
@@ -300,6 +297,7 @@ node_editor_application_new (void)
                       "application-id", "org.gtk.gtk4.NodeEditor",
                       "flags", G_APPLICATION_HANDLES_OPEN | G_APPLICATION_NON_UNIQUE,
                       "version", version,
+                      "register-session", TRUE,
                       NULL);
 
   g_application_add_main_option (G_APPLICATION (app), "reset", 0, 0,G_OPTION_ARG_NONE, "Remove autosave content", NULL);

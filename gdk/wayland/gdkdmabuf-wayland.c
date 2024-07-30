@@ -46,7 +46,7 @@ dmabuf_formats_free (DmabufFormats *formats)
 }
 
 static void
-update_dmabuf_formats (DmabufFormatsInfo *info)
+debug_dmabuf_formats (DmabufFormatsInfo *info)
 {
   DmabufFormats *formats = info->dmabuf_formats;
 
@@ -89,10 +89,10 @@ linux_dmabuf_done (void *data,
 
   g_clear_pointer (&info->dmabuf_formats, dmabuf_formats_free);
 
-  info->dmabuf_formats = info->pending_dmabuf_formats;
-  info->pending_dmabuf_formats = NULL;
+  info->dmabuf_formats = g_steal_pointer (&info->pending_dmabuf_formats);
 
-  update_dmabuf_formats (info);
+  if (GDK_DISPLAY_DEBUG_CHECK (info->display, MISC))
+    debug_dmabuf_formats (info);
 }
 
 static void

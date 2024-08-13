@@ -972,15 +972,41 @@ enum_to_nick (GType type,
   return v->value_nick;
 }
 
+static char *
+format_color_volume (GdkColorVolume *vol)
+{
+  GString *str = g_string_new ("");
+
+  g_string_append_printf (str, "r %f %f\n", vol->rx, vol->ry);
+  g_string_append_printf (str, "g %f %f\n", vol->gx, vol->gy);
+  g_string_append_printf (str, "b %f %f\n", vol->bx, vol->by);
+  g_string_append_printf (str, "w %f %f\n", vol->wx, vol->wy);
+  g_string_append_printf (str, "lum  %f - %f\n", vol->min_lum, vol->max_lum);
+  g_string_append_printf (str, "cll %f\n", vol->max_cll);
+  g_string_append_printf (str, "fall %f\n", vol->max_fall);
+
+  return g_string_free (str, FALSE);
+}
+
 static void
 add_texture_rows (GListStore *store,
                   GdkTexture *texture)
 {
+  GdkColorVolume *color_volume;
+
   list_store_add_object_property (store, "Texture", NULL, texture);
   add_text_row (store, "Type", "%s", G_OBJECT_TYPE_NAME (texture));
   add_text_row (store, "Size", "%u x %u", gdk_texture_get_width (texture), gdk_texture_get_height (texture));
   add_text_row (store, "Format", "%s", enum_to_nick (GDK_TYPE_MEMORY_FORMAT, gdk_texture_get_format (texture)));
   add_text_row (store, "Color State", "%s", gdk_color_state_get_name (gdk_texture_get_color_state (texture)));
+
+  color_volume = gdk_texture_get_color_volume (texture);
+  if (color_volume)
+    {
+      char *text = format_color_volume (color_volume);
+      add_text_row (store, "Color volume", "%s", text);
+      g_free (text);
+    }
 
   if (GDK_IS_MEMORY_TEXTURE (texture))
     {

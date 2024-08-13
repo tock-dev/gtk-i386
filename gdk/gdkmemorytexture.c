@@ -138,6 +138,7 @@ gdk_memory_texture_new_from_builder (GdkMemoryTextureBuilder *builder)
                        "width", gdk_memory_texture_builder_get_width (builder),
                        "height", gdk_memory_texture_builder_get_height (builder),
                        "color-state", gdk_memory_texture_builder_get_color_state (builder),
+                       "color-volume", gdk_memory_texture_builder_get_color_volume (builder),
                        NULL);
   texture = GDK_TEXTURE (self);
 

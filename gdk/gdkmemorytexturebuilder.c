@@ -22,6 +22,7 @@
 #include "gdkmemorytexturebuilder.h"
 
 #include "gdkcolorstate.h"
+#include "gdkcolorvolume.h"
 #include "gdkenumtypes.h"
 #include "gdkmemorytextureprivate.h"
 
@@ -37,6 +38,7 @@ struct _GdkMemoryTextureBuilder
   int height;
   GdkMemoryFormat format;
   GdkColorState *color_state;
+  GdkColorVolume *color_volume;
 
   GdkTexture *update_texture;
   cairo_region_t *update_region;
@@ -70,6 +72,7 @@ enum
   PROP_0,
   PROP_BYTES,
   PROP_COLOR_STATE,
+  PROP_COLOR_VOLUME,
   PROP_FORMAT,
   PROP_HEIGHT,
   PROP_STRIDE,
@@ -91,6 +94,7 @@ gdk_memory_texture_builder_dispose (GObject *object)
 
   g_clear_pointer (&self->bytes, g_bytes_unref);
   g_clear_pointer (&self->color_state, gdk_color_state_unref);
+  g_clear_pointer (&self->color_volume, gdk_color_volume_unref);
 
   g_clear_object (&self->update_texture);
   g_clear_pointer (&self->update_region, cairo_region_destroy);
@@ -114,6 +118,10 @@ gdk_memory_texture_builder_get_property (GObject    *object,
 
     case PROP_COLOR_STATE:
       g_value_set_boxed (value, self->color_state);
+      break;
+
+    case PROP_COLOR_VOLUME:
+      g_value_set_boxed (value, self->color_volume);
       break;
 
     case PROP_FORMAT:
@@ -162,6 +170,10 @@ gdk_memory_texture_builder_set_property (GObject      *object,
 
     case PROP_COLOR_STATE:
       gdk_memory_texture_builder_set_color_state (self, g_value_get_boxed (value));
+      break;
+
+    case PROP_COLOR_VOLUME:
+      gdk_memory_texture_builder_set_color_volume (self, g_value_get_boxed (value));
       break;
 
     case PROP_FORMAT:
@@ -225,6 +237,18 @@ gdk_memory_texture_builder_class_init (GdkMemoryTextureBuilderClass *klass)
   properties[PROP_COLOR_STATE] =
     g_param_spec_boxed ("color-state", NULL, NULL,
                         GDK_TYPE_COLOR_STATE,
+                        G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
+
+  /**
+   * GdkMemoryTextureBuilder:color-volume:
+   *
+   * Color volume for the texture, if known.
+   *
+   * Since: 4.18
+   */
+  properties[PROP_COLOR_VOLUME] =
+    g_param_spec_boxed ("color-volume", NULL, NULL,
+                        GDK_TYPE_COLOR_VOLUME,
                         G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
 
   /**
@@ -425,7 +449,53 @@ gdk_memory_texture_builder_set_color_state (GdkMemoryTextureBuilder *self,
 }
 
 /**
- * gdk_memory_texture_builder_get_height:
+ * gdk_memory_texture_builder_get_color_volume:
+ * @self: a `GdkMemoryTextureBuilder`
+ *
+ * Gets the color volume previously set via gdk_memory_texture_builder_set_color_volume().
+ *
+ * Returns: (transfer none) (nullable): The color volume
+ *
+ * Since: 4.18
+ */
+GdkColorVolume *
+gdk_memory_texture_builder_get_color_volume (GdkMemoryTextureBuilder *self)
+{
+  g_return_val_if_fail (GDK_IS_MEMORY_TEXTURE_BUILDER (self), NULL);
+
+  return self->color_volume;
+}
+
+/**
+ * gdk_memory_texture_builder_set_color_volume:
+ * @self: a `GdkMemoryTextureBuilder`
+ * @color_volume: (nullable): The color volume describing the data
+ *
+ * Sets the color volume describing the data.
+ *
+ * By default, no color volume is used.
+ *
+ * Since: 4.18
+ */
+void
+gdk_memory_texture_builder_set_color_volume (GdkMemoryTextureBuilder *self,
+                                             GdkColorVolume          *color_volume)
+{
+  g_return_if_fail (GDK_IS_MEMORY_TEXTURE_BUILDER (self));
+
+  if (self->color_volume == color_volume)
+    return;
+
+  g_clear_pointer (&self->color_volume, gdk_color_volume_unref);
+  self->color_volume = color_volume;
+  if (color_volume)
+    gdk_color_volume_ref (color_volume);
+
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_COLOR_VOLUME]);
+}
+
+/**
+ * gdk_memory_texture_builder_get_height: (attributes org.gtk.Method.get_property=height)
  * @self: a `GdkMemoryTextureBuilder`
  *
  * Gets the height previously set via gdk_memory_texture_builder_set_height()

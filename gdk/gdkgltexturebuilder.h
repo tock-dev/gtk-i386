@@ -82,6 +82,12 @@ GDK_AVAILABLE_IN_4_16
 void                    gdk_gl_texture_builder_set_color_state  (GdkGLTextureBuilder    *self,
                                                                  GdkColorState          *color_state);
 
+GDK_AVAILABLE_IN_4_18
+GdkColorVolume *        gdk_gl_texture_builder_get_color_volume (GdkGLTextureBuilder    *self) G_GNUC_PURE;
+GDK_AVAILABLE_IN_4_18
+void                    gdk_gl_texture_builder_set_color_volume (GdkGLTextureBuilder   *self,
+                                                                 GdkColorVolume        *color_volume);
+
 GDK_AVAILABLE_IN_4_12
 GdkTexture *            gdk_gl_texture_builder_get_update_texture (GdkGLTextureBuilder  *self) G_GNUC_PURE;
 GDK_AVAILABLE_IN_4_12

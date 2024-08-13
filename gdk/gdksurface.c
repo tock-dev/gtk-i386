@@ -83,6 +83,7 @@ struct _GdkSurfacePrivate
   gpointer widget;
 
   GdkColorState *color_state;
+  GdkColorVolume *color_volume;
 };
 
 enum {
@@ -3247,6 +3248,29 @@ gdk_surface_set_color_state (GdkSurface    *surface,
 
   gdk_color_state_unref (priv->color_state);
   priv->color_state = gdk_color_state_ref (color_state);
+
+  gdk_surface_invalidate_rect (surface, NULL);
+}
+
+GdkColorVolume *
+gdk_surface_get_color_volume (GdkSurface *surface)
+{
+  GdkSurfacePrivate *priv = gdk_surface_get_instance_private (surface);
+
+  return priv->color_volume;
+}
+
+void
+gdk_surface_set_color_volume (GdkSurface     *surface,
+                              GdkColorVolume *color_volume)
+{
+  GdkSurfacePrivate *priv = gdk_surface_get_instance_private (surface);
+
+  if (gdk_color_volume_equal (priv->color_volume, color_volume))
+    return;
+
+  gdk_color_volume_unref (priv->color_volume);
+  priv->color_volume = gdk_color_volume_ref (color_volume);
 
   gdk_surface_invalidate_rect (surface, NULL);
 }

@@ -611,6 +611,7 @@ gdk_gl_context_real_begin_frame (GdkDrawContext  *draw_context,
                                  GdkMemoryDepth   depth,
                                  cairo_region_t  *region,
                                  GdkColorState  **out_color_state,
+                                 GdkColorVolume **out_color_volume,
                                  GdkMemoryDepth  *out_depth)
 {
   GdkGLContext *context = GDK_GL_CONTEXT (draw_context);
@@ -622,6 +623,7 @@ gdk_gl_context_real_begin_frame (GdkDrawContext  *draw_context,
   int ww, wh;
   int i;
 
+  *out_color_volume = gdk_surface_get_color_volume (surface);
   color_state = gdk_surface_get_color_state (surface);
   scale = gdk_gl_context_get_scale (context);
 

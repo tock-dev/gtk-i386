@@ -34,6 +34,7 @@
 #include "gtkbinlayout.h"
 #include "gtkwidgetprivate.h"
 #include "gdk/gdksurfaceprivate.h"
+#include "gdk/gdkcolorvolumeprivate.h"
 
 struct _GtkInspectorMiscInfo
 {
@@ -83,6 +84,8 @@ struct _GtkInspectorMiscInfo
   GtkWidget *scale;
   GtkWidget *color_state_row;
   GtkWidget *color_state;
+  GtkWidget *color_volume_row;
+  GtkWidget *color_volume;
   GtkWidget *framecount_row;
   GtkWidget *framecount;
   GtkWidget *mapped_row;
@@ -351,6 +354,27 @@ update_direction (GtkInspectorMiscInfo *sl)
     }
 }
 
+static char *
+format_color_volume (GdkColorVolume *vol)
+{
+  GString *str;
+
+  if (!vol)
+    return g_strdup ("―");
+
+  str = g_string_new ("");
+
+  g_string_append_printf (str, "r %f %f\n", vol->rx, vol->ry);
+  g_string_append_printf (str, "g %f %f\n", vol->gx, vol->gy);
+  g_string_append_printf (str, "b %f %f\n", vol->bx, vol->by);
+  g_string_append_printf (str, "w %f %f\n", vol->wx, vol->wy);
+  g_string_append_printf (str, "lum  %f - %f\n", vol->min_lum, vol->max_lum);
+  g_string_append_printf (str, "cll %f\n", vol->max_cll);
+  g_string_append_printf (str, "fall %f\n", vol->max_fall);
+
+  return g_string_free (str, FALSE);
+}
+
 static gboolean
 update_info (gpointer data)
 {
@@ -456,12 +480,17 @@ update_info (gpointer data)
   if (GDK_IS_SURFACE (sl->object))
     {
       char buf[64];
+      char *vol;
 
       g_snprintf (buf, sizeof (buf), "%g", gdk_surface_get_scale (GDK_SURFACE (sl->object)));
 
       gtk_label_set_label (GTK_LABEL (sl->scale), buf);
 
       gtk_label_set_label (GTK_LABEL (sl->color_state), gdk_color_state_get_name (gdk_surface_get_color_state (GDK_SURFACE (sl->object))));
+
+      vol = format_color_volume (gdk_surface_get_color_volume (GDK_SURFACE (sl->object)));
+      gtk_label_set_label (GTK_LABEL (sl->color_volume), vol);
+      g_free (vol);
     }
 
   return G_SOURCE_CONTINUE;
@@ -529,6 +558,7 @@ gtk_inspector_misc_info_set_object (GtkInspectorMiscInfo *sl,
   gtk_widget_set_visible (sl->framerate_row, GDK_IS_FRAME_CLOCK (object));
   gtk_widget_set_visible (sl->scale_row, GDK_IS_SURFACE (object));
   gtk_widget_set_visible (sl->color_state_row, GDK_IS_SURFACE (object));
+  gtk_widget_set_visible (sl->color_volume_row, GDK_IS_SURFACE (object));
 
   if (GTK_IS_WIDGET (object))
     {
@@ -644,6 +674,8 @@ gtk_inspector_misc_info_class_init (GtkInspectorMiscInfoClass *klass)
   gtk_widget_class_bind_template_child (widget_class, GtkInspectorMiscInfo, scale);
   gtk_widget_class_bind_template_child (widget_class, GtkInspectorMiscInfo, color_state_row);
   gtk_widget_class_bind_template_child (widget_class, GtkInspectorMiscInfo, color_state);
+  gtk_widget_class_bind_template_child (widget_class, GtkInspectorMiscInfo, color_volume_row);
+  gtk_widget_class_bind_template_child (widget_class, GtkInspectorMiscInfo, color_volume);
   gtk_widget_class_bind_template_child (widget_class, GtkInspectorMiscInfo, mapped_row);
   gtk_widget_class_bind_template_child (widget_class, GtkInspectorMiscInfo, mapped);
   gtk_widget_class_bind_template_child (widget_class, GtkInspectorMiscInfo, realized_row);

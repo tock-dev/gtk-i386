@@ -32,6 +32,7 @@
 #include <gdk/gdkcicpparams.h>
 #include <gdk/gdkclipboard.h>
 #include <gdk/gdkcolorstate.h>
+#include <gdk/gdkcolorvolume.h>
 #include <gdk/gdkconfig.h>
 #include <gdk/gdkcontentdeserializer.h>
 #include <gdk/gdkcontentformats.h>

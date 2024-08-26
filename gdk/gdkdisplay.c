@@ -1309,10 +1309,10 @@ gdk_display_create_vulkan_context (GdkDisplay  *self,
   g_return_val_if_fail (surface == NULL || GDK_IS_SURFACE (surface), NULL);
   g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
-  if (gdk_display_get_debug_flags (self) & GDK_DEBUG_VULKAN_DISABLE)
+  if (!gdk_has_feature (GDK_FEATURE_VULKAN))
     {
       g_set_error_literal (error, GDK_VULKAN_ERROR, GDK_VULKAN_ERROR_NOT_AVAILABLE,
-                           _("Vulkan support disabled via GDK_DEBUG"));
+                           _("Vulkan support disabled via GDK_DISABLE"));
       return NULL;
     }
 
@@ -1362,11 +1362,11 @@ gdk_display_init_gl (GdkDisplay *self)
 
   before = GDK_PROFILER_CURRENT_TIME;
 
-  if (gdk_display_get_debug_flags (self) & GDK_DEBUG_GL_DISABLE)
+  if (!gdk_has_feature (GDK_FEATURE_OPENGL))
     {
       g_set_error_literal (&priv->gl_error, GDK_GL_ERROR,
                            GDK_GL_ERROR_NOT_AVAILABLE,
-                           _("GL support disabled via GDK_DEBUG"));
+                           _("OpenGL support disabled via GDK_DISABLE"));
       return;
     }
 
@@ -1477,7 +1477,7 @@ gdk_display_create_gl_context (GdkDisplay  *self,
   if (!gdk_display_prepare_gl (self, error))
     return NULL;
 
-  return gdk_gl_context_new (self, NULL);
+  return gdk_gl_context_new (self, NULL, FALSE);
 }
 
 /*< private >
@@ -1570,19 +1570,27 @@ describe_egl_config (EGLDisplay egl_display,
 }
 
 gpointer
-gdk_display_get_egl_config (GdkDisplay *self)
+gdk_display_get_egl_config (GdkDisplay     *self,
+                            GdkMemoryDepth  depth)
 {
   GdkDisplayPrivate *priv = gdk_display_get_instance_private (self);
 
-  return priv->egl_config;
-}
+  switch (depth)
+    {
+      case GDK_MEMORY_NONE:
+      case GDK_MEMORY_U8:
+      case GDK_MEMORY_U8_SRGB:
+        return priv->egl_config;
 
-gpointer
-gdk_display_get_egl_config_high_depth (GdkDisplay *self)
-{
-  GdkDisplayPrivate *priv = gdk_display_get_instance_private (self);
+      case GDK_MEMORY_U16:
+      case GDK_MEMORY_FLOAT16:
+      case GDK_MEMORY_FLOAT32:
+        return priv->egl_config_high_depth;
 
-  return priv->egl_config_high_depth;
+      case GDK_N_DEPTHS:
+      default:
+        g_return_val_if_reached (priv->egl_config);
+    }
 }
 
 static EGLDisplay
@@ -1874,6 +1882,8 @@ gdk_display_init_egl (GdkDisplay  *self,
     epoxy_has_egl_extension (priv->egl_display, "EGL_EXT_image_dma_buf_import_modifiers");
   self->have_egl_dma_buf_export =
     epoxy_has_egl_extension (priv->egl_display, "EGL_MESA_image_dma_buf_export");
+  self->have_egl_gl_colorspace =
+    epoxy_has_egl_extension (priv->egl_display, "EGL_KHR_gl_colorspace");
 
   if (self->have_egl_no_config_context)
     priv->egl_config_high_depth = gdk_display_create_egl_config (self,
@@ -1996,7 +2006,7 @@ gdk_display_init_dmabuf (GdkDisplay *self)
   builder = gdk_dmabuf_formats_builder_new ();
 
 #ifdef HAVE_DMABUF
-  if (!GDK_DISPLAY_DEBUG_CHECK (self, DMABUF_DISABLE))
+  if (gdk_has_feature (GDK_FEATURE_DMABUF))
     {
 #ifdef GDK_RENDERING_VULKAN
       gdk_display_add_dmabuf_downloader (self, gdk_vulkan_get_dmabuf_downloader (self, builder));

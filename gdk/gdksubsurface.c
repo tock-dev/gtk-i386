@@ -29,11 +29,14 @@ gdk_subsurface_init (GdkSubsurface *self)
 {
 }
 
+static void remove_subsurface (GdkSubsurface *subsurface);
+
 static void
 gdk_subsurface_finalize (GObject *object)
 {
   GdkSubsurface *subsurface = GDK_SUBSURFACE (object);
 
+  remove_subsurface (subsurface);
   g_ptr_array_remove (subsurface->parent->subsurfaces, subsurface);
   g_clear_object (&subsurface->parent);
 
@@ -144,7 +147,7 @@ gdk_subsurface_attach (GdkSubsurface         *subsurface,
                        GdkTexture            *texture,
                        const graphene_rect_t *source,
                        const graphene_rect_t *dest,
-                       GdkTextureTransform    transform,
+                       GdkDihedral            transform,
                        const graphene_rect_t *background,
                        gboolean               above,
                        GdkSubsurface         *sibling)
@@ -156,13 +159,19 @@ gdk_subsurface_attach (GdkSubsurface         *subsurface,
   g_return_val_if_fail (GDK_IS_TEXTURE (texture), FALSE);
   g_return_val_if_fail (source != NULL &&
                         gsk_rect_contains_rect (&GRAPHENE_RECT_INIT (0, 0,
-                                                                     gdk_texture_get_width (texture),
-                                                                     gdk_texture_get_height (texture)),
+                                                                     gdk_dihedral_swaps_xy (transform) ? gdk_texture_get_height (texture) : gdk_texture_get_width (texture),
+                                                                     gdk_dihedral_swaps_xy (transform) ? gdk_texture_get_width (texture) : gdk_texture_get_height (texture)),
                                                 source), FALSE);
   g_return_val_if_fail (dest != NULL, FALSE);
   g_return_val_if_fail (sibling != subsurface, FALSE);
   g_return_val_if_fail (sibling == NULL || GDK_IS_SUBSURFACE (sibling), FALSE);
   g_return_val_if_fail (sibling == NULL || sibling->parent == subsurface->parent, FALSE);
+
+  /* if the texture fully covers the background, ignore it */
+  if (background &&
+      gsk_rect_contains_rect (dest, background) &&
+      gdk_memory_format_alpha (gdk_texture_get_format (texture)) == GDK_MEMORY_ALPHA_OPAQUE)
+    background = NULL;
 
   result = GDK_SUBSURFACE_GET_CLASS (subsurface)->attach (subsurface,
                                                           texture,
@@ -320,10 +329,10 @@ gdk_subsurface_get_sibling (GdkSubsurface *subsurface,
  *
  * Returns: the transform
  */
-GdkTextureTransform
+GdkDihedral
 gdk_subsurface_get_transform (GdkSubsurface *subsurface)
 {
-  g_return_val_if_fail (GDK_IS_SUBSURFACE (subsurface), GDK_TEXTURE_TRANSFORM_NORMAL);
+  g_return_val_if_fail (GDK_IS_SUBSURFACE (subsurface), GDK_DIHEDRAL_NORMAL);
 
   return GDK_SUBSURFACE_GET_CLASS (subsurface)->get_transform (subsurface);
 }

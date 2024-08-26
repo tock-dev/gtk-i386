@@ -24,6 +24,7 @@
 
 #include "gdkprofilerprivate.h"
 #include <glib/gi18n-lib.h>
+#include "gdksurfaceprivate.h"
 
 #include <cairo-xlib.h>
 
@@ -47,12 +48,25 @@ typedef struct _GdkX11GLContextClass    GdkX11GLContextGLXClass;
 
 G_DEFINE_TYPE (GdkX11GLContextGLX, gdk_x11_gl_context_glx, GDK_TYPE_X11_GL_CONTEXT)
 
+static gboolean
+glxconfig_is_srgb (Display     *dpy,
+                   GLXFBConfig  config)
+{
+  int is_srgb;
+
+  if (glXGetFBConfigAttrib (dpy, config, GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB, &is_srgb) != Success)
+    return FALSE;
+
+  return is_srgb != 0;
+}
+
 static GLXDrawable
 gdk_x11_surface_get_glx_drawable (GdkSurface *surface)
 {
   GdkX11Surface *self = GDK_X11_SURFACE (surface);
   GdkDisplay *display = gdk_surface_get_display (GDK_SURFACE (self));
   GdkX11Display *display_x11 = GDK_X11_DISPLAY (display);
+  Display *dpy = gdk_x11_display_get_xdisplay (display);
 
   if (self->glx_drawable)
     return self->glx_drawable;
@@ -61,6 +75,8 @@ gdk_x11_surface_get_glx_drawable (GdkSurface *surface)
                                         display_x11->glx_config,
                                         gdk_x11_surface_get_xid (surface),
                                         NULL);
+
+  surface->is_srgb = glxconfig_is_srgb (dpy, display_x11->glx_config);
 
   return self->glx_drawable;
 }
@@ -102,20 +118,6 @@ maybe_wait_for_vblank (GdkDisplay  *display,
       glXGetVideoSyncSGI (&current_count);
       glXWaitVideoSyncSGI (2, (current_count + 1) % 2, &current_count);
     }
-}
-
-static GLXDrawable
-gdk_x11_gl_context_glx_get_drawable (GdkX11GLContextGLX *self)
-{
-  GdkDrawContext *draw_context = GDK_DRAW_CONTEXT (self);
-  GdkSurface *surface;
-
-  if (gdk_draw_context_is_in_frame (draw_context))
-    surface = gdk_draw_context_get_surface (draw_context);
-  else
-    surface = GDK_X11_DISPLAY (gdk_draw_context_get_display (draw_context))->leader_gdk_surface;
-
-  return gdk_x11_surface_get_glx_drawable (surface);
 }
 
 static void
@@ -302,10 +304,11 @@ gdk_x11_gl_context_glx_get_damage (GdkGLContext *context)
 
   if (display_x11->has_glx_buffer_age)
     {
-      GdkX11GLContextGLX *self = GDK_X11_GL_CONTEXT_GLX (context);
+      GdkSurface *surface = gdk_draw_context_get_surface (GDK_DRAW_CONTEXT (context));
 
       gdk_gl_context_make_current (context);
-      glXQueryDrawable (dpy, gdk_x11_gl_context_glx_get_drawable (self),
+      glXQueryDrawable (dpy,
+                        gdk_x11_surface_get_glx_drawable (surface),
                         GLX_BACK_BUFFER_AGE_EXT, &buffer_age);
 
       if (buffer_age > 0 && buffer_age <= GDK_GL_MAX_TRACKED_BUFFERS)
@@ -777,6 +780,7 @@ gdk_x11_display_create_glx_config (GdkX11Display  *self,
     WITH_STENCIL_AND_DEPTH_BUFFER,
     NO_ALPHA,
     NO_ALPHA_VISUAL,
+    NO_SRGB,
     PERFECT
   } best_features;
   int i = 0;
@@ -857,6 +861,20 @@ gdk_x11_display_create_glx_config (GdkX11Display  *self,
             {
               GDK_DISPLAY_DEBUG (display, OPENGL, "Best GLX config is %u for visual 0x%lX with no RGBA Visual", i, visinfo->visualid);
               best_features = NO_ALPHA_VISUAL;
+              *out_visual = visinfo->visual;
+              *out_depth = visinfo->depth;
+              self->glx_config = configs[i];
+            }
+          XFree (visinfo);
+          continue;
+        }
+
+      if (!glxconfig_is_srgb (dpy, configs[i]))
+        {
+          if (best_features < NO_SRGB)
+            {
+              GDK_DISPLAY_DEBUG (display, OPENGL, "Best GLX config is %u for visual 0x%lX with no SRGB", i, visinfo->visualid);
+              best_features = NO_SRGB;
               *out_visual = visinfo->visual;
               *out_depth = visinfo->depth;
               self->glx_config = configs[i];

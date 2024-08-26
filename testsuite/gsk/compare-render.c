@@ -210,7 +210,7 @@ apply_mask_to_pixbuf (GdkPixbuf *pixbuf)
   copy = gdk_pixbuf_add_alpha (pixbuf, FALSE, 0, 0, 0);
   width = MIN (1000, gdk_pixbuf_get_width (pixbuf));
   height = MIN (1000, gdk_pixbuf_get_height (pixbuf));
-  if (width < 25 || height < 25)
+  if (width <= 25 || height <= 25)
     {
       width = MIN (width, 25);
       height = MIN (height, 25);
@@ -313,7 +313,7 @@ main (int argc, char **argv)
   GdkSurface *window;
   GskRenderNode *node;
   const char *node_file;
-  const char *png_file;
+  char *png_file;
   gboolean success = TRUE;
   GError *error = NULL;
   GOptionContext *context;
@@ -321,7 +321,7 @@ main (int argc, char **argv)
 
   (g_test_init) (&argc, &argv, NULL);
 
-  context = g_option_context_new ("NODE REF - run GSK node tests");
+  context = g_option_context_new ("NODE [REF] - run GSK node tests");
   g_option_context_add_main_entries (context, options, NULL);
   g_option_context_set_ignore_unknown_options (context, TRUE);
 
@@ -330,7 +330,7 @@ main (int argc, char **argv)
       g_error ("Option parsing failed: %s\n", error->message);
       return 1;
     }
-  else if (argc != 3)
+  else if (argc != 3 && argc != 2)
     {
       char *help = g_option_context_get_help (context, TRUE, NULL);
       g_print ("%s", help);
@@ -345,7 +345,10 @@ main (int argc, char **argv)
   gtk_init ();
 
   node_file = argv[1];
-  png_file = argv[2];
+  if (argc <= 2)
+    png_file = file_replace_extension (node_file, ".node", ".png");
+  else
+    png_file = g_strdup (argv[2]);
 
   g_print ("Node file: '%s'\n", node_file);
   g_print ("PNG file: '%s'\n", png_file);
@@ -589,7 +592,6 @@ main (int argc, char **argv)
   if (replay)
     {
       GskRenderNode *node2;
-      GdkTexture *rendered_texture2;
       graphene_rect_t node_bounds, node2_bounds;
       GtkSnapshot *snapshot = gtk_snapshot_new ();
 
@@ -606,14 +608,13 @@ main (int argc, char **argv)
       /* Check that the node didn't grow.  */
       success = success && graphene_rect_contains_rect (&node_bounds, &node2_bounds);
 
-      rendered_texture = gsk_renderer_render_texture (renderer, node, &node_bounds);
-      save_image (rendered_texture, node_file, "-replayed.ref.png");
-      rendered_texture2 = gsk_renderer_render_texture (renderer, node2, &node_bounds);
-      save_image (rendered_texture2, node_file, "-replayed.out.png");
+      reference_texture = gdk_texture_new_from_filename (png_file, &error);
+      rendered_texture = gsk_renderer_render_texture (renderer, node2, &node_bounds);
+      save_image (rendered_texture, node_file, "-replayed.out.png");
+      g_assert_nonnull (reference_texture);
       g_assert_nonnull (rendered_texture);
-      g_assert_nonnull (rendered_texture2);
 
-      diff_texture = reftest_compare_textures (rendered_texture, rendered_texture2);
+      diff_texture = reftest_compare_textures (reference_texture, rendered_texture);
 
       if (diff_texture)
         {
@@ -622,8 +623,8 @@ main (int argc, char **argv)
         }
 
       g_clear_object (&diff_texture);
+      g_clear_object (&reference_texture);
       g_clear_object (&rendered_texture);
-      g_clear_object (&rendered_texture2);
       gsk_render_node_unref (node2);
     }
 
@@ -729,6 +730,7 @@ skip_clip:
   gsk_renderer_unrealize (renderer);
   g_object_unref (renderer);
   gdk_surface_destroy (window);
+  g_free (png_file);
 
   return success ? 0 : 1;
 }

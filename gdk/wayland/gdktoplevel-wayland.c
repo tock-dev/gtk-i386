@@ -37,6 +37,7 @@
 #include <wayland/presentation-time-client-protocol.h>
 #include <wayland/xdg-shell-unstable-v6-client-protocol.h>
 #include <wayland/xdg-foreign-unstable-v2-client-protocol.h>
+#include <wayland/xdg-dialog-v1-client-protocol.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -84,6 +85,7 @@ struct _GdkWaylandToplevel
     struct gtk_surface1 *gtk_surface;
     struct xdg_toplevel *xdg_toplevel;
     struct zxdg_toplevel_v6 *zxdg_toplevel_v6;
+    struct xdg_dialog_v1 *xdg_dialog;
   } display_server;
 
   GdkWaylandToplevel *transient_for;
@@ -139,6 +141,7 @@ struct _GdkWaylandToplevel
   gboolean has_bounds;
 
   char *title;
+  gboolean decorated;
 
   GdkGeometry geometry_hints;
   GdkSurfaceHints geometry_mask;
@@ -205,6 +208,7 @@ gdk_wayland_toplevel_clear_saved_size (GdkWaylandToplevel *toplevel)
 
 static void maybe_set_gtk_surface_dbus_properties (GdkWaylandToplevel *wayland_toplevel);
 static void maybe_set_gtk_surface_modal (GdkWaylandToplevel *wayland_toplevel);
+static gboolean maybe_set_xdg_dialog_modal (GdkWaylandToplevel *wayland_toplevel);
 
 static void
 gdk_wayland_toplevel_hide_surface (GdkWaylandSurface *wayland_surface)
@@ -215,6 +219,7 @@ gdk_wayland_toplevel_hide_surface (GdkWaylandSurface *wayland_surface)
 
   g_clear_pointer (&toplevel->display_server.xdg_toplevel, xdg_toplevel_destroy);
   g_clear_pointer (&toplevel->display_server.zxdg_toplevel_v6, zxdg_toplevel_v6_destroy);
+  g_clear_pointer (&toplevel->display_server.xdg_dialog, xdg_dialog_v1_destroy);
 
   if (toplevel->display_server.gtk_surface)
     {
@@ -877,7 +882,8 @@ gdk_wayland_surface_create_xdg_toplevel (GdkWaylandToplevel *wayland_toplevel)
   gdk_wayland_toplevel_set_application_id (GDK_TOPLEVEL (wayland_toplevel), app_id);
 
   maybe_set_gtk_surface_dbus_properties (wayland_toplevel);
-  maybe_set_gtk_surface_modal (wayland_toplevel);
+  if (!maybe_set_xdg_dialog_modal (wayland_toplevel))
+    maybe_set_gtk_surface_modal (wayland_toplevel);
 
   gdk_profiler_add_mark (GDK_PROFILER_CURRENT_TIME, 0, "Wayland surface commit", NULL);
   wl_surface_commit (wayland_surface->display_server.wl_surface);
@@ -1089,12 +1095,40 @@ maybe_set_gtk_surface_modal (GdkWaylandToplevel *wayland_toplevel)
 
 }
 
+static gboolean
+maybe_set_xdg_dialog_modal (GdkWaylandToplevel *wayland_toplevel)
+{
+  GdkWaylandDisplay *display_wayland =
+    GDK_WAYLAND_DISPLAY (gdk_surface_get_display (GDK_SURFACE (wayland_toplevel)));
+
+  if (!display_wayland->xdg_wm_dialog)
+    return FALSE;
+  if (!is_realized_toplevel (GDK_WAYLAND_SURFACE (wayland_toplevel)))
+    return FALSE;
+
+  if (!wayland_toplevel->display_server.xdg_dialog)
+    {
+      wayland_toplevel->display_server.xdg_dialog =
+        xdg_wm_dialog_v1_get_xdg_dialog (display_wayland->xdg_wm_dialog,
+                                         wayland_toplevel->display_server.xdg_toplevel);
+    }
+
+  if (GDK_SURFACE (wayland_toplevel)->modal_hint)
+    xdg_dialog_v1_set_modal (wayland_toplevel->display_server.xdg_dialog);
+  else
+    xdg_dialog_v1_unset_modal (wayland_toplevel->display_server.xdg_dialog);
+
+  return TRUE;
+}
+
 static void
 gdk_wayland_toplevel_set_modal_hint (GdkWaylandToplevel *wayland_toplevel,
                                      gboolean            modal)
 {
   GDK_SURFACE (wayland_toplevel)->modal_hint = modal;
-  maybe_set_gtk_surface_modal (wayland_toplevel);
+
+  if (!maybe_set_xdg_dialog_modal (wayland_toplevel))
+    maybe_set_gtk_surface_modal (wayland_toplevel);
 }
 
 void
@@ -1223,6 +1257,32 @@ gdk_wayland_toplevel_set_transient_for (GdkWaylandToplevel *toplevel,
 
 #define LAST_PROP 1
 
+static void 
+gdk_wayland_toplevel_set_decorated (GdkWaylandToplevel *self,
+                                    gboolean            decorated)
+{
+  GdkWaylandDisplay *display_wayland = GDK_WAYLAND_DISPLAY (gdk_surface_get_display (GDK_SURFACE (self)));
+
+  if (self->decorated == decorated)
+    return;
+
+  self->decorated = decorated;
+
+  if (display_wayland->server_decoration_manager)
+    {
+      if (self->server_decoration == NULL)
+        self->server_decoration =
+            org_kde_kwin_server_decoration_manager_create (display_wayland->server_decoration_manager,
+                                                           gdk_wayland_surface_get_wl_surface (GDK_SURFACE (self)));
+
+      org_kde_kwin_server_decoration_request_mode (self->server_decoration,
+                                                   decorated ? ORG_KDE_KWIN_SERVER_DECORATION_MANAGER_MODE_SERVER
+                                                             : ORG_KDE_KWIN_SERVER_DECORATION_MANAGER_MODE_CLIENT);
+    }
+
+  g_object_notify (G_OBJECT (self), "decorated");
+}
+
 static void
 gdk_wayland_toplevel_set_property (GObject      *object,
                                    guint         prop_id,
@@ -1258,6 +1318,7 @@ gdk_wayland_toplevel_set_property (GObject      *object,
       break;
 
     case LAST_PROP + GDK_TOPLEVEL_PROP_DECORATED:
+      gdk_wayland_toplevel_set_decorated (toplevel, g_value_get_boolean (value));
       break;
 
     case LAST_PROP + GDK_TOPLEVEL_PROP_DELETABLE:
@@ -1313,6 +1374,7 @@ gdk_wayland_toplevel_get_property (GObject    *object,
       break;
 
     case LAST_PROP + GDK_TOPLEVEL_PROP_DECORATED:
+      g_value_set_boolean (value, toplevel->decorated);
       break;
 
     case LAST_PROP + GDK_TOPLEVEL_PROP_DELETABLE:
@@ -2418,44 +2480,6 @@ gdk_wayland_toplevel_set_application_id (GdkToplevel *toplevel,
     }
 }
 
-void
-gdk_wayland_toplevel_announce_csd (GdkToplevel *toplevel)
-{
-  GdkWaylandDisplay *display_wayland = GDK_WAYLAND_DISPLAY (gdk_surface_get_display (GDK_SURFACE (toplevel)));
-  GdkWaylandToplevel *toplevel_wayland;
-
-  g_return_if_fail (GDK_IS_WAYLAND_TOPLEVEL (toplevel));
-  toplevel_wayland = GDK_WAYLAND_TOPLEVEL (toplevel);
-
-  if (!display_wayland->server_decoration_manager)
-    return;
-  toplevel_wayland->server_decoration =
-      org_kde_kwin_server_decoration_manager_create (display_wayland->server_decoration_manager,
-                                                     gdk_wayland_surface_get_wl_surface (GDK_SURFACE (toplevel_wayland)));
-  if (toplevel_wayland->server_decoration)
-    org_kde_kwin_server_decoration_request_mode (toplevel_wayland->server_decoration,
-                                                 ORG_KDE_KWIN_SERVER_DECORATION_MANAGER_MODE_CLIENT);
-}
-
-void
-gdk_wayland_toplevel_announce_ssd (GdkToplevel *toplevel)
-{
-  GdkWaylandDisplay *display_wayland = GDK_WAYLAND_DISPLAY (gdk_surface_get_display (GDK_SURFACE (toplevel)));
-  GdkWaylandToplevel *toplevel_wayland;
-
-  g_return_if_fail (GDK_IS_WAYLAND_TOPLEVEL (toplevel));
-  toplevel_wayland = GDK_WAYLAND_TOPLEVEL (toplevel);
-
-  if (!display_wayland->server_decoration_manager)
-    return;
-  toplevel_wayland->server_decoration =
-      org_kde_kwin_server_decoration_manager_create (display_wayland->server_decoration_manager,
-                                                     gdk_wayland_surface_get_wl_surface (GDK_SURFACE (toplevel_wayland)));
-  if (toplevel_wayland->server_decoration)
-    org_kde_kwin_server_decoration_request_mode (toplevel_wayland->server_decoration,
-                                                 ORG_KDE_KWIN_SERVER_DECORATION_MANAGER_MODE_SERVER);
-}
-
 gboolean
 gdk_wayland_toplevel_inhibit_idle (GdkToplevel *toplevel)
 {
@@ -2542,8 +2566,8 @@ export_handle_done (GObject      *source,
 /**
  * gdk_wayland_toplevel_export_handle:
  * @toplevel: (type GdkWaylandToplevel): the `GdkToplevel` to obtain a handle for
- * @callback: callback to call with the handle
- * @user_data: (closure): user data for @callback
+ * @callback: (scope notified) (closure user_data) (destroy destroy_func): callback to call with the handle
+ * @user_data: user data for @callback
  * @destroy_func: destroy notify for @user_data
  *
  * Asynchronously obtains a handle for a surface that can be passed

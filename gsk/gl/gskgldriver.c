@@ -217,6 +217,9 @@ gsk_gl_driver_dispose (GObject *object)
   g_assert (GSK_IS_GL_DRIVER (self));
   g_assert (self->in_frame == FALSE);
 
+  if (self->shared_command_queue)
+    gsk_gl_command_queue_make_current (self->shared_command_queue);
+
 #define GSK_GL_NO_UNIFORMS
 #define GSK_GL_SHADER_RESOURCE(name)
 #define GSK_GL_SHADER_STRING(str)
@@ -245,6 +248,7 @@ gsk_gl_driver_dispose (GObject *object)
 #undef GSK_GL_DEFINE_PROGRAM
 #undef GSK_GL_DEFINE_PROGRAM_NO_CLIP
 
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
   if (self->shader_cache != NULL)
     {
       GHashTableIter iter;
@@ -262,6 +266,7 @@ gsk_gl_driver_dispose (GObject *object)
 
       g_clear_pointer (&self->shader_cache, g_hash_table_unref);
     }
+G_GNUC_END_IGNORE_DEPRECATIONS
 
   if (self->command_queue != NULL)
     {
@@ -972,7 +977,7 @@ gsk_gl_driver_load_texture (GskGLDriver *self,
 
   if (texture_id == 0)
     {
-      downloaded_texture = gdk_memory_texture_from_texture (texture, gdk_texture_get_format (texture));
+      downloaded_texture = gdk_memory_texture_from_texture (texture);
 
       /* The download_texture() call may have switched the GL context. Make sure
        * the right context is at work again.
@@ -1230,6 +1235,8 @@ gsk_gl_driver_release_render_target (GskGLDriver       *self,
   return release_render_target (self, render_target, release_texture, TRUE);
 }
 
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+
 /**
  * gsk_gl_driver_lookup_shader:
  * @self: a `GskGLDriver`
@@ -1346,6 +1353,8 @@ gsk_gl_driver_lookup_shader (GskGLDriver  *self,
 
   return program;
 }
+
+G_GNUC_END_IGNORE_DEPRECATIONS
 
 #if 0
 void
@@ -1471,8 +1480,7 @@ gsk_gl_driver_add_texture_slices (GskGLDriver        *self,
     }
 
   slices = g_new0 (GskGLTextureSlice, n_slices);
-  memtex = gdk_memory_texture_from_texture (texture,
-                                            gdk_texture_get_format (texture));
+  memtex = gdk_memory_texture_from_texture (texture);
 
   if (ensure_mipmap)
     {
@@ -1834,14 +1842,14 @@ gsk_gl_driver_create_gdk_texture (GskGLDriver     *self,
 
   state = g_new0 (GskGLTextureState, 1);
   state->texture_id = texture_id;
-  state->context = g_object_ref (self->command_queue->context);
-  if (gdk_gl_context_has_feature (self->command_queue->context, GDK_GL_FEATURE_SYNC))
+  state->context = g_object_ref (self->shared_command_queue->context);
+  if (gdk_gl_context_has_feature (self->shared_command_queue->context, GDK_GL_FEATURE_SYNC))
     state->sync = glFenceSync (GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
   g_hash_table_steal (self->textures, GUINT_TO_POINTER (texture_id));
 
   builder = gdk_gl_texture_builder_new ();
-  gdk_gl_texture_builder_set_context (builder, self->command_queue->context);
+  gdk_gl_texture_builder_set_context (builder, self->shared_command_queue->context);
   gdk_gl_texture_builder_set_id (builder, texture_id);
   gdk_gl_texture_builder_set_format (builder, format);
   gdk_gl_texture_builder_set_width (builder, texture->width);

@@ -3010,8 +3010,9 @@ static guint tick_callback_id;
 /**
  * gtk_widget_add_tick_callback:
  * @widget: a `GtkWidget`
- * @callback: function to call for updating animations
- * @user_data: (closure): data to pass to @callback
+ * @callback: (scope notified) (closure user_data) (destroy notify): function
+ *   to call for updating animations
+ * @user_data: data to pass to @callback
  * @notify: function to call to free @user_data when the callback is removed.
  *
  * Queues an animation frame update and adds a callback to be called
@@ -3683,7 +3684,7 @@ gtk_widget_get_frame_clock (GtkWidget *widget)
 static int
 get_number (GtkCssValue *value)
 {
-  double d = _gtk_css_number_value_get (value, 100);
+  double d = gtk_css_number_value_get (value, 100);
 
   if (d < 1)
     return ceil (d);
@@ -4584,6 +4585,8 @@ gtk_widget_run_controllers (GtkWidget           *widget,
 
               is_gesture = GTK_IS_GESTURE (controller);
               this_handled = gtk_event_controller_handle_event (controller, event, target, x, y);
+
+              gtk_inspector_trace_event (event, phase, widget, controller, target, this_handled);
 
               if (GTK_DEBUG_CHECK (KEYBINDINGS))
                 {
@@ -6478,7 +6481,7 @@ gtk_widget_update_pango_context (GtkWidget        *widget,
                                          ? PANGO_DIRECTION_LTR
                                          : PANGO_DIRECTION_RTL);
 
-  pango_cairo_context_set_resolution (context, _gtk_css_number_value_get (style->core->dpi, 100));
+  pango_cairo_context_set_resolution (context, gtk_css_number_value_get (style->core->dpi, 100));
 
   pango_context_set_font_map (context, gtk_widget_get_effective_font_map (widget));
 
@@ -10408,8 +10411,14 @@ gtk_widget_compute_transform (GtkWidget         *widget,
   for (iter = widget; iter != ancestor; iter = iter->priv->parent)
     {
       GtkWidgetPrivate *priv = gtk_widget_get_instance_private (iter);
-      gsk_transform_to_matrix (priv->transform, &tmp);
 
+      if (GTK_IS_NATIVE (iter))
+        {
+          graphene_matrix_init_identity (out_transform);
+          return FALSE;
+        }
+
+      gsk_transform_to_matrix (priv->transform, &tmp);
       graphene_matrix_multiply (&transform, &tmp, &transform);
     }
 
@@ -10425,6 +10434,12 @@ gtk_widget_compute_transform (GtkWidget         *widget,
     {
       GtkWidgetPrivate *priv = gtk_widget_get_instance_private (iter);
       gsk_transform_to_matrix (priv->transform, &tmp);
+
+      if (GTK_IS_NATIVE (iter))
+        {
+          graphene_matrix_init_identity (out_transform);
+          return FALSE;
+        }
 
       graphene_matrix_multiply (&inverse, &tmp, &inverse);
     }
@@ -11857,7 +11872,7 @@ gtk_widget_create_render_node (GtkWidget   *widget,
 
   style = gtk_css_node_get_style (priv->cssnode);
 
-  css_opacity = _gtk_css_number_value_get (style->other->opacity, 100);
+  css_opacity = gtk_css_number_value_get (style->other->opacity, 1);
   opacity = CLAMP (css_opacity, 0.0, 1.0) * priv->user_alpha / 255.0;
 
   if (opacity <= 0.0)
@@ -11903,7 +11918,7 @@ gtk_widget_create_render_node (GtkWidget   *widget,
 }
 
 static void
-gtk_widget_do_snapshot (GtkWidget *widget,
+gtk_widget_do_snapshot (GtkWidget   *widget,
                         GtkSnapshot *snapshot)
 {
   GtkWidgetPrivate *priv = gtk_widget_get_instance_private (widget);
@@ -13172,7 +13187,7 @@ gtk_widget_get_color (GtkWidget *widget,
   g_return_if_fail (GTK_IS_WIDGET (widget));
 
   style = gtk_css_node_get_style (priv->cssnode);
-  *color = *gtk_css_color_value_get_rgba (style->core->color);
+  *color = *gtk_css_color_value_get_rgba (style->used->color);
 }
 
 /*< private >

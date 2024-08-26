@@ -20,6 +20,7 @@
 
 #include "gdkdmabuftextureprivate.h"
 
+#include "gdkcolorstateprivate.h"
 #include "gdkdisplayprivate.h"
 #include "gdkdmabufdownloaderprivate.h"
 #include "gdkdmabufformatsbuilderprivate.h"
@@ -62,6 +63,13 @@ struct _GdkDmabufTextureClass
   GdkTextureClass parent_class;
 };
 
+/**
+ * gdk_dmabuf_error_quark:
+ *
+ * Registers an error quark for [class@Gdk.DmabufTexture] errors.
+ *
+ * Returns: the error quark
+ **/
 G_DEFINE_QUARK (gdk-dmabuf-error-quark, gdk_dmabuf_error)
 
 G_DEFINE_TYPE (GdkDmabufTexture, gdk_dmabuf_texture, GDK_TYPE_TEXTURE)
@@ -89,6 +97,7 @@ struct _Download
 {
   GdkDmabufTexture *texture;
   GdkMemoryFormat format;
+  GdkColorState *color_state;
   guchar *data;
   gsize stride;
   volatile int spinlock;
@@ -102,6 +111,7 @@ gdk_dmabuf_texture_invoke_callback (gpointer data)
   gdk_dmabuf_downloader_download (download->texture->downloader,
                                   download->texture,
                                   download->format,
+                                  download->color_state,
                                   download->data,
                                   download->stride);
 
@@ -113,16 +123,17 @@ gdk_dmabuf_texture_invoke_callback (gpointer data)
 static void
 gdk_dmabuf_texture_download (GdkTexture      *texture,
                              GdkMemoryFormat  format,
+                             GdkColorState   *color_state,
                              guchar          *data,
                              gsize            stride)
 {
   GdkDmabufTexture *self = GDK_DMABUF_TEXTURE (texture);
-  Download download = { self, format, data, stride, 0 };
+  Download download = { self, format, color_state, data, stride, 0 };
 
   if (self->downloader == NULL)
     {
 #ifdef HAVE_DMABUF
-      gdk_dmabuf_download_mmap (texture, format, data, stride);
+      gdk_dmabuf_download_mmap (texture, format, color_state, data, stride);
 #endif
       return;
     }
@@ -171,6 +182,7 @@ gdk_dmabuf_texture_new_from_builder (GdkDmabufTextureBuilder *builder,
   GdkTexture *update_texture;
   GdkDisplay *display;
   GdkDmabuf dmabuf;
+  GdkColorState *color_state;
   GError *local_error = NULL;
   int width, height;
   gboolean premultiplied;
@@ -190,9 +202,24 @@ gdk_dmabuf_texture_new_from_builder (GdkDmabufTextureBuilder *builder,
 
   gdk_display_init_dmabuf (display);
 
+  color_state = gdk_dmabuf_texture_builder_get_color_state (builder);
+  if (color_state == NULL)
+    {
+      gboolean is_yuv;
+
+      if (gdk_dmabuf_fourcc_is_yuv (dmabuf.fourcc, &is_yuv) && is_yuv)
+        {
+          g_warning_once ("FIXME: Implement the proper colorstate for YUV dmabufs");
+          color_state = gdk_color_state_get_srgb ();
+        }
+      else
+        color_state = gdk_color_state_get_srgb ();
+    }
+
   self = g_object_new (GDK_TYPE_DMABUF_TEXTURE,
                        "width", width,
                        "height", height,
+                       "color-state", color_state,
                        NULL);
 
   g_set_object (&self->display, display);

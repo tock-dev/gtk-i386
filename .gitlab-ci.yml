@@ -26,7 +26,8 @@ variables:
   BACKEND_FLAGS: "-Dx11-backend=true -Dwayland-backend=true -Dbroadway-backend=true"
   FEATURE_FLAGS: "-Dvulkan=enabled -Dcloudproviders=enabled -Dbuild-testsuite=true -Dintrospection=enabled"
   MESON_TEST_TIMEOUT_MULTIPLIER: 3
-  FEDORA_IMAGE: "registry.gitlab.gnome.org/gnome/gtk/fedora:v49"
+  MESON_TEST_MAX_PROCESSES: 8
+  FEDORA_IMAGE: "registry.gitlab.gnome.org/gnome/gtk/fedora:v52"
 
 workflow:
   rules:
@@ -117,10 +118,11 @@ release-build:
     EXTRA_MESON_FLAGS: "--buildtype=release"
   script:
     - .gitlab-ci/show-info-linux.sh
-    - export PATH="$HOME/.local/bin:$PATH"
+    - mkdir _install
+    - export PATH="$HOME/.local/bin:${CI_PROJECT_DIR}/_install/bin:$PATH"
+    - .gitlab-ci/install-meson-project.sh --prefix ${CI_PROJECT_DIR}/_install https://gitlab.gnome.org/jadahl/catch.git main
     - meson subprojects download
     - meson subprojects update --reset
-    - mkdir _install
     - meson setup
             --prefix=${CI_PROJECT_DIR}/_install
             ${COMMON_MESON_FLAGS}
@@ -413,11 +415,12 @@ static-scan:
 # Run tests with the address sanitizer. We need to turn off introspection
 # and f16c, since they are incompatible with asan
 asan-build:
-  image: $FEDORA_IMAGE
+  extends: .build-fedora-default
   tags: [ asan ]
   stage: analysis
   needs: []
   variables:
+    MESON_TEST_MAX_PROCESSES: 4
   script:
     - export PATH="$HOME/.local/bin:$PATH"
     - CC=clang meson setup
@@ -445,9 +448,10 @@ reference:
             --force-fallback-for=gdk-pixbuf,pango
             -Dintrospection=enabled
             -Ddocumentation=true
+            -Dman-pages=true
             -Dgdk-pixbuf:gtk_doc=true
             -Dpango:documentation=true
-            -Dbuild-demos=false
+            -Dbuild-demos=true
             -Dbuild-examples=false
             -Dbuild-tests=false
             -Dbuild-testsuite=false
@@ -459,6 +463,7 @@ reference:
     - mv _build/docs/reference/gdk/gdk4-wayland/ _reference/gdk4-wayland/
     - mv _build/docs/reference/gsk/gsk4/ _reference/gsk4/
     - mv _build/docs/reference/gtk/gtk4/ _reference/gtk4/
+    - mv _build/docs/reference/gtk/*.html _reference/gtk4/
     - mv _build/subprojects/pango/docs/Pango/ _reference/Pango/
     - mv _build/subprojects/pango/docs/PangoCairo/ _reference/PangoCairo/
     - mv _build/subprojects/pango/docs/PangoFc/ _reference/PangoFc/

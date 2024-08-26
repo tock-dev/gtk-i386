@@ -42,6 +42,19 @@
  * [signal@Gtk.LinkButton::activate-link] signal and returning %TRUE from
  * the signal handler.
  *
+ * # Shortcuts and Gestures
+ *
+ * `GtkLinkButton` supports the following keyboard shortcuts:
+ *
+ * - <kbd>Shift</kbd>+<kbd>F10</kbd> or <kbd>Menu</kbd> opens the context menu.
+ *
+ * # Actions
+ *
+ * `GtkLinkButton` defines a set of built-in actions:
+ *
+ * - `clipboard.copy` copies the url to the clipboard.
+ * - `menu.popup` opens the context menu.
+ *
  * # CSS nodes
  *
  * `GtkLinkButton` has a single CSS node with name button. To differentiate
@@ -480,6 +493,28 @@ gtk_link_button_pressed_cb (GtkGestureClick *gesture,
     }
 }
 
+static void
+launch_done (GObject      *source,
+             GAsyncResult *result,
+             gpointer      data)
+{
+  GError *error = NULL;
+  gboolean success;
+
+  if (GTK_IS_FILE_LAUNCHER (source))
+    success = gtk_file_launcher_launch_finish (GTK_FILE_LAUNCHER (source), result, &error);
+  else if (GTK_IS_URI_LAUNCHER (source))
+    success = gtk_uri_launcher_launch_finish (GTK_URI_LAUNCHER (source), result, &error);
+  else
+    g_assert_not_reached ();
+
+  if (!success)
+    {
+      g_warning ("Failed to launch handler: %s", error->message);
+      g_error_free (error);
+    }
+}
+
 static gboolean
 gtk_link_button_activate_link (GtkLinkButton *link_button)
 {
@@ -496,7 +531,7 @@ gtk_link_button_activate_link (GtkLinkButton *link_button)
 
       launcher = gtk_file_launcher_new (file);
 
-      gtk_file_launcher_launch (launcher, GTK_WINDOW (toplevel), NULL, NULL, NULL);
+      gtk_file_launcher_launch (launcher, GTK_WINDOW (toplevel), NULL, launch_done, NULL);
 
       g_object_unref (launcher);
       g_object_unref (file);
@@ -505,7 +540,7 @@ gtk_link_button_activate_link (GtkLinkButton *link_button)
     {
       GtkUriLauncher *launcher = gtk_uri_launcher_new (link_button->uri);
 
-      gtk_uri_launcher_launch (launcher, GTK_WINDOW (toplevel), NULL, NULL, NULL);
+      gtk_uri_launcher_launch (launcher, GTK_WINDOW (toplevel), NULL, launch_done, NULL);
 
       g_object_unref (launcher);
     }

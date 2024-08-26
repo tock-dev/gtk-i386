@@ -156,7 +156,7 @@ static inline gskpathop
 gsk_pathop_encode_index (GskPathOperation op,
                          gsize            index)
 {
-  return gsk_pathop_encode (op, ((graphene_point_t *) NULL) + index);
+  return gsk_pathop_encode (op, ((GskAlignedPoint *) NULL) + index);
 }
 
 static void
@@ -193,7 +193,7 @@ gsk_path_builder_end_current (GskPathBuilder *self)
    return;
 
   contour = gsk_standard_contour_new (self->flags,
-                                      (graphene_point_t *) self->points->data,
+                                      (GskAlignedPoint *) self->points->data,
                                       self->points->len,
                                       (gskpathop *) self->ops->data,
                                       self->ops->len,
@@ -387,6 +387,7 @@ gsk_path_builder_add_reverse_path (GskPathBuilder *self,
 /**
  * gsk_path_builder_add_cairo_path:
  * @self: a `GskPathBuilder`
+ * @path: a path
  *
  * Adds a Cairo path to the builder.
  *
@@ -1143,10 +1144,10 @@ gsk_path_builder_rel_conic_to (GskPathBuilder *self,
  * @x2: x coordinate of second control point
  * @y2: y coordinate of second control point
  *
- * Adds an elliptical arc from the current point to @x3, @y3
+ * Adds an elliptical arc from the current point to @x2, @y2
  * with @x1, @y1 determining the tangent directions.
  *
- * After this, @x3, @y3 will be the new current point.
+ * After this, @x2, @y2 will be the new current point.
  *
  * Note: Two points and their tangents do not determine
  * a unique ellipse, so GSK just picks one. If you need more
@@ -1180,7 +1181,7 @@ gsk_path_builder_arc_to (GskPathBuilder *self,
  * @x2: x coordinate of second control point
  * @y2: y coordinate of second control point
  *
- * Adds an elliptical arc from the current point to @x3, @y3
+ * Adds an elliptical arc from the current point to @x2, @y2
  * with @x1, @y1 determining the tangent directions.
  *
  * All coordinates are given relative to the current point.

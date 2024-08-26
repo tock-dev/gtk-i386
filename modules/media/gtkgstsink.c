@@ -52,10 +52,8 @@
 
 #include <gst/gl/gstglfuncs.h>
 
-#ifdef HAVE_GSTREAMER_DRM
 #include <gdk/gdkdmabuffourccprivate.h>
 #include <gst/allocators/gstdmabuf.h>
-#endif
 
 enum {
   PROP_0,
@@ -72,17 +70,11 @@ GST_DEBUG_CATEGORY (gtk_debug_gst_sink);
 
 #define NOGL_CAPS GST_VIDEO_CAPS_MAKE (FORMATS)
 
-#ifdef HAVE_GSTREAMER_DRM
-# define GST_VIDEO_DMA_DRM_CAPS_MAKE_STR GST_VIDEO_DMA_DRM_CAPS_MAKE "; "
-#else
-# define GST_VIDEO_DMA_DRM_CAPS_MAKE_STR
-#endif
-
 static GstStaticPadTemplate gtk_gst_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS (GST_VIDEO_DMA_DRM_CAPS_MAKE_STR
+    GST_STATIC_CAPS (GST_VIDEO_DMA_DRM_CAPS_MAKE "; "
                      "video/x-raw(" GST_CAPS_FEATURE_MEMORY_GL_MEMORY "), "
                      "format = (string) RGBA, "
                      "width = " GST_VIDEO_SIZE_RANGE ", "
@@ -130,7 +122,6 @@ gtk_gst_sink_get_times (GstBaseSink  *bsink,
     }
 }
 
-#ifdef HAVE_GSTREAMER_DRM
 static void
 add_drm_formats_and_modifiers (GstCaps          *caps,
                                GdkDmabufFormats *dmabuf_formats)
@@ -164,7 +155,49 @@ add_drm_formats_and_modifiers (GstCaps          *caps,
     gst_structure_take_value (gst_caps_get_structure (caps, 0), "drm-format",
         &dmabuf_list);
 }
+
+static GdkColorState *
+gtk_gst_color_state_from_colorimetry (GtkGstSink                *self,
+                                      const GstVideoColorimetry *colorimetry)
+{
+  GdkCicpParams *params;
+  GdkColorState *color_state;
+  GError *error = NULL;
+
+  params = gdk_cicp_params_new ();
+
+  if (colorimetry->primaries == GST_VIDEO_COLOR_PRIMARIES_UNKNOWN)
+    gdk_cicp_params_set_color_primaries (params, 1);
+  else
+    gdk_cicp_params_set_color_primaries (params, gst_video_color_primaries_to_iso (colorimetry->primaries));
+
+  if (colorimetry->transfer == GST_VIDEO_TRANSFER_UNKNOWN)
+    gdk_cicp_params_set_transfer_function (params, 13);
+  else
+    gdk_cicp_params_set_transfer_function (params, gst_video_transfer_function_to_iso (colorimetry->transfer));
+
+#if 0
+  if (colorimetry->matrix == GST_VIDEO_COLOR_MATRIX_UNKNOWN)
+    gdk_cicp_params_set_matrix_coefficients (params, 6);
+  else
+    gdk_cicp_params_set_matrix_coefficients (params, gst_video_color_matrix_to_iso (colorimetry->matrix));
+
+  gdk_cicp_params_set_range (params, colorimetry->range == GST_VIDEO_COLOR_RANGE_0_255 ? GDK_CICP_RANGE_FULL : GDK_CICP_RANGE_NARROW);
+#else
+  gdk_cicp_params_set_matrix_coefficients (params, 0);
+  gdk_cicp_params_set_range (params, GDK_CICP_RANGE_FULL);
 #endif
+  color_state = gdk_cicp_params_build_color_state (params, &error);
+  g_object_unref (params);
+
+  if (color_state == NULL)
+    {
+      GST_ERROR_OBJECT (self, "Could not create GDK colorstate for given colorimetry: %s", error->message);
+      g_clear_error (&error);
+    }
+
+  return color_state;
+}
 
 static GstCaps *
 gtk_gst_sink_get_caps (GstBaseSink *bsink,
@@ -176,16 +209,12 @@ gtk_gst_sink_get_caps (GstBaseSink *bsink,
 
   if (self->gst_context)
     {
-      tmp = gst_pad_get_pad_template_caps (GST_BASE_SINK_PAD (bsink));
-#ifdef HAVE_GSTREAMER_DRM
-      {
-        GdkDisplay *display = gdk_gl_context_get_display (self->gdk_context);
-        GdkDmabufFormats *formats = gdk_display_get_dmabuf_formats (display);
+      GdkDisplay *display = gdk_gl_context_get_display (self->gdk_context);
+      GdkDmabufFormats *formats = gdk_display_get_dmabuf_formats (display);
 
-        tmp = gst_caps_make_writable (tmp);
-        add_drm_formats_and_modifiers (tmp, formats);
-      }
-#endif
+      tmp = gst_pad_get_pad_template_caps (GST_BASE_SINK_PAD (bsink));
+      tmp = gst_caps_make_writable (tmp);
+      add_drm_formats_and_modifiers (tmp, formats);
     }
   else
     {
@@ -218,24 +247,28 @@ gtk_gst_sink_set_caps (GstBaseSink *bsink,
 
   GST_DEBUG_OBJECT (self, "set caps with %" GST_PTR_FORMAT, caps);
 
-#ifdef HAVE_GSTREAMER_DRM
-  if (gst_video_is_dma_drm_caps (caps)) {
-    if (!gst_video_info_dma_drm_from_caps (&self->drm_info, caps))
-      return FALSE;
+  if (gst_video_is_dma_drm_caps (caps))
+    {
+      if (!gst_video_info_dma_drm_from_caps (&self->drm_info, caps))
+        return FALSE;
 
-    if (!gst_video_info_dma_drm_to_video_info (&self->drm_info, &self->v_info))
-      return FALSE;
+      if (!gst_video_info_dma_drm_to_video_info (&self->drm_info, &self->v_info))
+        return FALSE;
 
-    GST_INFO_OBJECT (self, "using DMABuf, passthrough possible");
-  } else {
-    gst_video_info_dma_drm_init (&self->drm_info);
-#endif
+      GST_INFO_OBJECT (self, "using DMABuf, passthrough possible");
+    }
+  else
+    {
+      gst_video_info_dma_drm_init (&self->drm_info);
 
-    if (!gst_video_info_from_caps (&self->v_info, caps))
-      return FALSE;
-#ifdef HAVE_GSTREAMER_DRM
-  }
-#endif
+      if (!gst_video_info_from_caps (&self->v_info, caps))
+        return FALSE;
+    }
+
+  g_clear_pointer (&self->color_state, gdk_color_state_unref);
+  self->color_state = gtk_gst_color_state_from_colorimetry (self, &self->v_info.colorimetry);
+  if (self->color_state == NULL)
+    return FALSE;
 
   return TRUE;
 }
@@ -277,13 +310,11 @@ gtk_gst_sink_propose_allocation (GstBaseSink *bsink,
       return FALSE;
     }
 
-#ifdef HAVE_GSTREAMER_DRM
   if (gst_caps_features_contains (gst_caps_get_features (caps, 0), GST_CAPS_FEATURE_MEMORY_DMABUF))
     {
       gst_query_add_allocation_meta (query, GST_VIDEO_META_API_TYPE, 0);
       return TRUE;
     }
-#endif
 
   if (!gst_caps_features_contains (gst_caps_get_features (caps, 0), GST_CAPS_FEATURE_MEMORY_GL_MEMORY))
     return FALSE;
@@ -376,10 +407,9 @@ gtk_gst_sink_texture_from_buffer (GtkGstSink      *self,
   viewport->size.width = GST_VIDEO_INFO_WIDTH (&self->v_info);
   viewport->size.height = GST_VIDEO_INFO_HEIGHT (&self->v_info);
 
-#ifdef HAVE_GSTREAMER_DRM
   if (gst_is_dmabuf_memory (gst_buffer_peek_memory (buffer, 0)))
     {
-      g_autoptr (GdkDmabufTextureBuilder) builder = NULL;
+      GdkDmabufTextureBuilder *builder = NULL;
       const GstVideoMeta *vmeta = gst_buffer_get_video_meta (buffer);
       GError *error = NULL;
       int i;
@@ -398,6 +428,7 @@ gtk_gst_sink_texture_from_buffer (GtkGstSink      *self,
       gdk_dmabuf_texture_builder_set_width (builder, vmeta->width);
       gdk_dmabuf_texture_builder_set_height (builder, vmeta->height);
       gdk_dmabuf_texture_builder_set_n_planes (builder, vmeta->n_planes);
+      gdk_dmabuf_texture_builder_set_color_state (builder, self->color_state);
 
       for (i = 0; i < vmeta->n_planes; i++)
         {
@@ -427,16 +458,15 @@ gtk_gst_sink_texture_from_buffer (GtkGstSink      *self,
                                                   (GDestroyNotify) gst_buffer_unref,
                                                   gst_buffer_ref (buffer),
                                                   &error);
+      g_object_unref (builder);
       if (!texture)
         GST_ERROR_OBJECT (self, "Failed to create dmabuf texture: %s", error->message);
 
       *pixel_aspect_ratio = ((double) GST_VIDEO_INFO_PAR_N (&self->v_info) /
                              (double) GST_VIDEO_INFO_PAR_D (&self->v_info));
     }
-  else
-#endif
-  if (self->gdk_context &&
-      gst_video_frame_map (frame, &self->v_info, buffer, GST_MAP_READ | GST_MAP_GL))
+  else if (self->gdk_context &&
+           gst_video_frame_map (frame, &self->v_info, buffer, GST_MAP_READ | GST_MAP_GL))
     {
       GstGLSyncMeta *sync_meta;
       GdkGLTextureBuilder *builder;
@@ -458,6 +488,7 @@ gtk_gst_sink_texture_from_buffer (GtkGstSink      *self,
       gdk_gl_texture_builder_set_width (builder, frame->info.width);
       gdk_gl_texture_builder_set_height (builder, frame->info.height);
       gdk_gl_texture_builder_set_sync (builder, sync_meta ? sync_meta->data : NULL);
+      gdk_gl_texture_builder_set_color_state (builder, self->color_state);
 
       texture = gdk_gl_texture_builder_build (builder,
                                               (GDestroyNotify) video_frame_free,
@@ -469,17 +500,22 @@ gtk_gst_sink_texture_from_buffer (GtkGstSink      *self,
     }
   else if (gst_video_frame_map (frame, &self->v_info, buffer, GST_MAP_READ))
     {
+      GdkMemoryTextureBuilder *builder;
       GBytes *bytes;
 
       bytes = g_bytes_new_with_free_func (frame->data[0],
                                           frame->info.height * frame->info.stride[0],
                                           (GDestroyNotify) video_frame_free,
                                           frame);
-      texture = gdk_memory_texture_new (frame->info.width,
-                                        frame->info.height,
-                                        gtk_gst_memory_format_from_video_info (&frame->info),
-                                        bytes,
-                                        frame->info.stride[0]);
+
+      builder = gdk_memory_texture_builder_new ();
+      gdk_memory_texture_builder_set_format (builder, gtk_gst_memory_format_from_video_info (&frame->info));
+      gdk_memory_texture_builder_set_width (builder, frame->info.width);
+      gdk_memory_texture_builder_set_height (builder, frame->info.height);
+      gdk_memory_texture_builder_set_bytes (builder, bytes);
+      gdk_memory_texture_builder_set_stride (builder, frame->info.stride[0]);
+
+      texture = gdk_memory_texture_builder_build (builder);
       g_bytes_unref (bytes);
 
       *pixel_aspect_ratio = ((double) frame->info.par_n) / ((double) frame->info.par_d);
@@ -649,20 +685,8 @@ gtk_gst_sink_initialize_gl (GtkGstSink *self)
 
           if (gl_api & (GST_GL_API_OPENGL3 | GST_GL_API_OPENGL))
             {
-#ifdef HAVE_GST_GL_DISPLAY_NEW_WITH_TYPE
               self->gst_display = gst_gl_display_new_with_type (GST_GL_DISPLAY_TYPE_WIN32);
-#else
-#if GST_GL_HAVE_PLATFORM_EGL
-              g_message ("If media fails to play, set the envvar `GST_DEBUG=1`, and if GstGL context creation fails");
-              g_message ("due to \"Couldn't create GL context: Cannot share context with non-EGL context\",");
-              g_message ("set in the environment `GST_GL_PLATFORM=wgl` and `GST_GL_WINDOW=win32`,");
-              g_message ("and restart the GTK application");
-#endif
-
-              self->gst_display = gst_gl_display_new ();
-#endif
             }
-
 #if GST_GL_HAVE_PLATFORM_EGL
           else
             {
@@ -776,6 +800,7 @@ gtk_gst_sink_dispose (GObject *object)
 {
   GtkGstSink *self = GTK_GST_SINK (object);
 
+  g_clear_pointer (&self->color_state, gdk_color_state_unref);
   g_clear_object (&self->paintable);
   g_clear_object (&self->gst_gdk_context);
   g_clear_object (&self->gst_display);

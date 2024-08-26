@@ -19,7 +19,6 @@ gtk_private_sources = files([
   'gdktextureutils.c',
   'gsettings-mapping.c',
   'gtkaccessibleattributeset.c',
-  'gtkaccessiblevalue.c',
   'gtkaccessiblevaluestatic.c',
   'gtkactionhelper.c',
   'gtkactionmuxer.c',
@@ -51,8 +50,10 @@ gtk_private_sources = files([
   'gtkcssbgsizevalue.c',
   'gtkcssbordervalue.c',
   'gtkcsscalcvalue.c',
+  'gtkcsscolor.c',
   'gtkcsscolorvalue.c',
   'gtkcsscornervalue.c',
+  'gtkcsscustompropertypool.c',
   'gtkcssdimensionvalue.c',
   'gtkcssdynamic.c',
   'gtkcsseasevalue.c',
@@ -84,6 +85,7 @@ gtk_private_sources = files([
   'gtkcssnumbervalue.c',
   'gtkcsspalettevalue.c',
   'gtkcsspositionvalue.c',
+  'gtkcssreferencevalue.c',
   'gtkcssrepeatvalue.c',
   'gtkcssselector.c',
   'gtkcssshadowvalue.c',
@@ -101,6 +103,7 @@ gtk_private_sources = files([
   'gtkcsstypes.c',
   'gtkcssunsetvalue.c',
   'gtkcssvalue.c',
+  'gtkcssvariableset.c',
   'gtkcsswidgetnode.c',
   'gtkdrop.c',
   'gtkfilechooserentry.c',
@@ -110,6 +113,7 @@ gtk_private_sources = files([
   'gtkfilechoosercell.c',
   'gtkfilesystemmodel.c',
   'gtkfilethumbnail.c',
+  'gtkfontfilter.c',
   'gtkgizmo.c',
   'gtkiconcache.c',
   'gtkiconcachevalidator.c',
@@ -122,7 +126,6 @@ gtk_private_sources = files([
   'gtkmenutrackeritem.c',
   'gtkpanedhandle.c',
   'gtkpango.c',
-  'gskpango.c',
   'gtkpathbar.c',
   'gtkplacessidebar.c',
   'gtkplacesview.c',
@@ -142,7 +145,6 @@ gtk_private_sources = files([
   'gtkstyleanimation.c',
   'gtkstylecascade.c',
   'gtkstyleproperty.c',
-  'gtktextbtree.c',
   'gtktexthistory.c',
   'gtktextviewchild.c',
   'timsort/gtktimsort.c',
@@ -151,11 +153,13 @@ gtk_private_sources = files([
 
 # List of files that contain public API, and should be introspected
 gtk_public_sources = files([
+  'gskpango.c',
   'gtkaboutdialog.c',
   'gtkaccelgroup.c',
   'gtkaccessible.c',
   'gtkaccessiblerange.c',
   'gtkaccessibletext.c',
+  'gtkaccessiblevalue.c',
   'gtkactionable.c',
   'gtkactionbar.c',
   'gtkadjustment.c',
@@ -373,6 +377,7 @@ gtk_public_sources = files([
   'gtktestutils.c',
   'gtktext.c',
   'gtktextattributes.c',
+  'gtktextbtree.c',
   'gtktextbuffer.c',
   'gtktextchild.c',
   'gtktexthandle.c',
@@ -409,6 +414,7 @@ gtk_public_sources += gtk_print_sources
 
 gtk_private_type_headers = files([
   'gtkcsstypesprivate.h',
+  'gtkfontfilterprivate.h',
   'gtktexthandleprivate.h',
   'gtkplacessidebarprivate.h',
 ])
@@ -657,6 +663,7 @@ if os_win32
     'gtkimcontextime.c',
     'gtkfilechoosernativewin32.c',
     'gtkwin32.c',
+    'gtkshowwin32.c',
   ]
 endif
 
@@ -996,6 +1003,7 @@ gtk_deps = [
   platform_gio_dep,
   pangocairo_dep,
   harfbuzz_dep,
+  hb_subset_dep,
   fribidi_dep,
   cairogobj_dep,
   fontconfig_dep,

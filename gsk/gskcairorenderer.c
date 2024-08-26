@@ -25,6 +25,8 @@
 #include "gskdebugprivate.h"
 #include "gskrendererprivate.h"
 #include "gskrendernodeprivate.h"
+#include "gdk/gdkcolorstateprivate.h"
+#include "gdk/gdkdrawcontextprivate.h"
 #include "gdk/gdktextureprivate.h"
 
 typedef struct {
@@ -73,6 +75,7 @@ gsk_cairo_renderer_unrealize (GskRenderer *renderer)
 static void
 gsk_cairo_renderer_do_render (GskRenderer   *renderer,
                               cairo_t       *cr,
+                              GdkColorState *ccs,
                               GskRenderNode *root)
 {
   GskCairoRenderer *self = GSK_CAIRO_RENDERER (renderer);
@@ -82,7 +85,7 @@ gsk_cairo_renderer_do_render (GskRenderer   *renderer,
   profiler = gsk_renderer_get_profiler (renderer);
   gsk_profiler_timer_begin (profiler, self->profile_timers.cpu_time);
 
-  gsk_render_node_draw (root, cr);
+  gsk_render_node_draw_with_color_state (root, cr, ccs);
 
   cpu_time = gsk_profiler_timer_end (profiler, self->profile_timers.cpu_time);
   gsk_profiler_timer_set (profiler, self->profile_timers.cpu_time, cpu_time);
@@ -140,7 +143,7 @@ gsk_cairo_renderer_render_texture (GskRenderer           *renderer,
 
   cairo_translate (cr, - viewport->origin.x, - viewport->origin.y);
 
-  gsk_cairo_renderer_do_render (renderer, cr, root);
+  gsk_cairo_renderer_do_render (renderer, cr, GDK_COLOR_STATE_SRGB, root);
 
   cairo_destroy (cr);
 
@@ -156,10 +159,18 @@ gsk_cairo_renderer_render (GskRenderer          *renderer,
                            const cairo_region_t *region)
 {
   GskCairoRenderer *self = GSK_CAIRO_RENDERER (renderer);
+  graphene_rect_t opaque_tmp;
+  const graphene_rect_t *opaque;
   cairo_t *cr;
 
-  gdk_draw_context_begin_frame (GDK_DRAW_CONTEXT (self->cairo_context),
-                                region);
+  if (gsk_render_node_get_opaque_rect (root, &opaque_tmp))
+    opaque = &opaque_tmp;
+  else
+    opaque = NULL;
+  gdk_draw_context_begin_frame_full (GDK_DRAW_CONTEXT (self->cairo_context),
+                                     GDK_MEMORY_U8,
+                                     region,
+                                     opaque);
   cr = gdk_cairo_context_cairo_create (self->cairo_context);
 
   g_return_if_fail (cr != NULL);
@@ -178,11 +189,14 @@ gsk_cairo_renderer_render (GskRenderer          *renderer,
       cairo_restore (cr);
     }
 
-  gsk_cairo_renderer_do_render (renderer, cr, root);
+  gsk_cairo_renderer_do_render (renderer,
+                                cr,
+                                gdk_draw_context_get_color_state (GDK_DRAW_CONTEXT (self->cairo_context)),
+                                root);
 
   cairo_destroy (cr);
 
-  gdk_draw_context_end_frame (GDK_DRAW_CONTEXT (self->cairo_context));
+  gdk_draw_context_end_frame_full (GDK_DRAW_CONTEXT (self->cairo_context));
 }
 
 static void

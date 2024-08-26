@@ -4,6 +4,7 @@
 #include <cairo.h>
 
 #include "gdk/gdkmemoryformatprivate.h"
+#include "gdk/gdkcolorprivate.h"
 
 G_BEGIN_DECLS
 
@@ -32,8 +33,10 @@ struct _GskRenderNode
 
   graphene_rect_t bounds;
 
-  guint preferred_depth : 2;
+  guint preferred_depth : GDK_MEMORY_DEPTH_BITS;
   guint offscreen_for_opacity : 1;
+  guint fully_opaque : 1;
+  guint is_hdr : 1;
 };
 
 typedef struct
@@ -48,14 +51,17 @@ struct _GskRenderNodeClass
 
   GskRenderNodeType node_type;
 
-  void            (* finalize)    (GskRenderNode  *node);
-  void            (* draw)        (GskRenderNode  *node,
-                                   cairo_t        *cr);
-  gboolean        (* can_diff)    (const GskRenderNode  *node1,
-                                   const GskRenderNode  *node2);
-  void            (* diff)        (GskRenderNode  *node1,
-                                   GskRenderNode  *node2,
-                                   GskDiffData    *data);
+  void          (* finalize)                            (GskRenderNode               *node);
+  void          (* draw)                                (GskRenderNode               *node,
+                                                         cairo_t                     *cr,
+                                                         GdkColorState               *ccs);
+  gboolean      (* can_diff)                            (const GskRenderNode         *node1,
+                                                         const GskRenderNode         *node2);
+  void          (* diff)                                (GskRenderNode               *node1,
+                                                         GskRenderNode               *node2,
+                                                         GskDiffData                 *data);
+  gboolean      (* get_opaque_rect)                     (GskRenderNode               *node,
+                                                         graphene_rect_t             *out_opaque);
 };
 
 void            gsk_render_node_init_types              (void);
@@ -79,6 +85,12 @@ void            gsk_render_node_diff_impossible         (GskRenderNode          
 void            gsk_container_node_diff_with            (GskRenderNode               *container,
                                                          GskRenderNode               *other,
                                                          GskDiffData                 *data);
+void            gsk_render_node_draw_ccs                (GskRenderNode               *node,
+                                                         cairo_t                     *cr,
+                                                         GdkColorState               *ccs);
+void            gsk_render_node_draw_with_color_state   (GskRenderNode               *node,
+                                                         cairo_t                     *cr,
+                                                         GdkColorState               *color_state);
 void            gsk_render_node_draw_fallback           (GskRenderNode               *node,
                                                          cairo_t                     *cr);
 
@@ -95,6 +107,7 @@ void            gsk_transform_node_get_translate        (const GskRenderNode    
                                                          float                       *dx,
                                                          float                       *dy);
 GdkMemoryDepth  gsk_render_node_get_preferred_depth     (const GskRenderNode         *node) G_GNUC_PURE;
+gboolean        gsk_render_node_is_hdr                  (const GskRenderNode         *node) G_GNUC_PURE;
 
 gboolean        gsk_container_node_is_disjoint          (const GskRenderNode         *node) G_GNUC_PURE;
 
@@ -109,6 +122,53 @@ _gsk_render_node_ref (GskRenderNode *node)
   g_atomic_ref_count_inc (&node->ref_count);
   return node;
 }
+
+GskRenderNode *         gsk_color_node_new2                     (const GdkColor         *color,
+                                                                 const graphene_rect_t  *bounds);
+
+const GdkColor *        gsk_color_node_get_color2               (const GskRenderNode    *node);
+
+GskRenderNode *         gsk_border_node_new2                    (const GskRoundedRect   *outline,
+                                                                 const float             border_width[4],
+                                                                 const GdkColor          border_color[4]);
+const GdkColor *        gsk_border_node_get_colors2             (const GskRenderNode    *node);
+
+GskRenderNode *         gsk_inset_shadow_node_new2              (const GskRoundedRect   *outline,
+                                                                 const GdkColor         *color,
+                                                                 const graphene_point_t *offset,
+                                                                 float                   spread,
+                                                                 float                   blur_radius);
+const GdkColor *        gsk_inset_shadow_node_get_color2        (const GskRenderNode    *node);
+const graphene_point_t *gsk_inset_shadow_node_get_offset        (const GskRenderNode    *node);
+
+GskRenderNode *         gsk_outset_shadow_node_new2             (const GskRoundedRect   *outline,
+                                                                 const GdkColor         *color,
+                                                                 const graphene_point_t *offset,
+                                                                 float                   spread,
+                                                                 float                   blur_radius);
+const GdkColor *        gsk_outset_shadow_node_get_color2       (const GskRenderNode    *node);
+const graphene_point_t *gsk_outset_shadow_node_get_offset       (const GskRenderNode    *node);
+
+typedef struct _GskShadow2 GskShadow2;
+struct _GskShadow2
+{
+  GdkColor color;
+  graphene_point_t offset;
+  float radius;
+};
+
+GskRenderNode * gsk_shadow_node_new2                    (GskRenderNode        *child,
+                                                         const GskShadow2     *shadows,
+                                                         gsize                 n_shadows);
+
+const GskShadow2 *gsk_shadow_node_get_shadow2           (const GskRenderNode  *node,
+                                                         gsize                 i);
+
+GskRenderNode * gsk_text_node_new2                      (PangoFont              *font,
+                                                         PangoGlyphString       *glyphs,
+                                                         const GdkColor         *color,
+                                                         const graphene_point_t *offset);
+const GdkColor *gsk_text_node_get_color2                (const GskRenderNode    *node);
 
 G_END_DECLS
 

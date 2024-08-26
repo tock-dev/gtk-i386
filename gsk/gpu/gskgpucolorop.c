@@ -2,6 +2,7 @@
 
 #include "gskgpucoloropprivate.h"
 
+#include "gskgpucolorstatesprivate.h"
 #include "gskgpuframeprivate.h"
 #include "gskgpuprintprivate.h"
 #include "gskgpushaderopprivate.h"
@@ -39,6 +40,7 @@ static const GskGpuShaderOpClass GSK_GPU_COLOR_OP_CLASS = {
     gsk_gpu_shader_op_gl_command
   },
   "gskgpucolor",
+  gsk_gpu_color_n_textures,
   sizeof (GskGpuColorInstance),
 #ifdef GDK_RENDERING_VULKAN
   &gsk_gpu_color_info,
@@ -51,19 +53,26 @@ static const GskGpuShaderOpClass GSK_GPU_COLOR_OP_CLASS = {
 void
 gsk_gpu_color_op (GskGpuFrame            *frame,
                   GskGpuShaderClip        clip,
-                  const graphene_rect_t  *rect,
+                  GdkColorState          *ccs,
+                  float                   opacity,
                   const graphene_point_t *offset,
-                  const GdkRGBA          *color)
+                  const graphene_rect_t  *rect,
+                  const GdkColor         *color)
 {
   GskGpuColorInstance *instance;
+  GdkColorState *alt;
+
+  alt = gsk_gpu_color_states_find (ccs, color);
 
   gsk_gpu_shader_op_alloc (frame,
                            &GSK_GPU_COLOR_OP_CLASS,
+                           gsk_gpu_color_states_create (ccs, TRUE, alt, FALSE),
                            0,
                            clip,
+                           NULL,
                            NULL,
                            &instance);
 
   gsk_gpu_rect_to_float (rect, offset, instance->rect);
-  gsk_gpu_rgba_to_float (color, instance->color);
+  gsk_gpu_color_to_float (color, alt, opacity, instance->color);
 }

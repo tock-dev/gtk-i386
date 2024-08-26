@@ -1,7 +1,7 @@
 compare_render = executable('compare-render',
-  ['compare-render.c', '../reftests/reftest-compare.c', 'replay-node.c'],
-  dependencies: libgtk_dep,
-  c_args: common_cflags,
+  ['compare-render.c', '../reftests/reftest-compare.c', 'replay-node.c', '../gdk/udmabuf.c'],
+  dependencies: libgtk_static_dep,
+  c_args: common_cflags + ['-DGTK_COMPILATION'],
 )
 
 node_parser = executable('node-parser', 'node-parser.c',
@@ -25,6 +25,7 @@ compare_render_tests = [
   'blur-contents-outside-of-clip',
   'blur-huge-contents-outside-of-clip-nogl',
   'border-bottom-right',
+  'border-colorstates',
   'border-one-rounded',
   'border-opacity',
   'border-zero-width-color',
@@ -46,6 +47,8 @@ compare_render_tests = [
   'color-matrix-identity',
   'color-matrix-merge',
   'color-matrix-parsing',
+  'color-states',
+  'conic-gradient-premultiplied-nocairo',
   'conic-gradient-with-64-colorstops',
   'container-single-child-offscreen-for-opacity',
   'crossfade-clip-both-children',
@@ -53,6 +56,7 @@ compare_render_tests = [
   'cross-fade-in-opacity',
   'cross-fade-in-rotate',
   'css-background',
+  'dihedral',
   'empty-blend',
   'empty-blur',
   'empty-border',
@@ -63,6 +67,7 @@ compare_render_tests = [
   'empty-container',
   'empty-cross-fade',
   'empty-debug',
+  'empty-glshader',
   'empty-inset-shadow',
   'empty-linear-gradient',
   'empty-mask',
@@ -96,9 +101,13 @@ compare_render_tests = [
   'issue-3615',
   'linear-gradient-3d-nocairo',
   'linear-gradient-nonorthogonal-scale-nogl',
+  'linear-gradient-premultiplied-nocairo',
   'linear-gradient-with-64-colorstops',
+  'lots-of-offscreens-nogl',
   'mask',
   'mask-clipped-inverted-alpha',
+  'mask-empty-mask',
+  'mask-empty-source',
   'mask-modes',
   'mask-modes-in-opacity',
   'mask-modes-with-alpha',
@@ -107,6 +116,7 @@ compare_render_tests = [
   'mipmap-with-1x1',
   'nested-rounded-clips',
   'offscreen-forced-downscale',
+  'offscreen-forced-downscale-all-clipped',
   'offscreen-fractional-translate-nogl',
   'offscreen-pixel-alignment-nogl-nocairo',
   'offscreen-pixel-alignment2',
@@ -114,16 +124,23 @@ compare_render_tests = [
   'opacity-colormatrix-combinations',
   'opacity-overdraw',
   'opacity-overlapping-children',
+  'outset-shadow-corner-blur',
+  'outset-shadow-corner-blur-huge-nocairo-nogl',
+  'outset-shadow-corner-blur-normal',
+  'outset-shadow-corner-blur-tiny',
   'outset_shadow_offset_both',
   'outset_shadow_offset_x',
   'outset_shadow_offset_y',
   'outset_shadow_rounded_top',
   'outset-shadow-scale-offset',
   'outset_shadow_simple',
+  'premul-color-nogl',
+  'radial-gradient-premultiplied-nocairo',
   'radial-gradient-with-64-colorstops',
   'repeat',
   'repeating-linear-gradient-edge-colors',
   'repeating-radial-gradient-edge-colors',
+  'repeat-color',
   'repeat-child-bounds',
   'repeat-empty-child-bounds',
   'repeat-huge-overdraw',
@@ -136,6 +153,7 @@ compare_render_tests = [
   'repeat-repeats-nested-nogl',
   'repeat-scaling',
   'repeat-texture',
+  'repeat-tiny-nogl-nocairo',
   'repeating-gradient-scaled',
   'reuse-of-texture-nested-in-offscreens',
   'rounded-clip-with-huge-bounds-nogl',
@@ -168,6 +186,7 @@ compare_render_tests = [
   'text-mixed-color-nocairo',
   'text-mixed-color-colrv1',
   'texture-coords',
+  'texture-offscreen-mipmap-nogl',
   'texture-scale-filters-nocairo',
   'texture-scale-magnify-10000x',
   'texture-scale-magnify-rotate',
@@ -224,8 +243,8 @@ compare_xfails = {
   'ngl': {
     # the gradients are prone to rounding errors which become
     # more pronounced in small clips, it seems
-    'radial-gradient-with-64-colorstops': ['clipped', 'colorflipped'],
-    'conic-gradient-with-64-colorstops': ['clipped', 'colorflipped'],
+    'radial-gradient-with-64-colorstops': ['plain','flipped','rotated','repeated','masked','replayed','clipped','colorflipped'],
+    'conic-gradient-with-64-colorstops': ['plain','flipped','rotated','repeated','masked','replayed','clipped','colorflipped'],
     'blur-child-bounds-oversize-nogl': ['clipped'], # 6450
     'rounded-clip-with-huge-bounds-nogl': ['plain','flipped','rotated','repeated','masked','replayed','clipped','colorflipped'], # 6532
     'big-checkerboard': ['clipped'], # 6444
@@ -303,12 +322,17 @@ foreach renderer : renderers
 endforeach
 
 node_parser_tests = [
+  'at-rule.node',
   'blend.node',
   'blend-unknown-mode.errors',
   'blend-unknown-mode.node',
   'blend-unknown-mode.ref.node',
   'border.node',
+  'box-shadow.node',
   'color.node',
+  'color2.node',
+  'color3.node',
+  'color4.node',
   'conic-gradient.node',
   'conic-gradient.ref.node',
   'crash1.errors',
@@ -392,8 +416,12 @@ node_parser_tests = [
   'node-names-everywhere.errors',
   'node-names-everywhere.node',
   'node-names-everywhere.ref.node',
+  'occlusion-wrong-rect-contains',
   'radial-gradient.node',
   'radial-gradient.ref.node',
+  'radial-gradient-start-end.errors',
+  'radial-gradient-start-end.node',
+  'radial-gradient-start-end.ref.node',
   'repeating-linear-gradient.node',
   'repeating-linear-gradient.ref.node',
   'repeating-radial-gradient.node',
@@ -403,6 +431,7 @@ node_parser_tests = [
   'shadow-fail.node',
   'shadow-fail.ref.node',
   'shadow-fail.errors',
+  'srgb-high-accuracy.node',
   'string-error.errors',
   'string-error.node',
   'string-error.ref.node',
@@ -451,7 +480,8 @@ foreach test : node_parser_tests
         'GSK_RENDERER=opengl',
         'GTK_A11Y=test',
         'G_TEST_SRCDIR=@0@'.format(meson.current_source_dir()),
-        'G_TEST_BUILDDIR=@0@'.format(meson.current_build_dir())
+        'G_TEST_BUILDDIR=@0@'.format(meson.current_build_dir()),
+        'FONTCONFIG_FILE=@0@/fonts/fonts.conf'.format(meson.current_source_dir()),
       ],
       protocol: 'exitcode',
       suite: [ 'gsk', 'gsk-nodeparser' ]
@@ -463,7 +493,7 @@ endforeach
 if os_linux
   offload = executable('offload', 'offload.c', 'gskrendernodeattach.c',
     dependencies : libgtk_static_dep,
-    c_args: common_cflags,
+    c_args: common_cflags + [ '-DGTK_COMPILATION=1' ],
   )
 
   offload_tests = [
@@ -480,6 +510,7 @@ if os_linux
     'complex-clip.node',
     'background.node',
     'background2.node',
+    'bad-transform.node',
   ]
 
   foreach test : offload_tests
@@ -505,6 +536,7 @@ tests = [
   [ 'normalize', [ 'normalize.c', '../reftests/reftest-compare.c' ] ],
   [ 'transform' ],
   [ 'shader' ],
+  [ 'opaque' ],
   [ 'path', [ 'path-utils.c' ], [ 'flaky'] ],
   [ 'path-special-cases' ],
   [ 'scaling' ],

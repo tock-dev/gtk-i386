@@ -1,5 +1,5 @@
 project('gtk', 'c',
-        version: '4.15.1',
+        version: '4.15.6',
         default_options: [
           'buildtype=debugoptimized',
           'warning_level=1',
@@ -18,7 +18,7 @@ harfbuzz_req       = '>= 2.6.0'
 fribidi_req        = '>= 1.0.6'
 cairo_req          = '>= 1.18.0'
 gdk_pixbuf_req     = '>= 2.30.0'
-wayland_proto_req  = '>= 1.31'
+wayland_proto_req  = '>= 1.36'
 wayland_req        = '>= 1.21.0'
 graphene_req       = '>= 1.10.0'
 epoxy_req          = '>= 1.4'
@@ -26,6 +26,7 @@ cloudproviders_req = '>= 0.3.1'
 xkbcommon_req      = '>= 0.2.0'
 sysprof_req        = '>= 3.38.0'
 vulkan_req         = '>= 1.3'
+gstreamer_req      = '>= 1.24.0'
 
 fs = import('fs')
 gnome = import('gnome')
@@ -58,6 +59,11 @@ gtk_interface_age = gtk_minor_version.is_odd() ? 0 : gtk_micro_version
 add_project_arguments('-DGTK_VERSION="@0@"'.format(meson.project_version()), language: 'c')
 
 add_project_arguments('-D_GNU_SOURCE', language: 'c')
+
+if host_machine.system() == 'windows'
+  add_project_arguments(['-DUNICODE',
+                         '-D_UNICODE'], language: 'c')
+endif
 
 # Use debug/optimization flags to determine whether to enable debug or disable
 # cast checks
@@ -201,6 +207,7 @@ check_functions = [
   'posix_fallocate',
   'sincos',
   'sincosf',
+  'memmem',
 ]
 
 foreach func : check_functions
@@ -208,6 +215,7 @@ foreach func : check_functions
                      args: '-D_GNU_SOURCE',
                      prefix:
                        '#include <stdlib.h>\n' +
+                       '#include <string.h>\n' +
                        '#include <unistd.h>\n' +
                        '#include <sys/mman.h>\n' +
                        '#include <fcntl.h>\n' +
@@ -392,6 +400,7 @@ fribidi_dep    = dependency('fribidi', version: fribidi_req,
                             default_options: ['docs=false'])
 harfbuzz_dep   = dependency('harfbuzz', version: harfbuzz_req,
                             default_options: ['coretext=enabled'])
+hb_subset_dep  = dependency('harfbuzz-subset', version: harfbuzz_req)
 
 # Require PangoFT2 if on X11 or wayland
 pangoft_dep    = dependency('pangoft2', version: pango_req,
@@ -402,21 +411,27 @@ if win32_enabled
   pangowin32_dep = dependency('pangowin32')
 endif
 
-pangocairo_dep = dependency('pangocairo', version: pango_req)
-pixbuf_dep     = dependency('gdk-pixbuf-2.0', version: gdk_pixbuf_req,
-                            default_options: ['png=enabled', 'jpeg=enabled', 'builtin_loaders=png,jpeg', 'man=false'])
-png_dep        = dependency('libpng', 'png')
-tiff_dep       = dependency('libtiff-4', 'tiff')
-jpeg_dep       = dependency('libjpeg', 'jpeg')
+pangocairo_dep    = dependency('pangocairo', version: pango_req)
+pixbuf_dep        = dependency('gdk-pixbuf-2.0', version: gdk_pixbuf_req,
+                               default_options: ['png=enabled', 'jpeg=enabled', 'builtin_loaders=png,jpeg', 'man=false'])
+png_dep           = dependency('libpng', 'png')
+tiff_dep          = dependency('libtiff-4', 'tiff')
+jpeg_dep          = dependency('libjpeg', 'jpeg')
 
-epoxy_dep      = dependency('epoxy', version: epoxy_req)
-xkbdep         = dependency('xkbcommon', version: xkbcommon_req, required: wayland_enabled)
-graphene_dep   = dependency('graphene-gobject-1.0', version: graphene_req,
-                            default_options: ['tests=false', 'gobject_types=true'])
-iso_codes_dep  = dependency('iso-codes', required: false)
-gi_dep         = dependency('gobject-introspection-1.0', version: introspection_req,
-                            required: get_option('introspection').enabled() and
-                                      get_option('build-tests'))
+epoxy_dep         = dependency('epoxy', version: epoxy_req)
+xkbdep            = dependency('xkbcommon', version: xkbcommon_req, required: wayland_enabled)
+graphene_dep      = dependency('graphene-gobject-1.0', version: graphene_req,
+                               default_options: ['tests=false', 'gobject_types=true'])
+iso_codes_dep     = dependency('iso-codes', required: false)
+gi_dep            = dependency('gobject-introspection-1.0', version: introspection_req,
+                               required: get_option('introspection').enabled() and
+                                         get_option('build-tests'))
+gstplayer_dep     = dependency('gstreamer-player-1.0', version: gstreamer_req,
+                               required: get_option('media-gstreamer'))
+gstgl_dep         = dependency('gstreamer-gl-1.0', version: gstreamer_req,
+                               required: get_option('media-gstreamer'))
+gstallocators_dep = dependency('gstreamer-allocators-1.0', version: gstreamer_req,
+                               required: get_option('media-gstreamer'))
 
 fontconfig_dep = [] # only used in x11 backend
 
@@ -618,7 +633,7 @@ vulkan_dep = dependency('vulkan',
                         version: vulkan_req,
                         required: vulkan_enabled)
 glslc = find_program('glslc', required: vulkan_enabled)
-if vulkan_dep.found()
+if vulkan_dep.found() and glslc.found()
   have_vulkan = true
   vulkan_pkg_found = vulkan_dep.type_name() == 'pkgconfig'
 else

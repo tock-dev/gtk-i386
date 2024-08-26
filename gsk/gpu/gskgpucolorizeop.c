@@ -23,7 +23,7 @@ gsk_gpu_colorize_op_print_instance (GskGpuShaderOp *shader,
   GskGpuColorizeInstance *instance = (GskGpuColorizeInstance *) instance_;
 
   gsk_gpu_print_rect (string, instance->rect);
-  gsk_gpu_print_image_descriptor (string, shader->desc, instance->tex_id);
+  gsk_gpu_print_image (string, shader->images[0]);
   gsk_gpu_print_rgba (string, instance->color);
 }
 
@@ -39,6 +39,7 @@ static const GskGpuShaderOpClass GSK_GPU_COLORIZE_OP_CLASS = {
     gsk_gpu_shader_op_gl_command
   },
   "gskgpucolorize",
+  gsk_gpu_colorize_n_textures,
   sizeof (GskGpuColorizeInstance),
 #ifdef GDK_RENDERING_VULKAN
   &gsk_gpu_colorize_info,
@@ -49,26 +50,29 @@ static const GskGpuShaderOpClass GSK_GPU_COLORIZE_OP_CLASS = {
 };
 
 void
-gsk_gpu_colorize_op (GskGpuFrame            *frame,
-                     GskGpuShaderClip        clip,
-                     GskGpuDescriptors      *descriptors,
-                     guint32                 descriptor,
-                     const graphene_rect_t  *rect,
-                     const graphene_point_t *offset,
-                     const graphene_rect_t  *tex_rect,
-                     const GdkRGBA          *color)
+gsk_gpu_colorize_op (GskGpuFrame             *frame,
+                     GskGpuShaderClip         clip,
+                     GdkColorState           *ccs,
+                     float                    opacity,
+                     const graphene_point_t  *offset,
+                     const GskGpuShaderImage *image,
+                     const GdkColor          *color)
 {
   GskGpuColorizeInstance *instance;
+  GdkColorState *alt;
+
+  alt = gsk_gpu_color_states_find (ccs, color);
 
   gsk_gpu_shader_op_alloc (frame,
                            &GSK_GPU_COLORIZE_OP_CLASS,
+                           gsk_gpu_color_states_create (ccs, TRUE, alt, FALSE),
                            0,
                            clip,
-                           descriptors,
+                           (GskGpuImage *[1]) { image->image },
+                           (GskGpuSampler[1]) { image->sampler },
                            &instance);
 
-  gsk_gpu_rect_to_float (rect, offset, instance->rect);
-  gsk_gpu_rect_to_float (tex_rect, offset, instance->tex_rect);
-  instance->tex_id = descriptor;
-  gsk_gpu_rgba_to_float (color, instance->color);
+  gsk_gpu_rect_to_float (image->coverage ? image->coverage : image->bounds, offset, instance->rect);
+  gsk_gpu_rect_to_float (image->bounds, offset, instance->tex_rect);
+  gsk_gpu_color_to_float (color, alt, opacity, instance->color);
 }

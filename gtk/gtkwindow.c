@@ -123,6 +123,28 @@
  * setting a child as the titlebar by specifying “titlebar” as the “type”
  * attribute of a `<child>` element.
  *
+ * # Shortcuts and Gestures
+ *
+ * `GtkWindow` supports the following keyboard shortcuts:
+ *
+ * - <kbd>F10</kbd> activates the menubar, if present.
+ * - <kbd>Alt</kbd> makes the mnemonics visible while pressed.
+ *
+ * The following signals have default keybindings:
+ *
+ * - [signal@Gtk.Window::activate-default]
+ * - [signal@Gtk.Window::activate-focus]
+ * - [signal@Gtk.Window::enable-debugging]
+ *
+ * # Actions
+ *
+ * `GtkWindow` defines a set of built-in actions:
+ *
+ * - `default.activate` activates the default widget.
+ * - `window.minimize` minimizes the window.
+ * - `window.toggle-maximized` maximizes or restores the window.
+ * - `window.close` closes the window.
+ *
  * # CSS nodes
  *
  * ```
@@ -158,14 +180,6 @@
  * Until GTK 4.10, `GtkWindow` used the `GTK_ACCESSIBLE_ROLE_WINDOW` role.
  *
  * Since GTK 4.12, `GtkWindow` uses the `GTK_ACCESSIBLE_ROLE_APPLICATION` role.
- *
- * # Actions
- *
- * `GtkWindow` defines a set of built-in actions:
- * - `default.activate`: Activate the default widget.
- * - `window.minimize`: Minimize the window.
- * - `window.toggle-maximized`: Maximize or restore the window.
- * - `window.close`: Close the window.
  */
 
 #define MENU_BAR_ACCEL GDK_KEY_F10
@@ -456,8 +470,6 @@ static void gtk_window_activate_close (GtkWidget  *widget,
                                        const char *action_name,
                                        GVariant   *parameter);
 
-static void        gtk_window_css_changed               (GtkWidget      *widget,
-                                                         GtkCssStyleChange *change);
 static void _gtk_window_set_is_active (GtkWindow *window,
 			               gboolean   is_active);
 static void gtk_window_present_toplevel (GtkWindow *window);
@@ -768,7 +780,6 @@ gtk_window_class_init (GtkWindowClass *klass)
   widget_class->focus = gtk_window_focus;
   widget_class->move_focus = gtk_window_move_focus;
   widget_class->measure = gtk_window_measure;
-  widget_class->css_changed = gtk_window_css_changed;
 
   klass->activate_default = gtk_window_real_activate_default;
   klass->activate_focus = gtk_window_real_activate_focus;
@@ -1075,6 +1086,8 @@ gtk_window_class_init (GtkWindowClass *klass)
    * widget of @window.
    *
    * This is a [keybinding signal](class.SignalAction.html).
+   *
+   * The default binding for this signal is <kbd>␣</kbd>.
    */
   window_signals[ACTIVATE_FOCUS] =
     g_signal_new (I_("activate-focus"),
@@ -1094,6 +1107,8 @@ gtk_window_class_init (GtkWindowClass *klass)
    * of @window.
    *
    * This is a [keybinding signal](class.SignalAction.html).
+   *
+   * The keybindings for this signal are all forms of the <kbd>Enter</kbd> key.
    */
   window_signals[ACTIVATE_DEFAULT] =
     g_signal_new (I_("activate-default"),
@@ -1138,8 +1153,9 @@ gtk_window_class_init (GtkWindowClass *klass)
    *
    * This is a [keybinding signal](class.SignalAction.html).
    *
-   * The default bindings for this signal are Ctrl-Shift-I
-   * and Ctrl-Shift-D.
+   * The default bindings for this signal are
+   * <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> and
+   * <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd>.
    *
    * Return: %TRUE if the key binding was handled
    */
@@ -1395,7 +1411,7 @@ constraints_for_edge (GdkSurfaceEdge edge)
 static int
 get_number (GtkCssValue *value)
 {
-  double d = _gtk_css_number_value_get (value, 100);
+  double d = gtk_css_number_value_get (value, 100);
 
   if (d < 1)
     return ceil (d);
@@ -4027,7 +4043,7 @@ get_shadow_width (GtkWindow *window,
   style = gtk_css_node_get_style (gtk_widget_get_css_node (GTK_WIDGET (window)));
 
   /* Calculate the size of the drop shadows ... */
-  gtk_css_shadow_value_get_extents (style->background->box_shadow, shadow_width);
+  gtk_css_shadow_value_get_extents (style->used->box_shadow, shadow_width);
 
   shadow_width->left = MAX (shadow_width->left, RESIZE_HANDLE_SIZE);
   shadow_width->top = MAX (shadow_width->top, RESIZE_HANDLE_SIZE);
@@ -4041,30 +4057,6 @@ out:
 }
 
 static void
-update_opaque_region (GtkWindow *window)
-{
-  GtkWindowPrivate *priv = gtk_window_get_instance_private (window);
-  gboolean subtract_decoration_corners;
-  gboolean subtract_shadow;
-
-  subtract_decoration_corners = (priv->client_decorated &&
-                                 priv->decorated &&
-                                 !priv->fullscreen &&
-                                 !priv->maximized);
-  subtract_shadow = (priv->client_decorated &&
-                     priv->decorated &&
-                     priv->use_client_shadow &&
-                     !priv->maximized &&
-                     !priv->fullscreen);
-
-  gtk_native_update_opaque_region (GTK_NATIVE (window),
-                                   NULL,
-                                   subtract_decoration_corners,
-                                   subtract_shadow,
-                                   RESIZE_HANDLE_SIZE);
-}
-
-static void
 update_realized_window_properties (GtkWindow *window)
 {
   GtkWindowPrivate *priv = gtk_window_get_instance_private (window);
@@ -4072,8 +4064,6 @@ update_realized_window_properties (GtkWindow *window)
   GtkCssBoxes css_boxes;
   const graphene_rect_t *border_rect;
   double native_x, native_y;
-
-  update_opaque_region (window);
 
   if (!priv->client_decorated || !priv->use_client_shadow)
     return;
@@ -4350,17 +4340,6 @@ gtk_window_realize (GtkWidget *widget)
 
   gdk_toplevel_set_decorated (GDK_TOPLEVEL (surface), priv->decorated && !priv->client_decorated);
   gdk_toplevel_set_deletable (GDK_TOPLEVEL (surface), priv->deletable);
-
-#ifdef GDK_WINDOWING_WAYLAND
-  if (GDK_IS_WAYLAND_SURFACE (surface))
-    {
-      if (priv->client_decorated)
-        gdk_wayland_toplevel_announce_csd (GDK_TOPLEVEL (surface));
-      else
-        gdk_wayland_toplevel_announce_ssd (GDK_TOPLEVEL (surface));
-    }
-#endif
-
   gdk_toplevel_set_modal (GDK_TOPLEVEL (surface), priv->modal);
 
   if (priv->startup_id)
@@ -5179,19 +5158,6 @@ gtk_window_set_focus (GtkWindow *window,
     gtk_widget_grab_focus (focus);
   else
     gtk_window_root_set_focus (GTK_ROOT (window), NULL);
-}
-
-static void
-gtk_window_css_changed (GtkWidget         *widget,
-                        GtkCssStyleChange *change)
-{
-  GtkWindow *window = GTK_WINDOW (widget);
-
-  GTK_WIDGET_CLASS (gtk_window_parent_class)->css_changed (widget, change);
-
-  if (!_gtk_widget_get_alloc_needed (widget) &&
-      (change == NULL || gtk_css_style_change_changes_property (change, GTK_CSS_PROPERTY_BACKGROUND_COLOR)))
-    update_opaque_region (window);
 }
 
 /*
@@ -6282,6 +6248,14 @@ G_GNUC_END_IGNORE_DEPRECATIONS
  *
  * The debugger offers access to the widget hierarchy of the application
  * and to useful debugging tools.
+ *
+ * This function allows applications that already use
+ * <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd>
+ * (or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd>)
+ * for their own key shortcuts to add a different shortcut to open the Inspector.
+ *
+ * If you are not overriding the default key shortcuts for the Inspector,
+ * you should not use this function.
  */
 void
 gtk_window_set_interactive_debugging (gboolean enable)

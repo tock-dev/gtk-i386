@@ -122,6 +122,7 @@ struct _GdkGLContextPrivate
   GdkGLMemoryFlags memory_flags[GDK_MEMORY_N_FORMATS];
 
   GdkGLFeatures features;
+  guint surface_attached : 1;
   guint use_khr_debug : 1;
   guint has_debug_output : 1;
   guint extensions_checked : 1;
@@ -152,6 +153,13 @@ enum {
 
 static GParamSpec *properties[LAST_PROP] = { NULL, };
 
+/**
+ * gdk_gl_error_quark:
+ *
+ * Registers an error quark for [class@Gdk.GLContext] errors.
+ *
+ * Returns: the error quark
+ **/
 G_DEFINE_QUARK (gdk-gl-error-quark, gdk_gl_error)
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (GdkGLContext, gdk_gl_context, GDK_TYPE_DRAW_CONTEXT)
@@ -322,7 +330,7 @@ gdk_gl_context_create_egl_context (GdkGLContext *context,
   if (display->have_egl_no_config_context)
     egl_config = NULL;
   else
-    egl_config = gdk_display_get_egl_config (display);
+    egl_config = gdk_display_get_egl_config (display, GDK_MEMORY_U8);
 
   if (debug_bit)
     flags |= EGL_CONTEXT_OPENGL_DEBUG_BIT_KHR;
@@ -602,24 +610,41 @@ gdk_gl_context_get_scale (GdkGLContext *self)
 }
 
 static void
-gdk_gl_context_real_begin_frame (GdkDrawContext *draw_context,
-                                 GdkMemoryDepth  depth,
-                                 cairo_region_t *region)
+gdk_gl_context_real_begin_frame (GdkDrawContext  *draw_context,
+                                 GdkMemoryDepth   depth,
+                                 cairo_region_t  *region,
+                                 GdkColorState  **out_color_state,
+                                 GdkMemoryDepth  *out_depth)
 {
   GdkGLContext *context = GDK_GL_CONTEXT (draw_context);
   G_GNUC_UNUSED GdkGLContextPrivate *priv = gdk_gl_context_get_instance_private (context);
-  GdkSurface *surface;
+  GdkSurface *surface = gdk_draw_context_get_surface (draw_context);
+  GdkColorState *color_state;
   cairo_region_t *damage;
   double scale;
   int ww, wh;
   int i;
 
-  surface = gdk_draw_context_get_surface (draw_context);
+  color_state = gdk_surface_get_color_state (surface);
   scale = gdk_gl_context_get_scale (context);
+
+  depth = gdk_memory_depth_merge (depth, gdk_color_state_get_depth (color_state));
+
+  g_assert (depth != GDK_MEMORY_U8_SRGB || gdk_color_state_get_no_srgb_tf (color_state) != NULL);
 
 #ifdef HAVE_EGL
   if (priv->egl_context)
-    gdk_surface_ensure_egl_surface (surface, depth != GDK_MEMORY_U8);
+    *out_depth = gdk_surface_ensure_egl_surface (surface, depth);
+  else
+    *out_depth = GDK_MEMORY_U8;
+
+  if (*out_depth == GDK_MEMORY_U8_SRGB)
+    *out_color_state = gdk_color_state_get_no_srgb_tf (color_state);
+  else
+    *out_color_state = color_state;
+#else
+  *out_color_state = gdk_color_state_get_srgb ();
+  *out_depth = GDK_MEMORY_U8;
 #endif
 
   damage = GDK_GL_CONTEXT_GET_CLASS (context)->get_damage (context);
@@ -693,8 +718,8 @@ gdk_gl_context_real_end_frame (GdkDrawContext *draw_context,
           cairo_region_get_rectangle (painted, i, &rect);
           rects[j++] = (int) floor (rect.x * scale);
           rects[j++] = (int) floor ((surface_height - rect.height - rect.y) * scale);
-          rects[j++] = (int) ceil (rect.width * scale);
-          rects[j++] = (int) ceil (rect.height * scale);
+          rects[j++] = (int) ceil ((rect.x + rect.width) * scale) - floor (rect.x * scale);
+          rects[j++] = (int) ceil ((surface_height - rect.y) * scale) - floor ((surface_height - rect.height - rect.y) * scale);
         }
       priv->eglSwapBuffersWithDamage (gdk_display_get_egl_display (display), egl_surface, rects, n_rects);
       g_free (heap_rects);
@@ -805,20 +830,28 @@ gdk_gl_context_init (GdkGLContext *self)
 /* Must have called gdk_display_prepare_gl() before */
 GdkGLContext *
 gdk_gl_context_new (GdkDisplay *display,
-                    GdkSurface *surface)
+                    GdkSurface *surface,
+                    gboolean    surface_attached)
 {
-  GdkGLContext *shared;
+  GdkGLContextPrivate *priv;
+  GdkGLContext *shared, *result;
 
   g_assert (surface == NULL || display == gdk_surface_get_display (surface));
+  g_assert (!surface_attached || surface != NULL);
 
   /* assert gdk_display_prepare_gl() had been called */
   shared = gdk_display_get_gl_context (display);
   g_assert (shared);
 
-  return g_object_new (G_OBJECT_TYPE (shared),
-                       "display", display,
-                       "surface", surface,
-                       NULL);
+  result = g_object_new (G_OBJECT_TYPE (shared),
+                         "display", display,
+                         "surface", surface,
+                         NULL);
+
+  priv = gdk_gl_context_get_instance_private (result);
+  priv->surface_attached = surface_attached;
+
+  return result;
 }
 
 void
@@ -1295,31 +1328,28 @@ gdk_gl_context_is_api_allowed (GdkGLContext  *self,
                                GError       **error)
 {
   GdkGLContextPrivate *priv = gdk_gl_context_get_instance_private (self);
-  GdkDebugFlags flags;
   GdkGLAPI allowed_apis;
 
   allowed_apis = priv->allowed_apis;
 
-  flags = gdk_display_get_debug_flags (gdk_gl_context_get_display (self));
-
-  if (flags & GDK_DEBUG_GL_DISABLE_GLES)
+  if (!gdk_has_feature (GDK_FEATURE_GLES_API))
     {
       if (api == GDK_GL_API_GLES)
         {
           g_set_error_literal (error, GDK_GL_ERROR, GDK_GL_ERROR_NOT_AVAILABLE,
-                               _("OpenGL ES disabled via GDK_DEBUG"));
+                               _("OpenGL ES API disabled via GDK_DISABLE"));
           return FALSE;
         }
 
       allowed_apis &= ~GDK_GL_API_GLES;
     }
 
-  if (flags & GDK_DEBUG_GL_DISABLE_GL)
+  if (!gdk_has_feature (GDK_FEATURE_GL_API))
     {
       if (api == GDK_GL_API_GL)
         {
           g_set_error_literal (error, GDK_GL_ERROR, GDK_GL_ERROR_NOT_AVAILABLE,
-                               _("OpenGL disabled via GDK_DEBUG"));
+                               _("OpenGL API disabled via GDK_DISABLE"));
           return FALSE;
         }
 
@@ -1746,8 +1776,10 @@ gdk_gl_context_check_extensions (GdkGLContext *context)
 
   supported_features = gdk_gl_context_check_features (context);
   disabled_features = gdk_parse_debug_var ("GDK_GL_DISABLE",
-                                           gdk_gl_feature_keys,
-                                           G_N_ELEMENTS (gdk_gl_feature_keys));
+      "GDK_GL_DISABLE can be set to values which cause GDK to disable\n"
+      "certain OpenGL extensions.\n",
+      gdk_gl_feature_keys,
+      G_N_ELEMENTS (gdk_gl_feature_keys));
 
   priv->features = supported_features & ~disabled_features;
 
@@ -1801,12 +1833,22 @@ gdk_gl_context_check_is_current (GdkGLContext *context)
 void
 gdk_gl_context_make_current (GdkGLContext *context)
 {
+  GdkGLContextPrivate *priv = gdk_gl_context_get_instance_private (context);
   MaskedContext *current, *masked_context;
   gboolean surfaceless;
 
   g_return_if_fail (GDK_IS_GL_CONTEXT (context));
 
-  surfaceless = !gdk_draw_context_is_in_frame (GDK_DRAW_CONTEXT (context));
+  if (priv->surface_attached)
+    {
+      surfaceless = FALSE;
+    }
+  else
+    {
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+      surfaceless = !gdk_draw_context_is_in_frame (GDK_DRAW_CONTEXT (context));
+G_GNUC_END_IGNORE_DEPRECATIONS
+    }
   masked_context = mask_context (context, surfaceless);
 
   current = g_private_get (&thread_current_context);
@@ -1954,8 +1996,6 @@ gdk_gl_context_get_glsl_version_string (GdkGLContext *self)
         return "#version 320 es";
       else if (gdk_gl_version_greater_equal (&priv->gl_version, &GDK_GL_VERSION_INIT (3, 1)))
         return "#version 310 es";
-      else if (gdk_gl_version_greater_equal (&priv->gl_version, &GDK_GL_VERSION_INIT (3, 0)))
-        return "#version 300 es";
       else if (gdk_gl_version_greater_equal (&priv->gl_version, &GDK_GL_VERSION_INIT (3, 0)))
         return "#version 300 es";
       else
@@ -2113,17 +2153,30 @@ gboolean
 gdk_gl_backend_can_be_used (GdkGLBackend   backend_type,
                             GError       **error)
 {
-  if (the_gl_backend_type == GDK_GL_NONE ||
-      the_gl_backend_type == backend_type)
-    return TRUE;
+  if (the_gl_backend_type != GDK_GL_NONE &&
+      the_gl_backend_type != backend_type)
+    {
+      g_set_error (error, GDK_GL_ERROR, GDK_GL_ERROR_NOT_AVAILABLE,
+                   /* translators: This is about OpenGL backend names, like
+                    * "Trying to use X11 GLX, but EGL is already in use"
+                    */
+                   _("Trying to use %s, but %s is already in use"),
+                   gl_backend_names[backend_type],
+                   gl_backend_names[the_gl_backend_type]);
+      return FALSE;
+    }
 
-  g_set_error (error, GDK_GL_ERROR, GDK_GL_ERROR_NOT_AVAILABLE,
-               /* translators: This is about OpenGL backend names, like
-                * "Trying to use X11 GLX, but EGL is already in use" */
-               _("Trying to use %s, but %s is already in use"),
-               gl_backend_names[backend_type],
-               gl_backend_names[the_gl_backend_type]);
-  return FALSE;
+  if ((backend_type == GDK_GL_EGL && !gdk_has_feature (GDK_FEATURE_EGL)) ||
+      (backend_type == GDK_GL_GLX && !gdk_has_feature (GDK_FEATURE_GLX)) ||
+      (backend_type == GDK_GL_WGL && !gdk_has_feature (GDK_FEATURE_WGL)))
+    {
+      g_set_error (error, GDK_GL_ERROR, GDK_GL_ERROR_NOT_AVAILABLE,
+                   _("Trying to use %s, but it is disabled via GDK_DISABLE"),
+                   gl_backend_names[backend_type]);
+      return FALSE;
+    }
+
+  return TRUE;
 }
 
 /*<private>
@@ -2198,12 +2251,78 @@ gdk_gl_context_import_dmabuf (GdkGLContext    *self,
 
   gdk_display_init_dmabuf (display);
 
-  if (!gdk_dmabuf_formats_contains (display->egl_external_formats, dmabuf->fourcc, dmabuf->modifier))
+  if (gdk_dmabuf_formats_contains (display->egl_dmabuf_formats, dmabuf->fourcc, dmabuf->modifier))
     {
+      /* This is the path for modern drivers that support modifiers */
+
+      if (!gdk_dmabuf_formats_contains (display->egl_external_formats, dmabuf->fourcc, dmabuf->modifier))
+        {
+          texture_id = gdk_gl_context_import_dmabuf_for_target (self,
+                                                                width, height,
+                                                                dmabuf,
+                                                                GL_TEXTURE_2D);
+          if (texture_id == 0)
+            {
+              GDK_DISPLAY_DEBUG (display, DMABUF,
+                                 "Import of %dx%d %.4s:%#" G_GINT64_MODIFIER "x dmabuf failed",
+                                 width, height,
+                                 (char *) &dmabuf->fourcc, dmabuf->modifier);
+              return 0;
+            }
+
+          GDK_DISPLAY_DEBUG (display, DMABUF,
+                             "Imported %dx%d %.4s:%#" G_GINT64_MODIFIER "x dmabuf as GL_TEXTURE_2D texture",
+                             width, height,
+                             (char *) &dmabuf->fourcc, dmabuf->modifier);
+          *external = FALSE;
+          return texture_id;
+        }
+
+      if (!gdk_gl_context_get_use_es (self))
+        {
+          GDK_DISPLAY_DEBUG (display, DMABUF,
+                             "Can't import external_only %.4s:%#" G_GINT64_MODIFIER "x outside of GLES",
+                             (char *) &dmabuf->fourcc, dmabuf->modifier);
+          return 0;
+        }
+
       texture_id = gdk_gl_context_import_dmabuf_for_target (self,
                                                             width, height,
                                                             dmabuf,
-                                                            GL_TEXTURE_2D);
+                                                            GL_TEXTURE_EXTERNAL_OES);
+      if (texture_id == 0)
+        {
+          GDK_DISPLAY_DEBUG (display, DMABUF,
+                             "Import of external_only %dx%d %.4s:%#" G_GINT64_MODIFIER "x dmabuf failed",
+                             width, height,
+                             (char *) &dmabuf->fourcc, dmabuf->modifier);
+          return 0;
+        }
+
+      GDK_DISPLAY_DEBUG (display, DMABUF,
+                         "Imported %dx%d %.4s:%#" G_GINT64_MODIFIER "x dmabuf as GL_TEXTURE_EXTERNAL_OES texture",
+                         width, height,
+                         (char *) &dmabuf->fourcc, dmabuf->modifier);
+      *external = TRUE;
+      return texture_id;
+    }
+  else
+    {
+      /* This is the opportunistic path.
+       * We hit it both for drivers that do not support modifiers as well as for dmabufs
+       * that the driver did not explicitly advertise. */
+      int target;
+
+      if (gdk_gl_context_get_use_es (self))
+        target = GL_TEXTURE_EXTERNAL_OES;
+      else
+        target = GL_TEXTURE_2D;
+
+      texture_id = gdk_gl_context_import_dmabuf_for_target (self,
+                                                            width, height,
+                                                            dmabuf,
+                                                            target);
+
       if (texture_id == 0)
         {
           GDK_DISPLAY_DEBUG (display, DMABUF,
@@ -2214,40 +2333,13 @@ gdk_gl_context_import_dmabuf (GdkGLContext    *self,
         }
 
       GDK_DISPLAY_DEBUG (display, DMABUF,
-                         "Imported %dx%d %.4s:%#" G_GINT64_MODIFIER "x dmabuf as GL_TEXTURE_2D texture",
+                         "Imported %dx%d %.4s:%#" G_GINT64_MODIFIER "x dmabuf as %s texture",
                          width, height,
-                         (char *) &dmabuf->fourcc, dmabuf->modifier);
-      *external = FALSE;
+                         (char *) &dmabuf->fourcc, dmabuf->modifier,
+                         target == GL_TEXTURE_EXTERNAL_OES ? "GL_TEXTURE_EXTERNAL_OES" : "GL_TEXTURE_2D");
+      *external = target == GL_TEXTURE_EXTERNAL_OES;
       return texture_id;
     }
-
-  if (!gdk_gl_context_get_use_es (self))
-    {
-      GDK_DISPLAY_DEBUG (display, DMABUF,
-                         "Can't import external_only %.4s:%#" G_GINT64_MODIFIER "x outside of GLES",
-                         (char *) &dmabuf->fourcc, dmabuf->modifier);
-      return 0;
-    }
-
-  texture_id = gdk_gl_context_import_dmabuf_for_target (self,
-                                                        width, height,
-                                                        dmabuf,
-                                                        GL_TEXTURE_EXTERNAL_OES);
-  if (texture_id == 0)
-    {
-      GDK_DISPLAY_DEBUG (display, DMABUF,
-                         "Import of external_only %dx%d %.4s:%#" G_GINT64_MODIFIER "x dmabuf failed",
-                         width, height,
-                         (char *) &dmabuf->fourcc, dmabuf->modifier);
-      return 0;
-    }
-
-  GDK_DISPLAY_DEBUG (display, DMABUF,
-                     "Imported %dx%d %.4s:%#" G_GINT64_MODIFIER "x dmabuf as GL_TEXTURE_EXTERNAL_OES texture",
-                     width, height,
-                     (char *) &dmabuf->fourcc, dmabuf->modifier);
-  *external = TRUE;
-  return texture_id;
 }
 
 gboolean

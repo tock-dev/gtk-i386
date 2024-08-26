@@ -480,7 +480,7 @@ register_display_change_notification (GdkDisplay *display)
   WNDCLASS wclass = { 0, };
   ATOM klass;
 
-  wclass.lpszClassName = "GdkDisplayChange";
+  wclass.lpszClassName = L"GdkDisplayChange";
   wclass.lpfnWndProc = display_change_window_procedure;
   wclass.hInstance = this_module ();
   wclass.style = CS_OWNDC;
@@ -606,7 +606,7 @@ gdk_win32_display_get_name (GdkDisplay *display)
 	window_station_name = "WinSta0";
     }
 
-  processIdToSessionId = (PFN_ProcessIdToSessionId) GetProcAddress (GetModuleHandle ("kernel32.dll"), "ProcessIdToSessionId");
+  processIdToSessionId = (PFN_ProcessIdToSessionId) GetProcAddress (GetModuleHandle (L"kernel32.dll"), "ProcessIdToSessionId");
   if (!processIdToSessionId || !processIdToSessionId (GetCurrentProcessId (), &session_id))
     session_id = 0;
 
@@ -1202,7 +1202,7 @@ gdk_win32_display_init_gl (GdkDisplay  *display,
    * Disable defaulting to EGL as EGL is used more as a compatibility layer
    * on Windows rather than being a native citizen on Windows
    */
-  if (gdk_display_get_debug_flags (display) & (GDK_DEBUG_GL_EGL|GDK_DEBUG_GL_DISABLE_GL))
+  if (!gdk_has_feature (GDK_FEATURE_WGL) || !gdk_has_feature (GDK_FEATURE_GL_API))
     {
       init_gl_hdc = GetDC (display_win32->hwnd);
 

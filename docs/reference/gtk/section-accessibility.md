@@ -155,6 +155,7 @@ Each property name is part of the `GtkAccessibleProperty` enumeration.
 | %GTK_ACCESSIBLE_PROPERTY_VALUE_MIN | “aria-valuemin” | double |
 | %GTK_ACCESSIBLE_PROPERTY_VALUE_NOW | “aria-valuenow” | double |
 | %GTK_ACCESSIBLE_PROPERTY_VALUE_TEXT | “aria-valuetext” | translatable string |
+| %GTK_ACCESSIBLE_PROPERTY_HELP_TEXT | N/A | translatable string |
 
 #### List of accessible relations
 
@@ -215,6 +216,10 @@ Application developers using GTK **should** ensure that their UI controls
 are accessible as part of the development process. The GTK Inspector shows
 the accessible attributes of each widget, and also provides an overlay that
 can highlight accessibility issues.
+
+If you support some non-standard keyboard interactions for a widget, you
+**should** set an appropriate `GTK_ACCESSIBLE_PROPERTY_HELP_TEXT` to help
+discoverability of the behavior.
 
 It is possible to set accessible attributes in UI files as well:
 ```xml
@@ -295,7 +300,7 @@ The attributes can also enhance the UI:
 
 ```c
 gtk_button_set_label (GTK_BUTTON (button), "Download");
-gtk_box_append (GTK_BOX (button), button);
+gtk_box_append (GTK_BOX (box), button);
 
 gtk_label_set_text (GTK_LABEL (label), "Final report.pdf");
 gtk_box_append (GTK_BOX (box), label);

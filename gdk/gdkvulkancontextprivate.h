@@ -65,7 +65,7 @@ gdk_vulkan_handle_result (VkResult    res,
 {
   if (res != VK_SUCCESS)
     {
-      GDK_DEBUG (VULKAN, "%s(): %s (%d)", called_function, gdk_vulkan_strerror (res), res);
+      g_warning ("%s(): %s (%d)", called_function, gdk_vulkan_strerror (res), res);
     }
 
   return res;
@@ -94,14 +94,14 @@ VkDevice                gdk_vulkan_context_get_device                   (GdkVulk
 VkQueue                 gdk_vulkan_context_get_queue                    (GdkVulkanContext      *context);
 uint32_t                gdk_vulkan_context_get_queue_family_index       (GdkVulkanContext      *context);
 VkFormat                gdk_vulkan_context_get_image_format             (GdkVulkanContext      *context);
+GdkMemoryFormat         gdk_vulkan_context_get_memory_format            (GdkVulkanContext      *context);
 uint32_t                gdk_vulkan_context_get_n_images                 (GdkVulkanContext      *context);
 VkImage                 gdk_vulkan_context_get_image                    (GdkVulkanContext      *context,
                                                                          guint                  id);
 uint32_t                gdk_vulkan_context_get_draw_index               (GdkVulkanContext      *context);
-VkSemaphore             gdk_vulkan_context_get_draw_semaphore           (GdkVulkanContext      *context);
 
-GdkMemoryFormat         gdk_vulkan_context_get_offscreen_format         (GdkVulkanContext      *context,
-                                                                         GdkMemoryDepth         depth);
+void                    gdk_vulkan_context_set_draw_semaphore           (GdkVulkanContext      *context,
+                                                                         VkSemaphore            semaphore);
 
 #else /* !GDK_RENDERING_VULKAN */
 

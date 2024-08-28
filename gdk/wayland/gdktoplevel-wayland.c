@@ -885,6 +885,10 @@ gdk_wayland_surface_create_xdg_toplevel (GdkWaylandToplevel *wayland_toplevel)
   if (!maybe_set_xdg_dialog_modal (wayland_toplevel))
     maybe_set_gtk_surface_modal (wayland_toplevel);
 
+  gdk_wayland_toplevel_set_geometry_hints (wayland_toplevel,
+                                           &wayland_toplevel->geometry_hints,
+                                           wayland_toplevel->geometry_mask);
+
   gdk_profiler_add_mark (GDK_PROFILER_CURRENT_TIME, 0, "Wayland surface commit", NULL);
   wl_surface_commit (wayland_surface->display_server.wl_surface);
 }

@@ -1310,6 +1310,7 @@ add_wayland_protocols (GdkDisplay          *display,
       append_wayland_protocol_row (gen, (struct wl_proxy *)d->system_bell);
       append_wayland_protocol_row (gen, (struct wl_proxy *)d->cursor_shape);
       append_wayland_protocol_row (gen, (struct wl_proxy *)d->toplevel_icon);
+      append_wayland_protocol_row (gen, (struct wl_proxy *)d->xx_session_manager);
     }
 }
 
@@ -1352,6 +1353,7 @@ dump_wayland_protocols (GdkDisplay *display,
       append_wayland_protocol (string, (struct wl_proxy *)d->system_bell, &count);
       append_wayland_protocol (string, (struct wl_proxy *)d->cursor_shape, &count);
       append_wayland_protocol (string, (struct wl_proxy *)d->toplevel_icon, &count);
+      append_wayland_protocol (string, (struct wl_proxy *)d->xx_session_manager, &count);
 
       g_string_append (string, " |\n");
     }

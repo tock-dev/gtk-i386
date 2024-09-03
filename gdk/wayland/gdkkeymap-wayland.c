@@ -104,13 +104,6 @@ gdk_wayland_keymap_have_bidi_layouts (GdkKeymap *keymap)
 }
 
 static gboolean
-gdk_wayland_keymap_get_caps_lock_state (GdkKeymap *keymap)
-{
-  return xkb_state_led_name_is_active (GDK_WAYLAND_KEYMAP (keymap)->xkb_state,
-                                       XKB_LED_NAME_CAPS);
-}
-
-static gboolean
 gdk_wayland_keymap_get_num_lock_state (GdkKeymap *keymap)
 {
   return xkb_state_led_name_is_active (GDK_WAYLAND_KEYMAP (keymap)->xkb_state,
@@ -118,10 +111,31 @@ gdk_wayland_keymap_get_num_lock_state (GdkKeymap *keymap)
 }
 
 static gboolean
+gdk_wayland_keymap_get_caps_lock_state (GdkKeymap *keymap)
+{
+  return xkb_state_led_name_is_active (GDK_WAYLAND_KEYMAP (keymap)->xkb_state,
+                                       XKB_LED_NAME_CAPS);
+}
+
+static gboolean
 gdk_wayland_keymap_get_scroll_lock_state (GdkKeymap *keymap)
 {
   return xkb_state_led_name_is_active (GDK_WAYLAND_KEYMAP (keymap)->xkb_state,
                                        XKB_LED_NAME_SCROLL);
+}
+
+static gboolean
+gdk_wayland_keymap_get_compose_state (GdkKeymap *keymap)
+{
+  return xkb_state_led_name_is_active (GDK_WAYLAND_KEYMAP (keymap)->xkb_state,
+                                       XKB_LED_NAME_COMPOSE);
+}
+
+static gboolean
+gdk_wayland_keymap_get_kana_state (GdkKeymap *keymap)
+{
+  return xkb_state_led_name_is_active (GDK_WAYLAND_KEYMAP (keymap)->xkb_state,
+                                       XKB_LED_NAME_KANA);
 }
 
 static gboolean
@@ -374,9 +388,11 @@ _gdk_wayland_keymap_class_init (GdkWaylandKeymapClass *klass)
 
   keymap_class->get_direction = gdk_wayland_keymap_get_direction;
   keymap_class->have_bidi_layouts = gdk_wayland_keymap_have_bidi_layouts;
-  keymap_class->get_caps_lock_state = gdk_wayland_keymap_get_caps_lock_state;
   keymap_class->get_num_lock_state = gdk_wayland_keymap_get_num_lock_state;
+  keymap_class->get_caps_lock_state = gdk_wayland_keymap_get_caps_lock_state;
   keymap_class->get_scroll_lock_state = gdk_wayland_keymap_get_scroll_lock_state;
+  keymap_class->get_compose_state = gdk_wayland_keymap_get_compose_state;
+  keymap_class->get_kana_state = gdk_wayland_keymap_get_kana_state;
   keymap_class->get_entries_for_keyval = gdk_wayland_keymap_get_entries_for_keyval;
   keymap_class->get_entries_for_keycode = gdk_wayland_keymap_get_entries_for_keycode;
   keymap_class->lookup_key = gdk_wayland_keymap_lookup_key;

@@ -63,6 +63,7 @@ gdk_public_sources = files([
   'gdkvulkancontext.c',
   'gdksubsurface.c',
   'gdksurface.c',
+  'gdksurfacecssnode.c',
   'gdkpopuplayout.c',
   'gdkprofiler.c',
   'gdkpopup.c',
@@ -141,6 +142,7 @@ gdk_private_h_sources = files([
   'gdkhslaprivate.h',
   'gdkmonitorprivate.h',
   'gdkseatdefaultprivate.h',
+  'gdksurfacecssnodeprivate.h',
   'gdktoplevelsizeprivate.h',
 ])
 

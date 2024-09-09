@@ -1,6 +1,9 @@
 #include "config.h"
 
+#ifndef GSK_UNITY_BUILD
 #include "gskresources.h"
+#endif
+
 #include "gskprivate.h"
 
 #include <cairo.h>

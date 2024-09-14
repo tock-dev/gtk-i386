@@ -26,7 +26,9 @@
 
 #include "version/gdkversionmacros.h"
 
+#ifndef GDK_UNITY_BUILD
 #include "gdkresources.h"
+#endif
 
 #include "gdkconstructorprivate.h"
 #include "gdkdebugprivate.h"

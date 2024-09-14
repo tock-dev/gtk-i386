@@ -46,9 +46,12 @@ GType        gsk_gl_renderer_get_type (void) G_GNUC_CONST;
 GSK_INCLUDE_WARNING(GDK_AVAILABLE_IN_4_2)
 GskRenderer *gsk_gl_renderer_new      (void);
 
+#ifndef GSK_UNITY_BUILD
 GSK_INCLUDE_WARNING(GDK_AVAILABLE_IN_ALL)
 GType        gsk_ngl_renderer_get_type (void) G_GNUC_CONST;
 GSK_INCLUDE_WARNING(GDK_AVAILABLE_IN_ALL)
 GskRenderer *gsk_ngl_renderer_new      (void);
+#endif
+
 G_END_DECLS
 

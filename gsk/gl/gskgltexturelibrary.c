@@ -35,12 +35,12 @@
 G_DEFINE_ABSTRACT_TYPE (GskGLTextureLibrary, gsk_gl_texture_library, G_TYPE_OBJECT)
 
 enum {
-  PROP_0,
-  PROP_DRIVER,
-  N_PROPS
+  GDK_GL_TEXTURE_LIBRARY_PROP_0,
+  GDK_GL_TEXTURE_LIBRARY_PROP_DRIVER,
+  GDK_GL_TEXTURE_LIBRARY_N_PROPS
 };
 
-static GParamSpec *properties [N_PROPS];
+static GParamSpec *gdk_gl_texture_library_properties [GDK_GL_TEXTURE_LIBRARY_N_PROPS];
 
 static void
 gsk_gl_texture_atlas_free (GskGLTextureAtlas *atlas)
@@ -216,7 +216,7 @@ gsk_gl_texture_library_get_property (GObject    *object,
 
   switch (prop_id)
     {
-    case PROP_DRIVER:
+    case GDK_GL_TEXTURE_LIBRARY_PROP_DRIVER:
       g_value_set_object (value, self->driver);
       break;
 
@@ -235,7 +235,7 @@ gsk_gl_texture_library_set_property (GObject      *object,
 
   switch (prop_id)
     {
-    case PROP_DRIVER:
+    case GDK_GL_TEXTURE_LIBRARY_PROP_DRIVER:
       self->driver = g_value_dup_object (value);
       break;
 
@@ -257,12 +257,12 @@ gsk_gl_texture_library_class_init (GskGLTextureLibraryClass *klass)
   klass->compact = gsk_gl_texture_library_real_compact;
   klass->allocate = gsk_gl_texture_library_real_allocate;
 
-  properties [PROP_DRIVER] =
+  gdk_gl_texture_library_properties [GDK_GL_TEXTURE_LIBRARY_PROP_DRIVER] =
     g_param_spec_object ("driver", NULL, NULL,
                          GSK_TYPE_GL_DRIVER,
                          (G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_properties (object_class, N_PROPS, properties);
+  g_object_class_install_properties (object_class, GDK_GL_TEXTURE_LIBRARY_N_PROPS, gdk_gl_texture_library_properties);
 }
 
 static void

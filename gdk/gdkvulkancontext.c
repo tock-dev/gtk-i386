@@ -88,9 +88,9 @@ struct _GdkVulkanContextPrivate {
 };
 
 enum {
-  IMAGES_UPDATED,
+  GDK_VULKAN_CONTEXT_IMAGES_UPDATED,
 
-  LAST_SIGNAL
+  GDK_VULKAN_CONTEXT_LAST_SIGNAL
 };
 
 /**
@@ -102,7 +102,7 @@ enum {
  **/
 G_DEFINE_QUARK (gdk-vulkan-error-quark, gdk_vulkan_error)
 
-static guint signals[LAST_SIGNAL] = { 0 };
+static guint gdk_vulkan_context_signals[GDK_VULKAN_CONTEXT_LAST_SIGNAL] = { 0 };
 
 static void gdk_vulkan_context_initable_init (GInitableIface *iface);
 
@@ -543,7 +543,7 @@ gdk_vulkan_context_check_swapchain (GdkVulkanContext  *context,
       return FALSE;
     }
 
-  g_signal_emit (context, signals[IMAGES_UPDATED], 0);
+  g_signal_emit (context, gdk_vulkan_context_signals[GDK_VULKAN_CONTEXT_IMAGES_UPDATED], 0);
 
   return res == VK_SUCCESS;
 }
@@ -809,7 +809,7 @@ gdk_vulkan_context_class_init (GdkVulkanContextClass *klass)
    * Usually this means that the swapchain had to be recreated,
    * for example in response to a change of the surface size.
    */
-  signals[IMAGES_UPDATED] =
+  gdk_vulkan_context_signals[GDK_VULKAN_CONTEXT_IMAGES_UPDATED] =
     g_signal_new (g_intern_static_string ("images-updated"),
 		  G_OBJECT_CLASS_TYPE (gobject_class),
                   G_SIGNAL_RUN_LAST,
@@ -1890,17 +1890,7 @@ gdk_display_unref_vulkan (GdkDisplay *display)
 
 #ifdef HAVE_DMABUF
 
-/* Hack. We don't include gsk/gsk.h here to avoid a build order problem
- * with the generated header gskenumtypes.h, so we need to hack around
- * a bit to access the gsk api we need.
- */
-
-typedef struct _GskRenderer GskRenderer;
-
-extern GskRenderer *   gsk_vulkan_renderer_new                  (void);
-extern gboolean        gsk_renderer_realize_for_display         (GskRenderer  *renderer,
-                                                                 GdkDisplay   *display,
-                                                                 GError      **error);
+#include "gdkgskrendererprivate.h"
 
 GdkDmabufDownloader *
 gdk_vulkan_get_dmabuf_downloader (GdkDisplay              *display,
@@ -2030,7 +2020,7 @@ gdk_display_get_vk_shader_module (GdkDisplay *self,
 static void
 gdk_vulkan_context_class_init (GdkVulkanContextClass *klass)
 {
-  signals[IMAGES_UPDATED] =
+  gdk_vulkan_context_signals[GDK_VULKAN_CONTEXT_IMAGES_UPDATED] =
     g_signal_new (g_intern_static_string ("images-updated"),
 		  G_OBJECT_CLASS_TYPE (klass),
                   G_SIGNAL_RUN_LAST,

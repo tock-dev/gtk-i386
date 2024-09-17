@@ -1690,6 +1690,7 @@ real_choose_icon (GtkIconTheme       *icon_theme,
   IconTheme *theme = NULL;
   gint i;
   IconInfoKey key;
+  gboolean is_symbolic_preferred = FALSE;
 
   priv = icon_theme->priv;
 
@@ -1729,6 +1730,8 @@ real_choose_icon (GtkIconTheme       *icon_theme,
             for (i = 0; icon_names[i]; i++)
               g_message ("\tlookup name: %s", icon_names[i]));
 
+  is_symbolic_preferred = icon_name_is_symbolic (icon_names[0]);
+
   /* For symbolic icons, do a search in all registered themes first;
    * a theme that inherits them from a parent theme might provide
    * an alternative full-color version, but still expect the symbolic icon
@@ -1740,12 +1743,15 @@ real_choose_icon (GtkIconTheme       *icon_theme,
   for (l = priv->themes; l; l = l->next)
     {
       theme = l->data;
-      for (i = 0; icon_names[i] && icon_name_is_symbolic (icon_names[i]); i++)
+      for (i = 0; icon_names[i]; i++)
         {
-          icon_name = icon_names[i];
-          icon_info = theme_lookup_icon (theme, icon_name, size, scale, allow_svg, use_builtin);
-          if (icon_info)
-            goto out;
+          if (icon_name_is_symbolic (icon_names[i]) == is_symbolic_preferred)
+            {
+              icon_name = icon_names[i];
+              icon_info = theme_lookup_icon (theme, icon_name, size, scale, allow_svg, use_builtin);
+              if (icon_info)
+                goto out;
+            }
         }
     }
 
@@ -1755,10 +1761,13 @@ real_choose_icon (GtkIconTheme       *icon_theme,
 
       for (i = 0; icon_names[i]; i++)
         {
-          icon_name = icon_names[i];
-          icon_info = theme_lookup_icon (theme, icon_name, size, scale, allow_svg, use_builtin);
-          if (icon_info)
-            goto out;
+          if (icon_name_is_symbolic (icon_names[i]) != is_symbolic_preferred)
+            {
+              icon_name = icon_names[i];
+              icon_info = theme_lookup_icon (theme, icon_name, size, scale, allow_svg, use_builtin);
+              if (icon_info)
+                goto out;
+            }
         }
     }
 

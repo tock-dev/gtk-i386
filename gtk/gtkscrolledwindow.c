@@ -1843,6 +1843,17 @@ gtk_scrolled_window_measure (GtkWidget      *widget,
   /*
    * Now add to the requisition any additional space for surrounding scrollbars
    * and the special scrollable border.
+   *
+   * Note that non-overlay scrollbars with automatic policy may lead to the returned min
+   * size being too large.
+   *
+   * The issue here is that we don't know whether we must display scrollbars or not,
+   * at least not until size_allocate. This means we have to pretend they are visible,
+   * even if they are not. The only solution out of this would be to move the
+   * entire size_allocate loop into measure as well.
+   *
+   * The alternative would be to sometimes measure too little which is worse
+   * than measuring too much.
    */
   if (policy_may_be_visible (priv->hscrollbar_policy))
     {
@@ -1856,7 +1867,7 @@ gtk_scrolled_window_measure (GtkWidget      *widget,
           minimum_req = MAX (minimum_req, min_scrollbar_width + sborder.left + sborder.right);
           natural_req = MAX (natural_req, nat_scrollbar_width + sborder.left + sborder.right);
         }
-      else if (!priv->use_indicators && priv->hscrollbar_policy == GTK_POLICY_ALWAYS)
+      else if (!priv->use_indicators)
         {
           int min_scrollbar_height, nat_scrollbar_height;
 
@@ -1881,7 +1892,7 @@ gtk_scrolled_window_measure (GtkWidget      *widget,
           minimum_req = MAX (minimum_req, min_scrollbar_height + sborder.top + sborder.bottom);
           natural_req = MAX (natural_req, nat_scrollbar_height + sborder.top + sborder.bottom);
         }
-      else if (!priv->use_indicators && priv->vscrollbar_policy == GTK_POLICY_ALWAYS)
+      else if (!priv->use_indicators)
         {
           int min_scrollbar_width, nat_scrollbar_width;
 

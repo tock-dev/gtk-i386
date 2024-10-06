@@ -74,7 +74,14 @@
  * ## A GtkApplicationWindow with a menubar
  *
  * The code sample below shows how to set up a `GtkApplicationWindow`
- * with a menu bar defined on the [class@Gtk.Application]:
+ * with a menu bar defined on the [class@Gtk.Application].
+ *
+ * Localization note: Translated strings will be used at
+ * runtime if a translation exists. However, gettext does not have support
+ * for extracting strings from an XML string like this. See
+ * [gettext bug 64481](https://savannah.gnu.org/bugs/?64481) and consider using
+ * `gtk_builder_new_from_resource` to read XML from a separate file instead
+ * if gettext extraction is needed.
  *
  * ```c
  * GtkApplication *app = gtk_application_new ("org.gtk.test", 0);

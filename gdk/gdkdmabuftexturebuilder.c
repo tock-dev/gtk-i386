@@ -25,6 +25,7 @@
 #include "gdkdisplay.h"
 #include "gdkenumtypes.h"
 #include "gdkcolorstate.h"
+#include "gdkcolorvolume.h"
 #include "gdkdmabuftextureprivate.h"
 #include "gdkdmabuftexturebuilderprivate.h"
 
@@ -43,6 +44,7 @@ struct _GdkDmabufTextureBuilder
   GdkDmabuf dmabuf;
 
   GdkColorState *color_state;
+  GdkColorVolume *color_volume;
 
   GdkTexture *update_texture;
   cairo_region_t *update_region;
@@ -128,6 +130,7 @@ enum
   PROP_PREMULTIPLIED,
   PROP_N_PLANES,
   PROP_COLOR_STATE,
+  PROP_COLOR_VOLUME,
   PROP_UPDATE_REGION,
   PROP_UPDATE_TEXTURE,
 
@@ -146,6 +149,7 @@ gdk_dmabuf_texture_builder_dispose (GObject *object)
   g_clear_object (&self->update_texture);
   g_clear_pointer (&self->update_region, cairo_region_destroy);
   g_clear_pointer (&self->color_state, gdk_color_state_unref);
+  g_clear_pointer (&self->color_volume, gdk_color_volume_unref);
 
   G_OBJECT_CLASS (gdk_dmabuf_texture_builder_parent_class)->dispose (object);
 }
@@ -190,6 +194,10 @@ gdk_dmabuf_texture_builder_get_property (GObject    *object,
 
     case PROP_COLOR_STATE:
       g_value_set_boxed (value, self->color_state);
+      break;
+
+    case PROP_COLOR_VOLUME:
+      g_value_set_boxed (value, self->color_volume);
       break;
 
     case PROP_UPDATE_REGION:
@@ -246,6 +254,10 @@ gdk_dmabuf_texture_builder_set_property (GObject      *object,
 
     case PROP_COLOR_STATE:
       gdk_dmabuf_texture_builder_set_color_state (self, g_value_get_boxed (value));
+      break;
+
+    case PROP_COLOR_VOLUME:
+      gdk_dmabuf_texture_builder_set_color_volume (self, g_value_get_boxed (value));
       break;
 
     case PROP_UPDATE_REGION:
@@ -370,6 +382,18 @@ gdk_dmabuf_texture_builder_class_init (GdkDmabufTextureBuilderClass *klass)
   properties[PROP_COLOR_STATE] =
     g_param_spec_boxed ("color-state", NULL, NULL,
                         GDK_TYPE_COLOR_STATE,
+                        G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
+
+  /**
+   * GdkDmabufTextureBuilder:color-volume:
+   *
+   * Color volume for the texture, if known.
+   *
+   * Since: 4.18
+   */
+  properties[PROP_COLOR_VOLUME] =
+    g_param_spec_boxed ("color-volume", NULL, NULL,
+                        GDK_TYPE_COLOR_VOLUME,
                         G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
 
   /**
@@ -917,6 +941,52 @@ gdk_dmabuf_texture_builder_set_color_state (GdkDmabufTextureBuilder *self,
     gdk_color_state_ref (color_state);
 
   g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_COLOR_STATE]);
+}
+
+/**
+ * gdk_dmabuf_texture_builder_get_color_volume:
+ * @self: a `GdkDmabufTextureBuilder`
+ *
+ * Gets the color_volume previously set via gdk_dmabuf_texture_builder_set_color_volume().
+ *
+ * Returns: (transfer none) (nullable): The color volume
+ *
+ * Since: 4.18
+ */
+GdkColorVolume *
+gdk_dmabuf_texture_builder_get_color_volume (GdkDmabufTextureBuilder *self)
+{
+  g_return_val_if_fail (GDK_IS_DMABUF_TEXTURE_BUILDER (self), NULL);
+
+  return self->color_volume;
+}
+
+/**
+ * gdk_dmabuf_texture_builder_set_color_volume:
+ * @self: a `GdkDmabufTextureBuilder`
+ * @color_volume: (nullable): The color volume describing the data
+ *
+ * Sets the color volume describing the data.
+ *
+ * By default, no color volume is used.
+ *
+ * Since: 4.18
+ */
+void
+gdk_dmabuf_texture_builder_set_color_volume (GdkDmabufTextureBuilder *self,
+                                             GdkColorVolume          *color_volume)
+{
+  g_return_if_fail (GDK_IS_DMABUF_TEXTURE_BUILDER (self));
+
+  if (self->color_volume == color_volume)
+    return;
+
+  g_clear_pointer (&self->color_volume, gdk_color_volume_unref);
+  self->color_volume = color_volume;
+  if (color_volume)
+    gdk_color_volume_ref (color_volume);
+
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_COLOR_VOLUME]);
 }
 
 /**

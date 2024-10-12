@@ -28,6 +28,7 @@
 #include <glib/gstdio.h>
 #include <gtk/gtk.h>
 #include "gtk-image-tool.h"
+#include "gdk/gdkcolorvolumeprivate.h"
 
 static const char *
 get_format_name (GdkMemoryFormat format)
@@ -44,12 +45,37 @@ get_format_name (GdkMemoryFormat format)
   return name;
 }
 
+static char *
+format_color_volume (GdkColorVolume *vol)
+{
+  GString *str;
+  int indent;
+
+  if (!vol)
+    return g_strdup ("―");
+
+  indent = strlen (_("Color volume: "));
+
+  str = g_string_new ("");
+
+  g_string_append_printf (str, "r %f %f\n", vol->rx, vol->ry);
+  g_string_append_printf (str, "%.*sg %f %f\n", indent, "", vol->gx, vol->gy);
+  g_string_append_printf (str, "%.*sb %f %f\n", indent, "", vol->bx, vol->by);
+  g_string_append_printf (str, "%.*sw %f %f\n", indent, "", vol->wx, vol->wy);
+  g_string_append_printf (str, "%.*slum  %f - %f\n", indent, "", vol->min_lum, vol->max_lum);
+  g_string_append_printf (str, "%.*scll %f\n", indent, "", vol->max_cll);
+  g_string_append_printf (str, "%.*sfall %f\n", indent, "", vol->max_fall);
+
+  return g_string_free (str, FALSE);
+}
+
 static void
 file_info (const char *filename)
 {
   GdkTexture *texture;
   char *name;
   char *cicp;
+  char *vol;
 
   texture = load_image_file (filename);
 
@@ -65,6 +91,10 @@ file_info (const char *filename)
     g_print ("%s cicp %s\n", _("Color state:"), cicp);
   else
     g_print ("%s %s\n", _("Color state:"), _("unknown"));
+
+  vol = format_color_volume (gdk_texture_get_color_volume (texture));
+  g_print ("%s %s\n", _("Color volume:"), vol);
+  g_free (vol);
 
   g_object_unref (texture);
 }

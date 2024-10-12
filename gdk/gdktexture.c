@@ -53,6 +53,7 @@
 
 #include "gdkcairoprivate.h"
 #include "gdkcolorstateprivate.h"
+#include "gdkcolorvolumeprivate.h"
 #include "gdkmemorytextureprivate.h"
 #include "gdkpaintable.h"
 #include "gdksnapshot.h"
@@ -84,6 +85,7 @@ enum {
   PROP_WIDTH,
   PROP_HEIGHT,
   PROP_COLOR_STATE,
+  PROP_COLOR_VOLUME,
 
   N_PROPS
 };
@@ -303,6 +305,10 @@ gdk_texture_set_property (GObject      *gobject,
       g_assert (self->color_state);
       break;
 
+    case PROP_COLOR_VOLUME:
+      self->color_volume = g_value_dup_boxed (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (gobject, prop_id, pspec);
       break;
@@ -329,6 +335,10 @@ gdk_texture_get_property (GObject    *gobject,
 
     case PROP_COLOR_STATE:
       g_value_set_boxed (value, self->color_state);
+      break;
+
+    case PROP_COLOR_VOLUME:
+      g_value_set_boxed (value, self->color_volume);
       break;
 
     default:
@@ -378,6 +388,7 @@ gdk_texture_finalize (GObject *object)
   GdkTexture *self = GDK_TEXTURE (object);
 
   gdk_color_state_unref (self->color_state);
+  g_clear_pointer (&self->color_volume, gdk_color_volume_unref);
 
   G_OBJECT_CLASS (gdk_texture_parent_class)->finalize (object);
 }
@@ -434,6 +445,21 @@ gdk_texture_class_init (GdkTextureClass *klass)
   properties[PROP_COLOR_STATE] =
     g_param_spec_boxed ("color-state", NULL, NULL,
                         GDK_TYPE_COLOR_STATE,
+                        G_PARAM_READWRITE |
+                        G_PARAM_CONSTRUCT_ONLY |
+                        G_PARAM_STATIC_STRINGS |
+                        G_PARAM_EXPLICIT_NOTIFY);
+
+  /**
+   * GdkTexture:color-volume:
+   *
+   * Color volume for the texture, if known.
+   *
+   * Since: 4.18
+   */
+  properties[PROP_COLOR_VOLUME] =
+    g_param_spec_boxed ("color-volume", NULL, NULL,
+                        GDK_TYPE_COLOR_VOLUME,
                         G_PARAM_READWRITE |
                         G_PARAM_CONSTRUCT_ONLY |
                         G_PARAM_STATIC_STRINGS |
@@ -828,6 +854,24 @@ gdk_texture_get_color_state (GdkTexture *self)
   g_return_val_if_fail (GDK_IS_TEXTURE (self), NULL);
 
   return self->color_state;
+}
+
+/**
+ * gdk_texture_get_color_volume:
+ * @self: a `GdkTexture`
+ *
+ * Returns the color volume associated with the texture, if known.
+ *
+ * Returns: (transfer none) (nullable): Color volume for the `GdkTexture`
+ *
+ * Since: 4.18
+ */
+GdkColorVolume *
+gdk_texture_get_color_volume (GdkTexture *self)
+{
+  g_return_val_if_fail (GDK_IS_TEXTURE (self), NULL);
+
+  return self->color_volume;
 }
 
 void
@@ -1230,4 +1274,3 @@ gdk_texture_save_to_tiff_bytes (GdkTexture *texture)
 
   return gdk_save_tiff (texture);
 }
-

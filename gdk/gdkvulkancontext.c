@@ -673,29 +673,34 @@ gdk_vulkan_context_begin_frame (GdkDrawContext  *draw_context,
       cairo_region_union (priv->regions[i], region);
     }
 
-  while (TRUE)
+  acquire_result = GDK_VK_CHECK (vkAcquireNextImageKHR, gdk_vulkan_context_get_device (context),
+                                                        priv->swapchain,
+                                                        UINT64_MAX,
+                                                        priv->draw_semaphore,
+                                                        VK_NULL_HANDLE,
+                                                        &priv->draw_index);
+
+  if (acquire_result == VK_ERROR_OUT_OF_DATE_KHR ||
+      acquire_result == VK_SUBOPTIMAL_KHR)
     {
-      acquire_result = GDK_VK_CHECK (vkAcquireNextImageKHR, gdk_vulkan_context_get_device (context),
-                                                            priv->swapchain,
-                                                            UINT64_MAX,
-                                                            priv->draw_semaphore,
-                                                            VK_NULL_HANDLE,
-                                                            &priv->draw_index);
-      if ((acquire_result == VK_ERROR_OUT_OF_DATE_KHR) ||
-          (acquire_result == VK_SUBOPTIMAL_KHR))
+      GError *error = NULL;
+
+      GDK_DEBUG (VULKAN, "Recreating the swapchain");
+
+      if (gdk_vulkan_context_check_swapchain (context, &error))
         {
-          GError *error = NULL;
-
-          GDK_DEBUG (VULKAN, "Recreating the swapchain");
-
-          if (gdk_vulkan_context_check_swapchain (context, &error))
-            continue;
-
+          GDK_VK_CHECK (vkAcquireNextImageKHR, gdk_vulkan_context_get_device (context),
+                                               priv->swapchain,
+                                               UINT64_MAX,
+                                               priv->draw_semaphore,
+                                               VK_NULL_HANDLE,
+                                               &priv->draw_index);
+        }
+      else
+        {
           g_warning ("%s", error->message);
           g_error_free (error);
         }
-
-      break;
     }
 
   priv->draw_semaphore = VK_NULL_HANDLE;

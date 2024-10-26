@@ -306,14 +306,32 @@ gtk_inscription_direction_changed (GtkWidget        *widget,
   update_pango_alignment (self);
 }
 
+static PangoLanguage *
+gtk_inscription_get_text_language (GtkInscription *self)
+{
+  gunichar first;
+  GUnicodeScript script;
+
+  first = g_utf8_get_char (self->text);
+  if (!first)
+    return NULL;
+
+  script = g_unichar_get_script (first);
+
+  return pango_script_get_sample_language ((PangoScript) script);
+}
+
 static PangoFontMetrics *
 gtk_inscription_get_font_metrics (GtkInscription *self)
 {
   PangoContext *context;
+  PangoLanguage *language;
 
   context = gtk_widget_get_pango_context (GTK_WIDGET (self));
 
-  return pango_context_get_metrics (context, NULL, NULL);
+  language = gtk_inscription_get_text_language (self);
+
+  return pango_context_get_metrics (context, NULL, language);
 }
 
 static int

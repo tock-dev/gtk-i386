@@ -226,6 +226,7 @@ enum
   PROP_MODEL,
   PROP_REORDERABLE,
   PROP_ROW_FACTORY,
+  PROP_SHOW_HEADER,
   PROP_SHOW_ROW_SEPARATORS,
   PROP_SHOW_COLUMN_SEPARATORS,
   PROP_SINGLE_CLICK_ACTIVATE,
@@ -679,6 +680,10 @@ gtk_column_view_get_property (GObject    *object,
       g_value_set_enum (value, gtk_list_view_get_tab_behavior (self->listview));
       break;
 
+    case PROP_SHOW_HEADER:
+      g_value_set_boolean (value, gtk_column_view_get_show_header (self));
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -772,6 +777,10 @@ gtk_column_view_set_property (GObject      *object,
 
     case PROP_TAB_BEHAVIOR:
       gtk_column_view_set_tab_behavior (self, g_value_get_enum (value));
+      break;
+
+    case PROP_SHOW_HEADER:
+      gtk_column_view_set_show_header (self, g_value_get_boolean (value));
       break;
 
     default:
@@ -936,6 +945,18 @@ gtk_column_view_class_init (GtkColumnViewClass *klass)
     g_param_spec_object ("header-factory", NULL, NULL,
                          GTK_TYPE_LIST_ITEM_FACTORY,
                          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
+
+  /**
+   * GtkColumnView:show-header:
+   *
+   * Whether the header at the top of the column view should be visible.
+   *
+   * Since: 4.18
+   */
+  properties[PROP_SHOW_HEADER] =
+    g_param_spec_boolean ("show-header", NULL, NULL,
+                          TRUE,
+                          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
 
   g_object_class_install_properties (gobject_class, N_PROPS, properties);
 
@@ -2187,6 +2208,49 @@ gtk_column_view_set_header_factory (GtkColumnView      *self,
   gtk_list_view_set_header_factory (self->listview, factory);
 
   g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_HEADER_FACTORY]);
+}
+
+/**
+ * gtk_column_view_get_show_header:
+ * @self: a `GtkColumnView`
+ *
+ * Returns whether the header at the top of the column view
+ * will be shown.
+ *
+ * Returns: true if the header should be visible
+ *
+ * Since: 4.18
+ */
+gboolean
+gtk_column_view_get_show_header (GtkColumnView *self)
+{
+  g_return_val_if_fail (GTK_IS_COLUMN_VIEW (self), TRUE);
+
+  return gtk_widget_get_visible (self->header);
+}
+
+/**
+ * gtk_column_view_set_show_header
+ * @self: a `GtkColumnView`
+ * @show: whether the header should be shown
+ *
+ * Sets whether the header at the top of the column view
+ * should be visible.
+ *
+ * Since: 4.18
+ */
+void
+gtk_column_view_set_show_header (GtkColumnView *self,
+                                 gboolean       show)
+{
+  g_return_if_fail (GTK_IS_COLUMN_VIEW (self));
+
+  if (show == gtk_widget_get_visible (self->header))
+    return;
+
+  gtk_widget_set_visible (self->header, show);
+
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_SHOW_HEADER]);
 }
 
 /**

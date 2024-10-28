@@ -67,7 +67,6 @@
                    "delete-from-cursor" (paragraph-ends, 1) };
 
   bind "<ctrl>h" { "delete-from-cursor" (chars, -1) };
-  bind "<ctrl>w" { "delete-from-cursor" (word-ends, -1) };
 }
 
 /*

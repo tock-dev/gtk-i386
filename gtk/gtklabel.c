@@ -1387,8 +1387,6 @@ get_layout_location (GtkLabel  *self,
 
   pango_layout_get_pixel_extents (self->layout, NULL, &logical);
   x = floor ((xalign * (widget_width - logical.width)) - logical.x);
-  if (x < 0)
-    x = 0.f;
 
   baseline = gtk_widget_get_baseline (widget);
   if (baseline != -1)
@@ -2415,7 +2413,7 @@ gtk_label_class_init (GtkLabelClass *class)
                               _gtk_marshal_BOOLEAN__STRINGv);
 
   /**
-   * GtkLabel:label: (attributes org.gtk.Property.get=gtk_label_get_label org.gtk.Property.set=gtk_label_set_label)
+   * GtkLabel:label:
    *
    * The contents of the label.
    *
@@ -2436,7 +2434,7 @@ gtk_label_class_init (GtkLabelClass *class)
                            GTK_PARAM_READWRITE);
 
   /**
-   * GtkLabel:attributes: (attributes org.gtk.Property.get=gtk_label_get_attributes org.gtk.Property.set=gtk_label_set_attributes)
+   * GtkLabel:attributes:
    *
    * A list of style attributes to apply to the text of the label.
    */
@@ -2446,7 +2444,7 @@ gtk_label_class_init (GtkLabelClass *class)
                           GTK_PARAM_READWRITE);
 
   /**
-   * GtkLabel:use-markup: (attributes org.gtk.Property.get=gtk_label_get_use_markup org.gtk.Property.set=gtk_label_set_use_markup)
+   * GtkLabel:use-markup:
    *
    * %TRUE if the text of the label includes Pango markup.
    *
@@ -2458,7 +2456,7 @@ gtk_label_class_init (GtkLabelClass *class)
                             GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkLabel:use-underline: (attributes org.gtk.Property.get=gtk_label_get_use_underline org.gtk.Property.set=gtk_label_set_use_underline)
+   * GtkLabel:use-underline:
    *
    * %TRUE if the text of the label indicates a mnemonic with an _
    * before the mnemonic character.
@@ -2469,7 +2467,7 @@ gtk_label_class_init (GtkLabelClass *class)
                             GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkLabel:justify: (attributes org.gtk.Property.get=gtk_label_get_justify org.gtk.Property.set=gtk_label_set_justify)
+   * GtkLabel:justify:
    *
    * The alignment of the lines in the text of the label, relative to each other.
    *
@@ -2483,7 +2481,7 @@ gtk_label_class_init (GtkLabelClass *class)
                          GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkLabel:xalign: (attributes org.gtk.Property.get=gtk_label_get_xalign org.gtk.Property.set=gtk_label_set_xalign)
+   * GtkLabel:xalign:
    *
    * The horizontal alignment of the label text inside its size allocation.
    *
@@ -2497,7 +2495,7 @@ gtk_label_class_init (GtkLabelClass *class)
                           GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkLabel:yalign: (attributes org.gtk.Property.get=gtk_label_get_yalign org.gtk.Property.set=gtk_label_set_yalign)
+   * GtkLabel:yalign:
    *
    * The vertical alignment of the label text inside its size allocation.
    *
@@ -2511,7 +2509,7 @@ gtk_label_class_init (GtkLabelClass *class)
                           GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkLabel:wrap: (attributes org.gtk.Property.get=gtk_label_get_wrap org.gtk.Property.set=gtk_label_set_wrap)
+   * GtkLabel:wrap:
    *
    * %TRUE if the label text will wrap if it gets too wide.
    */
@@ -2521,7 +2519,7 @@ gtk_label_class_init (GtkLabelClass *class)
                             GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkLabel:wrap-mode: (attributes org.gtk.Property.get=gtk_label_get_wrap_mode org.gtk.Property.set=gtk_label_set_wrap_mode)
+   * GtkLabel:wrap-mode:
    *
    * Controls how the line wrapping is done.
    *
@@ -2539,7 +2537,7 @@ gtk_label_class_init (GtkLabelClass *class)
                          GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkLabel:natural-wrap-mode: (attributes org.gtk.Property.get=gtk_label_get_natural_wrap_mode org.gtk.Property.set=gtk_label_set_natural_wrap_mode)
+   * GtkLabel:natural-wrap-mode:
    *
    * Select the line wrapping for the natural size request.
    *
@@ -2558,7 +2556,7 @@ gtk_label_class_init (GtkLabelClass *class)
                          GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkLabel:selectable: (attributes org.gtk.Property.get=gtk_label_get_selectable og.gtk.Property.set=gtk_label_set_selectable)
+   * GtkLabel:selectable:
    *
    * Whether the label text can be selected with the mouse.
    */
@@ -2568,7 +2566,7 @@ gtk_label_class_init (GtkLabelClass *class)
                             GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkLabel:mnemonic-keyval: (attributes org.gtk.Property.get=gtk_label_get_mnemonic_keyval)
+   * GtkLabel:mnemonic-keyval:
    *
    * The mnemonic accelerator key for the label.
    */
@@ -2579,7 +2577,7 @@ gtk_label_class_init (GtkLabelClass *class)
                          GTK_PARAM_READABLE);
 
   /**
-   * GtkLabel:mnemonic-widget: (attributes org.gtk.Property.get=gtk_label_get_mnemonic_widget org.gtk.Property.set=gtk_label_set_mnemonic_widget)
+   * GtkLabel:mnemonic-widget:
    *
    * The widget to be activated when the labels mnemonic key is pressed.
    */
@@ -2589,7 +2587,7 @@ gtk_label_class_init (GtkLabelClass *class)
                            GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkLabel:ellipsize: (attributes org.gtk.Property.get=gtk_label_get_ellipsize org.gtk.Property.set=gtk_label_set_ellipsize)
+   * GtkLabel:ellipsize:
    *
    * The preferred place to ellipsize the string, if the label does
    * not have enough room to display the entire string.
@@ -2609,7 +2607,7 @@ gtk_label_class_init (GtkLabelClass *class)
                          GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkLabel:width-chars: (attributes org.gtk.Property.get=gtk_label_get_width_chars org.gtk.Property.set=gtk_label_set_width_chars)
+   * GtkLabel:width-chars:
    *
    * The desired width of the label, in characters.
    *
@@ -2626,7 +2624,7 @@ gtk_label_class_init (GtkLabelClass *class)
                         GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkLabel:single-line-mode: (attributes org.gtk.Property.get=gtk_label_get_single_line_mode org.gtk.Property.set=gtk_label_set_single_line_mode)
+   * GtkLabel:single-line-mode:
    *
    * Whether the label is in single line mode.
    *
@@ -2641,7 +2639,7 @@ gtk_label_class_init (GtkLabelClass *class)
                             GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkLabel:max-width-chars: (attributes org.gtk.Property.get=gtk_label_set_max_width_chars org.gtk.Property.set=gtk_label_set_max_width_chars)
+   * GtkLabel:max-width-chars:
    *
    * The desired maximum width of the label, in characters.
    *
@@ -2658,7 +2656,7 @@ gtk_label_class_init (GtkLabelClass *class)
                         GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkLabel:lines: (attributes org.gtk.Property.get=gtk_label_get_lines org.gtk.Property.set=gtk_label_set_lines)
+   * GtkLabel:lines:
    *
    * The number of lines to which an ellipsized, wrapping label
    * should be limited.
@@ -2673,7 +2671,7 @@ gtk_label_class_init (GtkLabelClass *class)
                         GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkLabel:extra-menu: (attributes org.gtk.Property.get=gtk_label_get_extra_menu org.gtk.Property.set=gtk_label_set_extra_menu)
+   * GtkLabel:extra-menu:
    *
    * A menu model whose contents will be appended to the context menu.
    */
@@ -2683,7 +2681,7 @@ gtk_label_class_init (GtkLabelClass *class)
                           GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkLabel:tabs: (attributes org.gtk.Property.get=gtk_label_get_tabs org.gtk.Property.set=gtk_label_set_tabs)
+   * GtkLabel:tabs:
    *
    * Custom tabs for this label.
    *
@@ -3109,7 +3107,7 @@ label_mnemonic_widget_weak_notify (gpointer      data,
 }
 
 /**
- * gtk_label_set_mnemonic_widget: (attributes org.gtk.Method.set_property=mnemonic-widget)
+ * gtk_label_set_mnemonic_widget:
  * @self: a `GtkLabel`
  * @widget: (nullable): the target `GtkWidget`, or %NULL to unset
  *
@@ -3161,7 +3159,7 @@ gtk_label_set_mnemonic_widget (GtkLabel  *self,
 }
 
 /**
- * gtk_label_get_mnemonic_widget: (attributes org.gtk.Method.get_property=mnemonic-widget)
+ * gtk_label_get_mnemonic_widget:
  * @self: a `GtkLabel`
  *
  * Retrieves the target of the mnemonic (keyboard shortcut) of this
@@ -3181,7 +3179,7 @@ gtk_label_get_mnemonic_widget (GtkLabel *self)
 }
 
 /**
- * gtk_label_get_mnemonic_keyval: (attributes org.gtk.Method.get_property=mnemonic-keyval)
+ * gtk_label_get_mnemonic_keyval:
  * @self: a `GtkLabel`
  *
  * Return the mnemonic accelerator.
@@ -3204,6 +3202,8 @@ static void
 gtk_label_set_text_internal (GtkLabel *self,
                              char     *str)
 {
+  GtkAccessibleRole role;
+
   if (g_strcmp0 (self->text, str) == 0)
     {
       g_free (str);
@@ -3213,10 +3213,15 @@ gtk_label_set_text_internal (GtkLabel *self,
   g_free (self->text);
   self->text = str;
 
-  gtk_accessible_update_property (GTK_ACCESSIBLE (self),
-                                  GTK_ACCESSIBLE_PROPERTY_LABEL,
-                                  self->text,
-                                  -1);
+  role = gtk_accessible_get_accessible_role (GTK_ACCESSIBLE (self));
+
+  if (gtk_accessible_role_get_naming (role) != GTK_ACCESSIBLE_NAME_PROHIBITED)
+    {
+      gtk_accessible_update_property (GTK_ACCESSIBLE (self),
+                                      GTK_ACCESSIBLE_PROPERTY_LABEL,
+                                      self->text,
+                                      -1);
+    }
 
   gtk_label_select_region_index (self, 0, 0);
 }
@@ -3350,7 +3355,7 @@ gtk_label_set_text (GtkLabel    *self,
 }
 
 /**
- * gtk_label_set_attributes: (attributes org.gtk.Method.set_property=attributes)
+ * gtk_label_set_attributes:
  * @self: a `GtkLabel`
  * @attrs: (nullable): a [struct@Pango.AttrList]
  *
@@ -3386,7 +3391,7 @@ gtk_label_set_attributes (GtkLabel         *self,
 }
 
 /**
- * gtk_label_get_attributes: (attributes org.gtk.Method.get_property=attributes)
+ * gtk_label_get_attributes:
  * @self: a `GtkLabel`
  *
  * Gets the label's attribute list.
@@ -3409,7 +3414,7 @@ gtk_label_get_attributes (GtkLabel *self)
 }
 
 /**
- * gtk_label_set_label: (attributes org.gtk.Method.set_property=label)
+ * gtk_label_set_label:
  * @self: a `GtkLabel`
  * @str: the new text to set for the label
  *
@@ -3434,7 +3439,7 @@ gtk_label_set_label (GtkLabel    *self,
 }
 
 /**
- * gtk_label_get_label: (attributes org.gtk.Method.get_property=label)
+ * gtk_label_get_label:
  * @self: a `GtkLabel`
  *
  * Fetches the text from a label.
@@ -4015,7 +4020,7 @@ gtk_label_get_text (GtkLabel *self)
 }
 
 /**
- * gtk_label_set_justify: (attributes org.gtk.Method.set_property=justify)
+ * gtk_label_set_justify:
  * @self: a `GtkLabel`
  * @jtype: a `GtkJustification`
  *
@@ -4048,7 +4053,7 @@ gtk_label_set_justify (GtkLabel        *self,
 }
 
 /**
- * gtk_label_get_justify: (attributes org.gtk.Method.get_property=justify)
+ * gtk_label_get_justify:
  * @self: a `GtkLabel`
  *
  * Returns the justification of the label.
@@ -4066,7 +4071,7 @@ gtk_label_get_justify (GtkLabel *self)
 }
 
 /**
- * gtk_label_set_ellipsize: (attributes org.gtk.Method.set_property=ellipsize)
+ * gtk_label_set_ellipsize:
  * @self: a `GtkLabel`
  * @mode: a `PangoEllipsizeMode`
  *
@@ -4095,7 +4100,7 @@ gtk_label_set_ellipsize (GtkLabel          *self,
 }
 
 /**
- * gtk_label_get_ellipsize: (attributes org.gtk.Method.get_property=ellipsize)
+ * gtk_label_get_ellipsize:
  * @self: a `GtkLabel`
  *
  * Returns the ellipsizing position of the label.
@@ -4113,7 +4118,7 @@ gtk_label_get_ellipsize (GtkLabel *self)
 }
 
 /**
- * gtk_label_set_width_chars: (attributes org.gtk.Method.set_property=width-chars)
+ * gtk_label_set_width_chars:
  * @self: a `GtkLabel`
  * @n_chars: the new desired width, in characters.
  *
@@ -4134,7 +4139,7 @@ gtk_label_set_width_chars (GtkLabel *self,
 }
 
 /**
- * gtk_label_get_width_chars: (attributes org.gtk.Method.get_property=width-chars)
+ * gtk_label_get_width_chars:
  * @self: a `GtkLabel`
  *
  * Retrieves the desired width of @label, in characters.
@@ -4152,7 +4157,7 @@ gtk_label_get_width_chars (GtkLabel *self)
 }
 
 /**
- * gtk_label_set_max_width_chars: (attributes org.gtk.Method.set_property=max-width-chars)
+ * gtk_label_set_max_width_chars:
  * @self: a `GtkLabel`
  * @n_chars: the new desired maximum width, in characters.
  *
@@ -4174,7 +4179,7 @@ gtk_label_set_max_width_chars (GtkLabel *self,
 }
 
 /**
- * gtk_label_get_max_width_chars: (attributes org.gtk.Method.get_property=max-width-chars)
+ * gtk_label_get_max_width_chars:
  * @self: a `GtkLabel`
  *
  * Retrieves the desired maximum width of @label, in characters.
@@ -4192,7 +4197,7 @@ gtk_label_get_max_width_chars (GtkLabel *self)
 }
 
 /**
- * gtk_label_set_wrap: (attributes org.gtk.Method.set_property=wrap)
+ * gtk_label_set_wrap:
  * @self: a `GtkLabel`
  * @wrap: the setting
  *
@@ -4227,7 +4232,7 @@ gtk_label_set_wrap (GtkLabel *self,
 }
 
 /**
- * gtk_label_get_wrap: (attributes org.gtk.Method.get_property=wrap)
+ * gtk_label_get_wrap:
  * @self: a `GtkLabel`
  *
  * Returns whether lines in the label are automatically wrapped.
@@ -4245,7 +4250,7 @@ gtk_label_get_wrap (GtkLabel *self)
 }
 
 /**
- * gtk_label_set_wrap_mode: (attributes org.gtk.Method.set_property=wrap-mode)
+ * gtk_label_set_wrap_mode:
  * @self: a `GtkLabel`
  * @wrap_mode: the line wrapping mode
  *
@@ -4274,7 +4279,7 @@ gtk_label_set_wrap_mode (GtkLabel *self,
 }
 
 /**
- * gtk_label_get_wrap_mode: (attributes org.gtk.Method.get_property=wrap-mode)
+ * gtk_label_get_wrap_mode:
  * @self: a `GtkLabel`
  *
  * Returns line wrap mode used by the label.
@@ -4292,7 +4297,7 @@ gtk_label_get_wrap_mode (GtkLabel *self)
 }
 
 /**
- * gtk_label_set_natural_wrap_mode: (attributes org.gtk.Method.set_property=natural-wrap-mode)
+ * gtk_label_set_natural_wrap_mode:
  * @self: a `GtkLabel`
  * @wrap_mode: the line wrapping mode
  *
@@ -4319,7 +4324,7 @@ gtk_label_set_natural_wrap_mode (GtkLabel           *self,
 }
 
 /**
- * gtk_label_get_natural_wrap_mode: (attributes org.gtk.Method.get_property=natural-wrap-mode)
+ * gtk_label_get_natural_wrap_mode:
  * @self: a `GtkLabel`
  *
  * Returns line wrap mode used by the label.
@@ -5106,7 +5111,7 @@ gtk_label_clear_provider_info (GtkLabel *self)
 }
 
 /**
- * gtk_label_set_selectable: (attributes org.gtk.Method.set_property=selectable)
+ * gtk_label_set_selectable:
  * @self: a `GtkLabel`
  * @setting: %TRUE to allow selecting text in the label
  *
@@ -5160,7 +5165,7 @@ gtk_label_set_selectable (GtkLabel *self,
 }
 
 /**
- * gtk_label_get_selectable: (attributes org.gtk.Method.get_property=selectable)
+ * gtk_label_get_selectable:
  * @self: a `GtkLabel`
  *
  * Returns whether the label is selectable.
@@ -5451,7 +5456,7 @@ gtk_label_get_layout_offsets (GtkLabel *self,
 }
 
 /**
- * gtk_label_set_use_markup: (attributes org.gtk.Method.set_property=use-markup)
+ * gtk_label_set_use_markup:
  * @self: a `GtkLabel`
  * @setting: %TRUE if the label’s text should be parsed for markup.
  *
@@ -5474,7 +5479,7 @@ gtk_label_set_use_markup (GtkLabel *self,
 }
 
 /**
- * gtk_label_get_use_markup: (attributes org.gtk.Method.get_property=use-markup)
+ * gtk_label_get_use_markup:
  * @self: a `GtkLabel`
  *
  * Returns whether the label’s text is interpreted as Pango markup.
@@ -5492,7 +5497,7 @@ gtk_label_get_use_markup (GtkLabel *self)
 }
 
 /**
- * gtk_label_set_use_underline: (attributes org.gtk.Method.set_property=use-underline)
+ * gtk_label_set_use_underline:
  * @self: a `GtkLabel`
  * @setting: %TRUE if underlines in the text indicate mnemonics
  *
@@ -5513,7 +5518,7 @@ gtk_label_set_use_underline (GtkLabel *self,
 }
 
 /**
- * gtk_label_get_use_underline: (attributes org.gtk.Method.get_property=use-underline)
+ * gtk_label_get_use_underline:
  * @self: a `GtkLabel`
  *
  * Returns whether an embedded underlines in the label indicate mnemonics.
@@ -5532,7 +5537,7 @@ gtk_label_get_use_underline (GtkLabel *self)
 }
 
 /**
- * gtk_label_set_single_line_mode: (attributes org.gtk.Method.set_property=single-line-mode)
+ * gtk_label_set_single_line_mode:
  * @self: a `GtkLabel`
  * @single_line_mode: %TRUE if the label should be in single line mode
  *
@@ -5558,7 +5563,7 @@ gtk_label_set_single_line_mode (GtkLabel *self,
 }
 
 /**
- * gtk_label_get_single_line_mode: (attributes org.gtk.Method.get_property=single-line-mode)
+ * gtk_label_get_single_line_mode:
  * @self: a `GtkLabel`
  *
  * Returns whether the label is in single line mode.
@@ -6012,7 +6017,7 @@ _gtk_label_get_selection_bound (GtkLabel *self)
 }
 
 /**
- * gtk_label_set_lines: (attributes org.gtk.Method.set_property=lines)
+ * gtk_label_set_lines:
  * @self: a `GtkLabel`
  * @lines: the desired number of lines, or -1
  *
@@ -6038,7 +6043,7 @@ gtk_label_set_lines (GtkLabel *self,
 }
 
 /**
- * gtk_label_get_lines: (attributes org.gtk.Method.get_property=lines)
+ * gtk_label_get_lines:
  * @self: a `GtkLabel`
  *
  * Gets the number of lines to which an ellipsized, wrapping
@@ -6057,7 +6062,7 @@ gtk_label_get_lines (GtkLabel *self)
 }
 
 /**
- * gtk_label_set_xalign: (attributes org.gtk.Method.set_property=xalign)
+ * gtk_label_set_xalign:
  * @self: a `GtkLabel`
  * @xalign: the new xalign value, between 0 and 1
  *
@@ -6083,7 +6088,7 @@ gtk_label_set_xalign (GtkLabel *self,
 }
 
 /**
- * gtk_label_get_xalign: (attributes org.gtk.Method.get_property=xalign)
+ * gtk_label_get_xalign:
  * @self: a `GtkLabel`
  *
  * Gets the `xalign` of the label.
@@ -6101,7 +6106,7 @@ gtk_label_get_xalign (GtkLabel *self)
 }
 
 /**
- * gtk_label_set_yalign: (attributes org.gtk.Method.set_property=yalign)
+ * gtk_label_set_yalign:
  * @self: a `GtkLabel`
  * @yalign: the new yalign value, between 0 and 1
  *
@@ -6127,7 +6132,7 @@ gtk_label_set_yalign (GtkLabel *self,
 }
 
 /**
- * gtk_label_get_yalign: (attributes org.gtk.Method.get_property=yalign)
+ * gtk_label_get_yalign:
  * @self: a `GtkLabel`
  *
  * Gets the `yalign` of the label.
@@ -6145,7 +6150,7 @@ gtk_label_get_yalign (GtkLabel *self)
 }
 
 /**
- * gtk_label_set_extra_menu: (attributes org.gtk.Method.set_property=extra-menu)
+ * gtk_label_set_extra_menu:
  * @self: a `GtkLabel`
  * @model: (nullable): a `GMenuModel`
  *
@@ -6166,7 +6171,7 @@ gtk_label_set_extra_menu (GtkLabel   *self,
 }
 
 /**
- * gtk_label_get_extra_menu: (attributes org.gtk.Method.get_property=extra-menu)
+ * gtk_label_get_extra_menu:
  * @self: a `GtkLabel`
  *
  * Gets the extra menu model of @label.
@@ -6184,7 +6189,7 @@ gtk_label_get_extra_menu (GtkLabel *self)
 }
 
 /**
- * gtk_label_set_tabs: (attributes org.gtk.Method.set_property=tabs)
+ * gtk_label_set_tabs:
  * @self: a `GtkLabel`
  * @tabs: (nullable): tabs as a `PangoTabArray`
  *
@@ -6211,7 +6216,7 @@ gtk_label_set_tabs (GtkLabel      *self,
 }
 
 /**
- * gtk_label_get_tabs: (attributes org.gtk.Method.get_property=tabs)
+ * gtk_label_get_tabs:
  * @self: a `GtkLabel`
  *
  * Gets the tabs for @self.
@@ -6414,5 +6419,5 @@ gtk_label_accessible_text_init (GtkAccessibleTextInterface *iface)
 
 /* }}} */
 
-/* vim:set foldmethod=marker expandtab: */
+/* vim:set foldmethod=marker: */
 

@@ -490,6 +490,10 @@ gsk_gpu_cached_texture_new (GskGpuCache   *cache,
   GskGpuCachedTexture *self;
   GHashTable *texture_cache;
 
+  texture_cache = gsk_gpu_cache_get_texture_hash_table (cache, color_state);
+  if (texture_cache == NULL)
+    return NULL;
+
   /* First, move any existing renderdata */
   self = gdk_texture_get_render_data (texture, cache);
   if (self)
@@ -521,8 +525,6 @@ gsk_gpu_cached_texture_new (GskGpuCache   *cache,
     {
       g_object_weak_ref (G_OBJECT (texture), (GWeakNotify) gsk_gpu_cached_texture_destroy_cb, self);
 
-      texture_cache = gsk_gpu_cache_get_texture_hash_table (cache, self->color_state);
-      g_assert (texture_cache != NULL);
       g_hash_table_insert (texture_cache, texture, self);
     }
 
@@ -537,6 +539,8 @@ struct _GskGpuCachedTile
   GskGpuCached parent;
 
   GdkTexture *texture;
+  guint lod_level;
+  gboolean lod_linear;
   gsize tile_id;
 
   /* atomic */ int use_count; /* We count the use by the cache (via the linked
@@ -630,7 +634,10 @@ gsk_gpu_cached_tile_hash (gconstpointer data)
 {
   const GskGpuCachedTile *self = data;
 
-  return g_direct_hash (self->texture) ^ self->tile_id;
+  return g_direct_hash (self->texture) ^
+         self->tile_id ^
+         (self->lod_level << 24) ^
+         (self->lod_linear << 31);
 }
 
 static gboolean
@@ -641,12 +648,16 @@ gsk_gpu_cached_tile_equal (gconstpointer data_a,
   const GskGpuCachedTile *b = data_b;
 
   return a->texture == b->texture &&
+         a->lod_level == b->lod_level &&
+         a->lod_linear == b->lod_linear &&
          a->tile_id == b->tile_id;
 }
 
 static GskGpuCachedTile *
 gsk_gpu_cached_tile_new (GskGpuCache   *cache,
                          GdkTexture    *texture,
+                         guint          lod_level,
+                         gboolean       lod_linear,
                          guint          tile_id,
                          GskGpuImage   *image,
                          GdkColorState *color_state)
@@ -655,6 +666,8 @@ gsk_gpu_cached_tile_new (GskGpuCache   *cache,
 
   self = gsk_gpu_cached_new (cache, &GSK_GPU_CACHED_TILE_CLASS);
   self->texture = texture;
+  self->lod_level = lod_level;
+  self->lod_linear = lod_linear;
   self->tile_id = tile_id;
   self->image = g_object_ref (image);
   self->color_state = gdk_color_state_ref (color_state);
@@ -673,14 +686,18 @@ gsk_gpu_cached_tile_new (GskGpuCache   *cache,
 }
 
 GskGpuImage *
-gsk_gpu_cache_lookup_tile (GskGpuCache    *self,
-                           GdkTexture     *texture,
-                           gsize           tile_id,
-                           GdkColorState **out_color_state)
+gsk_gpu_cache_lookup_tile (GskGpuCache      *self,
+                           GdkTexture       *texture,
+                           guint             lod_level,
+                           GskScalingFilter  lod_filter,
+                           gsize             tile_id,
+                           GdkColorState   **out_color_state)
 {
   GskGpuCachedTile *tile;
   GskGpuCachedTile lookup = {
     .texture = texture,
+    .lod_level = lod_level,
+    .lod_linear = lod_filter == GSK_SCALING_FILTER_TRILINEAR,
     .tile_id = tile_id
   };
 
@@ -699,15 +716,23 @@ gsk_gpu_cache_lookup_tile (GskGpuCache    *self,
 }
 
 void
-gsk_gpu_cache_cache_tile (GskGpuCache   *self,
-                          GdkTexture    *texture,
-                          guint          tile_id,
-                          GskGpuImage   *image,
-                          GdkColorState *color_state)
+gsk_gpu_cache_cache_tile (GskGpuCache      *self,
+                          GdkTexture       *texture,
+                          guint             lod_level,
+                          GskScalingFilter  lod_filter,
+                          gsize             tile_id,
+                          GskGpuImage      *image,
+                          GdkColorState    *color_state)
 {
   GskGpuCachedTile *tile;
 
-  tile = gsk_gpu_cached_tile_new (self, texture, tile_id, image, color_state);
+  tile = gsk_gpu_cached_tile_new (self,
+                                  texture,
+                                  lod_level,
+                                  lod_filter == GSK_SCALING_FILTER_TRILINEAR,
+                                  tile_id,
+                                  image,
+                                  color_state);
 
   gsk_gpu_cached_use (self, (GskGpuCached *) tile);
 }
@@ -821,7 +846,7 @@ typedef struct
 {
   guint n_items;
   guint n_stale;
-} CacheData;
+} GskGpuCacheData;
 
 static void
 print_cache_stats (GskGpuCache *self)
@@ -835,10 +860,10 @@ print_cache_stats (GskGpuCache *self)
 
   for (cached = self->first_cached; cached != NULL; cached = cached->next)
     {
-      CacheData *cache_data = g_hash_table_lookup (classes, cached->class);
+      GskGpuCacheData *cache_data = g_hash_table_lookup (classes, cached->class);
       if (cache_data == NULL)
         {
-          cache_data = g_new0 (CacheData, 1);
+          cache_data = g_new0 (GskGpuCacheData, 1);
           g_hash_table_insert (classes, (gpointer) cached->class, cache_data);
         }
       cache_data->n_items++;
@@ -867,7 +892,7 @@ print_cache_stats (GskGpuCache *self)
   while (g_hash_table_iter_next (&iter, &key, &value))
     {
       const GskGpuCachedClass *class = key;
-      const CacheData *cache_data = value;
+      const GskGpuCacheData *cache_data = value;
 
       g_string_append_printf (message, "\n  %s:%*s%5u (%u stale)", class->name, 12 - MIN (12, (int) strlen (class->name)), "", cache_data->n_items, cache_data->n_stale);
 
@@ -1026,7 +1051,8 @@ gsk_gpu_cache_cache_texture_image (GskGpuCache   *self,
   GskGpuCachedTexture *cache;
 
   cache = gsk_gpu_cached_texture_new (self, texture, image, color_state);
-  g_return_if_fail (cache != NULL);
+  if (cache == NULL)
+    return;
 
   gsk_gpu_cached_use (self, (GskGpuCached *) cache);
 }
@@ -1151,4 +1177,4 @@ gsk_gpu_cache_new (GskGpuDevice *device)
 }
 
 /* }}} */
-/* vim:set foldmethod=marker expandtab: */
+/* vim:set foldmethod=marker: */

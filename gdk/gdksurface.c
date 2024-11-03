@@ -547,7 +547,7 @@ gdk_surface_class_init (GdkSurfaceClass *klass)
   klass->set_opaque_region = gdk_surface_default_set_opaque_region;
 
   /**
-   * GdkSurface:cursor: (attributes org.gtk.Property.get=gdk_surface_get_cursor org.gtk.Property.set=gdk_surface_set_cursor)
+   * GdkSurface:cursor:
    *
    * The mouse pointer for the `GdkSurface`.
    */
@@ -557,7 +557,7 @@ gdk_surface_class_init (GdkSurfaceClass *klass)
                            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
   /**
-   * GdkSurface:display: (attributes org.gtk.Property.get=gdk_surface_get_display)
+   * GdkSurface:display:
    *
    * The `GdkDisplay` connection of the surface.
    */
@@ -567,7 +567,7 @@ gdk_surface_class_init (GdkSurfaceClass *klass)
                            G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
   /**
-   * GdkSurface:frame-clock: (attributes org.gtk.Property.get=gdk_surface_get_frame_clock)
+   * GdkSurface:frame-clock:
    *
    * The `GdkFrameClock` of the surface.
    */
@@ -577,7 +577,7 @@ gdk_surface_class_init (GdkSurfaceClass *klass)
                            G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
   /**
-   * GdkSurface:mapped: (attributes org.gtk.Property.get=gdk_surface_get_mapped)
+   * GdkSurface:mapped:
    *
    * Whether the surface is mapped.
    */
@@ -587,7 +587,7 @@ gdk_surface_class_init (GdkSurfaceClass *klass)
                             G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
   /**
-   * GdkSurface:width: (attributes org.gtk.Property.get=gdk_surface_get_width)
+   * GdkSurface:width:
    *
    * The width of the surface in pixels.
    */
@@ -597,7 +597,7 @@ gdk_surface_class_init (GdkSurfaceClass *klass)
                         G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
   /**
-   * GdkSurface:height: (attributes org.gtk.Property.get=gdk_surface_get_height)
+   * GdkSurface:height:
    *
    * The height of the surface, in pixels.
    */
@@ -607,7 +607,7 @@ gdk_surface_class_init (GdkSurfaceClass *klass)
                         G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
   /**
-   * GdkSurface:scale-factor: (attributes org.gtk.Property.get=gdk_surface_get_scale_factor)
+   * GdkSurface:scale-factor:
    *
    * The scale factor of the surface.
    *
@@ -620,7 +620,7 @@ gdk_surface_class_init (GdkSurfaceClass *klass)
                         G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
   /**
-   * GdkSurface:scale: (attributes org.gtk.Property.get=gdk_surface_get_scale)
+   * GdkSurface:scale:
    *
    * The scale of the surface.
    *
@@ -1083,7 +1083,7 @@ gdk_surface_get_widget (GdkSurface *self)
 }
 
 /**
- * gdk_surface_get_display: (attributes org.gtk.Method.get_property=display)
+ * gdk_surface_get_display:
  * @surface: a `GdkSurface`
  *
  * Gets the `GdkDisplay` associated with a `GdkSurface`.
@@ -1112,7 +1112,7 @@ gdk_surface_is_destroyed (GdkSurface *surface)
 }
 
 /**
- * gdk_surface_get_mapped: (attributes org.gtk.Method.get_property=mapped)
+ * gdk_surface_get_mapped:
  * @surface: a `GdkSurface`
  *
  * Checks whether the surface has been mapped.
@@ -1136,6 +1136,7 @@ gdk_surface_set_egl_native_window (GdkSurface *self,
 {
 #ifdef HAVE_EGL
   GdkSurfacePrivate *priv = gdk_surface_get_instance_private (self);
+  GdkGLContext *current = NULL;
 
   /* This checks that all EGL platforms we support conform to the same struct sizes.
    * When this ever fails, there will be some fun times happening for whoever tries
@@ -1146,21 +1147,25 @@ gdk_surface_set_egl_native_window (GdkSurface *self,
     {
       GdkDisplay *display = gdk_surface_get_display (self);
 
+      current = gdk_gl_context_clear_current_if_surface (self);
+
       eglDestroySurface (gdk_display_get_egl_display (display), priv->egl_surface);
       priv->egl_surface = NULL;
     }
 
-  gdk_gl_context_clear_current_if_surface (self);
-
   priv->egl_native_window = native_window;
+
+  if (current)
+    {
+      gdk_gl_context_make_current (current);
+      g_object_unref (current);
+    }
 }
 
 gpointer /* EGLSurface */
 gdk_surface_get_egl_surface (GdkSurface *self)
 {
   GdkSurfacePrivate *priv = gdk_surface_get_instance_private (self);
-
-  gdk_surface_ensure_egl_surface (self, priv->egl_surface_depth);
 
   return priv->egl_surface;
 }
@@ -1182,19 +1187,17 @@ gdk_surface_ensure_egl_surface (GdkSurface     *self,
         depth = priv->egl_surface_depth;
     }
 
-  if (priv->egl_surface_depth != depth &&
-      priv->egl_surface != NULL &&
-      gdk_display_get_egl_config (display, priv->egl_surface_depth) != gdk_display_get_egl_config (display, depth))
+  if (priv->egl_surface == NULL ||
+      (priv->egl_surface != NULL &&
+       gdk_display_get_egl_config (display, priv->egl_surface_depth) != gdk_display_get_egl_config (display, depth)))
     {
-      gdk_gl_context_clear_current_if_surface (self);
-      eglDestroySurface (gdk_display_get_egl_display (display), priv->egl_surface);
-      priv->egl_surface = NULL;
-    }
-
-  if (priv->egl_surface == NULL)
-    {
+      GdkGLContext *cleared;
       EGLint attribs[4];
       int i;
+
+      cleared = gdk_gl_context_clear_current_if_surface (self);
+      if (priv->egl_surface != NULL)
+        eglDestroySurface (gdk_display_get_egl_display (display), priv->egl_surface);
 
       i = 0;
       if (depth == GDK_MEMORY_U8_SRGB && display->have_egl_gl_colorspace)
@@ -1220,6 +1223,12 @@ gdk_surface_ensure_egl_surface (GdkSurface     *self,
                                                       NULL);
         }
       priv->egl_surface_depth = depth;
+
+      if (cleared)
+        {
+          gdk_gl_context_make_current (cleared);
+          g_object_unref (cleared);
+        }
     }
 
   return priv->egl_surface_depth;
@@ -1836,7 +1845,7 @@ gdk_surface_set_cursor_internal (GdkSurface *surface,
 }
 
 /**
- * gdk_surface_get_cursor: (attributes org.gtk.Method.get_property=cursor)
+ * gdk_surface_get_cursor:
  * @surface: a `GdkSurface`
  *
  * Retrieves a `GdkCursor` pointer for the cursor currently set on the
@@ -1858,7 +1867,7 @@ gdk_surface_get_cursor (GdkSurface *surface)
 }
 
 /**
- * gdk_surface_set_cursor: (attributes org.gtk.Method.set_property=cursor)
+ * gdk_surface_set_cursor:
  * @surface: a `GdkSurface`
  * @cursor: (nullable): a `GdkCursor`
  *
@@ -2018,7 +2027,7 @@ gdk_surface_get_geometry (GdkSurface *surface,
 }
 
 /**
- * gdk_surface_get_width: (attributes org.gtk.Method.get_property=width)
+ * gdk_surface_get_width:
  * @surface: a `GdkSurface`
  *
  * Returns the width of the given @surface.
@@ -2037,7 +2046,7 @@ gdk_surface_get_width (GdkSurface *surface)
 }
 
 /**
- * gdk_surface_get_height: (attributes org.gtk.Method.get_property=height)
+ * gdk_surface_get_height:
  * @surface: a `GdkSurface`
  *
  * Returns the height of the given @surface.
@@ -2581,7 +2590,7 @@ gdk_surface_set_frame_clock (GdkSurface     *surface,
 }
 
 /**
- * gdk_surface_get_frame_clock: (attributes org.gtk.Method.get_property=frame-clock)
+ * gdk_surface_get_frame_clock:
  * @surface: surface to get frame clock for
  *
  * Gets the frame clock for the surface.
@@ -2600,7 +2609,7 @@ gdk_surface_get_frame_clock (GdkSurface *surface)
 }
 
 /**
- * gdk_surface_get_scale_factor: (attributes org.gtk.Method.get_property=scale-factor)
+ * gdk_surface_get_scale_factor:
  * @surface: surface to get scale factor for
  *
  * Returns the internal scale factor that maps from surface coordinates
@@ -2626,7 +2635,7 @@ gdk_surface_get_scale_factor (GdkSurface *surface)
 }
 
 /**
- * gdk_surface_get_scale: (attributes org.gtk.Method.get_property=scale)
+ * gdk_surface_get_scale:
  * @surface: surface to get scale for
  *
  * Returns the internal scale that maps from surface coordinates
@@ -2931,6 +2940,7 @@ check_autohide (GdkEvent *event)
         {
           event_surface = gdk_event_get_surface (event);
           if (event_surface->autohide &&
+              evtype != GDK_TOUCH_BEGIN &&
               !event_surface->has_pointer)
             event_surface = NULL;
 

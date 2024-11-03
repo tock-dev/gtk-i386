@@ -53,24 +53,11 @@
 #include <gdk/gdk.h>
 #include "gdk/gdkdebugprivate.h"
 
-#ifdef GDK_WINDOWING_X11
-#include <gdk/x11/gdkx.h>
-#endif
 #ifdef GDK_WINDOWING_WAYLAND
 #include <gdk/wayland/gdkwayland.h>
 #endif
 #ifdef GDK_WINDOWING_BROADWAY
 #include "broadway/gskbroadwayrenderer.h"
-#endif
-#ifdef GDK_WINDOWING_MACOS
-#include <gdk/macos/gdkmacos.h>
-#endif
-#ifdef GDK_WINDOWING_WIN32
-#include <gdk/win32/gdkwin32.h>
-
-/* Remove these lines when OpenGL/ES 2.0 shader is ready */
-#include "win32/gdkprivate-win32.h"
-#include "win32/gdkdisplay-win32.h"
 #endif
 
 typedef struct
@@ -189,7 +176,7 @@ gsk_renderer_class_init (GskRendererClass *klass)
   gobject_class->dispose = gsk_renderer_dispose;
 
   /**
-   * GskRenderer:realized: (attributes org.gtk.Property.get=gsk_renderer_is_realized)
+   * GskRenderer:realized: (getter is_realized)
    *
    * Whether the renderer has been associated with a surface or draw context.
    */
@@ -199,7 +186,7 @@ gsk_renderer_class_init (GskRendererClass *klass)
                           G_PARAM_READABLE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
 
   /**
-   * GskRenderer:surface: (attributes org.gtk.Property.get=gsk_renderer_get_surface)
+   * GskRenderer:surface:
    *
    * The surface associated with renderer.
    */
@@ -221,7 +208,7 @@ gsk_renderer_init (GskRenderer *self)
 }
 
 /**
- * gsk_renderer_get_surface: (attributes org.gtk.Method.get_property=surface)
+ * gsk_renderer_get_surface:
  * @renderer: a `GskRenderer`
  *
  * Retrieves the `GdkSurface` set using gsk_enderer_realize().
@@ -241,7 +228,7 @@ gsk_renderer_get_surface (GskRenderer *renderer)
 }
 
 /**
- * gsk_renderer_is_realized: (attributes org.gtk.Method.get_property=realized)
+ * gsk_renderer_is_realized: (get-property realized)
  * @renderer: a `GskRenderer`
  *
  * Checks whether the @renderer is realized or not.
@@ -547,9 +534,7 @@ get_renderer_for_name (const char *renderer_name)
       g_print ("  broadway - Disabled during GTK build\n");
 #endif
       g_print ("   cairo - Use the Cairo fallback renderer\n");
-      g_print ("  opengl - Use the OpenGL renderer\n");
-      g_print ("      gl - Use the OpenGL renderer\n");
-      g_print ("     ngl - Use the new OpenGL renderer\n");
+      g_print ("     ngl - Use the OpenGL renderer\n");
 #ifdef GDK_RENDERING_VULKAN
       g_print ("  vulkan - Use the Vulkan renderer\n");
 #else
@@ -617,8 +602,9 @@ gl_supported_platform (GdkSurface *surface,
 
   if (!gdk_display_prepare_gl (display, &error))
     {
-      if (!as_fallback)
-        GSK_DEBUG (RENDERER, "Not using GL: %s", error->message);
+      GSK_DEBUG (RENDERER, "Not using GL%s: %s",
+                 as_fallback ? " as fallback" : "",
+                 error->message);
       g_clear_error (&error);
       return FALSE;
     }
@@ -631,7 +617,8 @@ gl_supported_platform (GdkSurface *surface,
 
   if (strstr ((const char *) glGetString (GL_RENDERER), "llvmpipe") != NULL)
     {
-      GSK_DEBUG (RENDERER, "Not using '%s': renderer is llvmpipe", g_type_name (renderer_type));
+      GSK_DEBUG (RENDERER, "Not using '%s': renderer is llvmpipe",
+                 g_type_name (renderer_type));
       return FALSE;
     }
 
@@ -650,10 +637,10 @@ get_renderer_for_gl (GdkSurface *surface)
 static GType
 get_renderer_for_gl_fallback (GdkSurface *surface)
 {
-  if (!gl_supported_platform (surface, GSK_TYPE_GL_RENDERER, TRUE))
+  if (!gl_supported_platform (surface, gsk_ngl_renderer_get_type (), TRUE))
     return G_TYPE_INVALID;
 
-  return GSK_TYPE_GL_RENDERER;
+  return gsk_ngl_renderer_get_type ();
 }
 
 #ifdef GDK_RENDERING_VULKAN
@@ -668,39 +655,43 @@ vulkan_supported_platform (GdkSurface *surface,
 
   if (!gdk_display_init_vulkan (display, &error))
     {
-      if (!as_fallback)
-        GSK_DEBUG (RENDERER, "Not using Vulkan: %s", error->message);
+      GSK_DEBUG (RENDERER, "Not using Vulkan%s: %s",
+                 as_fallback ? " as fallback" : "",
+                 error->message);
       g_clear_error (&error);
-      return FALSE;
-    }
-
-  vkGetPhysicalDeviceProperties (display->vk_physical_device, &props);
-
-  if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU)
-    {
-      if (!as_fallback)
-        GSK_DEBUG (RENDERER, "Not using '%s': device is CPU", g_type_name (renderer_type));
-      return FALSE;
-    }
-
-  gdk_display_init_dmabuf (display);
-  if (!display->vk_dmabuf_formats ||
-      gdk_dmabuf_formats_get_n_formats (display->vk_dmabuf_formats) == 0)
-    {
-      if (!as_fallback)
-        GSK_DEBUG (RENDERER, "Not using '%s': no dmabuf support", g_type_name (renderer_type));
       return FALSE;
     }
 
   if (as_fallback)
     return TRUE;
 
+  vkGetPhysicalDeviceProperties (display->vk_physical_device, &props);
+
+  if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU)
+    {
+      GSK_DEBUG (RENDERER, "Not using '%s': device is CPU",
+                 g_type_name (renderer_type));
+      return FALSE;
+    }
+
+#ifdef HAVE_DMABUF
+  gdk_vulkan_init_dmabuf (display);
+  if (!display->vk_dmabuf_formats ||
+      gdk_dmabuf_formats_get_n_formats (display->vk_dmabuf_formats) == 0)
+    {
+      GSK_DEBUG (RENDERER, "Not using '%s': no dmabuf support",
+                 g_type_name (renderer_type));
+      return FALSE;
+    }
+#endif
+
 #ifdef GDK_WINDOWING_WAYLAND
   if (GDK_IS_WAYLAND_DISPLAY (gdk_surface_get_display (surface)))
     return TRUE;
 #endif
 
-  GSK_DEBUG (RENDERER, "Not using '%s': platform is not Wayland", g_type_name (renderer_type));
+  GSK_DEBUG (RENDERER, "Not using '%s': platform is not Wayland",
+             g_type_name (renderer_type));
 
   return FALSE;
 }

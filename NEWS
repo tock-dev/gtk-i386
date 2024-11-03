@@ -1,5 +1,333 @@
-Overview of Changes in 4.15.6, xx-xx-xxxx
+Overview of Changes in 4.17.0, xx-xx-xxxx
 =========================================
+
+* GtkScrolledWindow
+ - Fix criticals in size allocation code
+
+* GtkFileChooser
+ - Fix a crash in the portal code
+
+* GtkPicture
+ - Avoid unnecessary resizes
+
+* GtkVideo
+ - Make dmabufs work without GL
+
+* GtkListBox:
+ - Add a tab-behavior property to influence keynav
+
+* GtkEmojiChooser:
+ - Fix problems with insertion and selection
+
+* GtkStringList:
+ - Add gtk_string_list_find
+
+* GtkTextView:
+ - Vertical and horizontal positioning of the textview is now quantized
+   to the nearest device pixel. This should improve the perceived smoothness
+   of scrolling with fractional scaling and font hinting.
+ - Incorrect re-use of cached styling was fixed
+
+* Accessibility:
+ - Always realize non-widget accessibles, to help webkit
+ - Fix list view selection implementation
+
+* Gstreamer:
+ - Make dmabufs works without GL
+
+* Gdk:
+ - Add OKLAB and OKLCH color states
+ - GL: Drop support for GLES 2 and GL < 3.3
+ - GL: Use the ngl dmabuf downloader instead of the GL downloader
+ - Vulkan: Drop the GDK_VULKAN_DEVICE env var. Use MESA_VK_DEVICE_SELECT instead
+ - Vulkan: Use the swapchain maintenance extension to release swap images
+ - Forbid opening displays before gtk_init()
+
+* Gsk:
+ - Many improvements to the dmabuf downloaders
+ - ngl: Avoid glBufferSubData for globals, speeding up llvmpipe
+ - Renderer selection will no longer consider the GL renderer
+ - Allow Vulkan software rendering as fallback
+ - Support gradient interpolation in different color states
+
+* Wayland:
+ - Improve settings portal handling
+ - Improve fallback for cursor themes
+ - Make cursor theme changes apply immediately
+ - Use a viewporter for cursor image scaling
+ - Improve cursor size handling
+ - Use the system bell protocol if available
+ - Fix possible deadlock with high-priority sources triggering Wayland roundtrips
+
+* Windows:
+ - Improve the backend code
+ - Fix some problems with WGL on NVidia
+ - Many testsuite fixes for Windows compatibility
+
+* Macos:
+ - Fix crashes when dragging libadwaita TabView tabs
+
+* Tools and demos
+ - gtk4-demo: Make demos standalone
+ - gtk4-demo: Drop GL shader demos
+ - gtk4-demo: Improve scrolling benchmarks
+ - gtk4-builder-tool: Improve separator handling
+ - gtk4-image-tool: Better color state support
+
+* Build:
+ - Don't set GSK_RENDERER in our flatpaks
+ - Require meson 1.2
+
+* Translation updates
+ Belarusian
+ Brazilian Portuguese
+ British English
+ Galician
+ Romanian
+ Slovenian
+ Swedish
+
+
+Overview of Changes in 4.16.2, 09-25-2024
+=========================================
+
+* GtkLabel:
+ - Fix centered text in RTL
+
+* Gsk:
+ - Speed up some Vulkan operations
+ - Improve startup speed by avoiding initialization
+   of GL and Vulkan in most cases
+ - Reduce critials at startup to warnings
+ - Fix a crash on startup with some Vulkan drivers
+ - Fix a big texture leak in NGL
+
+* Gdk:
+ - Speed up memory format conversions
+
+* Wayland:
+ - Be more careful with mimetypes during DND or copy-paste
+
+* Tools:
+ - builder-tool: Improve conversion of boxes
+
+* Translation updates:
+ Brazilian Portuguese
+ Bulgarian
+ Catalan
+ Chinese (China)
+ Georgian
+ German
+ Hebrew
+ Indonesian
+ Persian
+ Polish
+ Portuguese
+ Slovenian
+ Spanish
+ Turkish
+ Ukrainian
+
+
+Overview of Changes in 4.16.1, 09-16-2024
+=========================================
+
+* GtkFileChooser:
+ - Plug a memory leak
+
+* GtkCalendar:
+ - Avoid ending up with invalid dates
+
+* Printing:
+ - Fix initial printer selection in the print dialog
+
+* Gsk:
+ - Fix shadows for opaque textures
+ - Fix a crash in a corner case
+
+* Css:
+ - Make relative paths work again in theme files
+
+* Accessibility:
+ - Fix detection of the Flatpak portal
+
+* MacOS:
+ - Fix keyboard input in popovers
+ - Keep DND icons above regular windows
+ - Ignore events from DND icons
+
+* Translation updates
+ Basque
+ British English
+ Bulgarian
+ Czech
+ Danish
+ Georgian
+ Hungarian
+ Lithuanian
+ Portuguese
+ Spanish
+ Swedish
+
+
+Overview of Changes in 4.16.0, 09-06-2024
+=========================================
+
+Note: This release changes the default GSK renderer to be Vulkan,
+on Wayland. Other platforms still use ngl. The intent of this change
+is to use the best available platform APIs. You can still override
+the renderer choice using the GSK_RENDERER environment variable.
+
+We believe that most of the problems reported with the new renderers
+during the 4.13 and 4.15 development cycles have been addressed by now.
+
+But the new renderers and dmabuf support are using graphics drivers
+in different ways than the old gl renderer, and trigger new driver bugs.
+Therefore, it is recommended to use the latest mesa release (24.2)
+with the new renderers.
+
+* GtkScale:
+ - Fix positioning of scale values
+
+* GtkEmojiChooser:
+ - Make Control-clicks work for the recent section
+
+* GtkPopover:
+ - Make sure focus lands on the right widget when cascading
+
+* GtkSpinButton:
+ - Disable Emoji input for numeric spin buttons
+
+* GtkSingleSelection:
+ - Implement unselect_all
+
+* Accssibility:
+ - Fix roles for radio buttons
+ - Check if ATs are listening before exporting trees
+ - Add a check for sandboxed accessibility bus
+ - Fix handling of the error message relation
+ - Turn criticals into debug messages
+ - Set expanded states properly in menus
+
+* CSS:
+ - Fix a few issues on bigendian systems
+ - Avoid a crash with relative colors
+
+* GSK:
+ - Use the right GL context when exporting textures
+ - Don't let colors influence depth decisions
+ - Allow uploading of mipmap levels when tiling textures
+
+* GDK:
+ - Update keysyms from libX11 1.8.10
+ - Implement cpu-side mipmapping
+ - Use a thread pool for color conversions and mipmapping
+
+* Vulkan:
+ - Fix drag surface offsets
+
+* Wayland:
+ - Fix a crash
+ - Associate EGL windows with context later
+
+* X11:
+ - Fix initial EGL context creation
+ - Fix a problem with GL context creation
+
+* Broadway:
+ - Implement compute_size and request_layout
+
+* MacOS:
+ - Set transparent backgroiund for toplevel windows
+
+* Windows:
+ - Improve debug output
+ - Detect Mesas d3d12 driver and request GDI compat
+
+* Demos:
+ - Set window icons in demos
+ - Add a 64k x 64k image to the image scaling demo
+
+* Translation updates
+ Belarusian
+ Brazilian Portuguese
+ Catalan
+ Czech
+ Galician
+ German
+ Hebrew
+ Indonesian
+ Korean
+ Lithuanian
+ Persian
+ Polish
+ Portuguese
+ Slovenian
+ Spanish
+ Turkish
+ Ukrainian
+
+
+Overview of Changes in 4.15.6, 08-26-2024
+=========================================
+
+* GtkCheckButton:
+ - Add a grouped style class for radio buttons
+
+* GtkScale:
+ - Fix alignment and positioning problems
+
+* Css:
+ - Fix crashes in the variable support
+
+* Gsk:
+ - Make graphics offloading work better with kwin
+ - Make colorstate transfer functions more robust
+ - GC dead textures more agressively
+ - Only use a single render pass per frame
+
+* GL:
+ - Round damage rectangles properly
+ - Use the shared context when creating textures
+ - Fix a file descriptor leak in dmabuf export
+
+* Vulkan:
+ - Round damage rectangles properly
+
+* Wayland:
+ - Work with the kwin implementation of xx-color-management-v4
+
+* Windows:
+ - Make gtk_show_uri use SHOpenWithDialog()
+ - Enable incremental rendering with WGL
+
+* Macos:
+ - Open context menus on Ctrl-left click
+
+* Debugging:
+ - Show color state information in the inspector
+ - Collect input event traces in the recorder
+ - Add shortcuts for toggling recording: Super-r
+   and for screenshots: Super-c
+ - Split the GDK_DEBUG env var into GDK_DEBUG and GDK_DISABLE
+ - Add GDK_DISABLE=color-mgmt and GDK_DISABLE=offload
+
+* Tools:
+ - Add a 'Paste as node' action in gtk4-node-editor
+
+* Translations updates
+ Basque
+ Belarusian
+ Brazilian Portuguese
+ Chinese (China)
+ Georgian
+ Hebrew
+ Hindi
+ Russian
+ Slovenian
+ Turkish
+ Ukrainian
+
 
 Overview of Changes in 4.15.5, 11-08-2024
 =========================================

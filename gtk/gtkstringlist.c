@@ -133,7 +133,7 @@ gtk_string_object_class_init (GtkStringObjectClass *class)
   object_class->get_property = gtk_string_object_get_property;
 
   /**
-   * GtkStringObject:string: (attributes org.gtk.Property.get=gtk_string_object_get_string)
+   * GtkStringObject:string:
    *
    * The string.
    */
@@ -172,7 +172,7 @@ gtk_string_object_new (const char *string)
 }
 
 /**
- * gtk_string_object_get_string: (attributes org.gtk.Method.get_property=string)
+ * gtk_string_object_get_string:
  * @self: a `GtkStringObject`
  *
  * Returns the string contained in a `GtkStringObject`.
@@ -696,5 +696,42 @@ gtk_string_list_get_string (GtkStringList *self,
   return objects_get (&self->items, position)->string;
 }
 
+/**
+ * gtk_string_list_find:
+ * @self: a `GtkStringList`
+ * @string: the string to find
+ *
+ * Gets the position of the @string in @self.
+ *
+ * If @self does not contain @string item, `G_MAXUINT` is returned.
+ *
+ * Returns: the position of the string
+ *
+ * Since: 4.18
+ */
+guint
+gtk_string_list_find (GtkStringList *self,
+                      const char    *string)
+{
+  guint position;
+  guint items_size;
+
+  g_return_val_if_fail (GTK_IS_STRING_LIST (self), G_MAXUINT);
+
+  position = G_MAXUINT;
+  items_size = objects_get_size (&self->items);
+  for (guint i = 0; i < items_size; i++)
+  {
+    if (strcmp (string, objects_get (&self->items, i)->string) == 0)
+    {
+      position = i;
+      break;
+    }
+  }
+
+  return position;
+}
+
 /* }}} */
-/* vim:set foldmethod=marker expandtab: */
+
+/* vim:set foldmethod=marker: */

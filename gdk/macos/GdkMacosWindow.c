@@ -42,10 +42,6 @@
 #include "gdkmonitorprivate.h"
 #include "gdksurfaceprivate.h"
 
-#ifndef AVAILABLE_MAC_OS_X_VERSION_10_15_AND_LATER
-typedef NSString *CALayerContentsGravity;
-#endif
-
 @implementation GdkMacosWindow
 
 -(BOOL)windowShouldClose:(id)sender
@@ -146,14 +142,6 @@ typedef NSString *CALayerContentsGravity;
       inManualResize = NO;
       inMove = NO;
 
-      /* We need to deliver the event to the proper drag gestures or we
-       * will leave the window in inconsistent state that requires clicking
-       * in the window to cancel the gesture.
-       *
-       * TODO: Can we improve grab breaking to fix this?
-       */
-      _gdk_macos_display_send_event ([self gdkDisplay], event);
-
       _gdk_macos_display_break_all_grabs (GDK_MACOS_DISPLAY (display), time);
 
       /* Reset gravity */
@@ -250,8 +238,7 @@ typedef NSString *CALayerContentsGravity;
 
 -(BOOL)canBecomeKeyWindow
 {
-  return GDK_IS_TOPLEVEL (gdk_surface) ||
-         (GDK_IS_POPUP (gdk_surface) && GDK_SURFACE (gdk_surface)->input_region != NULL);
+  return GDK_IS_TOPLEVEL (gdk_surface);
 }
 
 -(void)showAndMakeKey:(BOOL)makeKey
@@ -692,24 +679,9 @@ typedef NSString *CALayerContentsGravity;
 
 -(void)setStyleMask:(NSWindowStyleMask)styleMask
 {
-  gboolean was_opaque;
-  gboolean is_opaque;
-
-  was_opaque = (([self styleMask] & NSWindowStyleMaskTitled) != 0);
-
   [super setStyleMask:styleMask];
 
-  is_opaque = (([self styleMask] & NSWindowStyleMaskTitled) != 0);
-
   _gdk_macos_surface_update_fullscreen_state (gdk_surface);
-
-  if (was_opaque != is_opaque)
-    {
-      [self setOpaque:is_opaque];
-
-      if (!is_opaque)
-        [self setBackgroundColor:[NSColor clearColor]];
-    }
 }
 
 -(NSRect)constrainFrameRect:(NSRect)frameRect toScreen:(NSScreen *)screen
@@ -785,12 +757,19 @@ typedef NSString *CALayerContentsGravity;
 
   if (decorated)
     {
-      style_mask |= NSWindowStyleMaskTitled;
+      style_mask &= ~NSWindowStyleMaskFullSizeContentView;
+      [self setTitleVisibility:NSWindowTitleVisible];
     }
   else
     {
-      style_mask &= ~NSWindowStyleMaskTitled;
+      style_mask |= NSWindowStyleMaskFullSizeContentView;
+      [self setTitleVisibility:NSWindowTitleHidden];
     }
+
+  [self setTitlebarAppearsTransparent:!decorated];
+  [[self standardWindowButton:NSWindowCloseButton] setHidden:!decorated];
+  [[self standardWindowButton:NSWindowMiniaturizeButton] setHidden:!decorated];
+  [[self standardWindowButton:NSWindowZoomButton] setHidden:!decorated];
 
   [self setStyleMask:style_mask];
 }

@@ -361,7 +361,7 @@ gtk_print_dialog_class_init (GtkPrintDialogClass *class)
   object_class->set_property = gtk_print_dialog_set_property;
 
   /**
-   * GtkPrintDialog:accept-label: (attributes org.gtk.Property.get=gtk_print_dialog_get_accept_label org.gtk.Property.set=gtk_print_dialog_set_accept_label)
+   * GtkPrintDialog:accept-label:
    *
    * A label that may be shown on the accept button of a print dialog
    * that is presented by [method@Gtk.PrintDialog.setup].
@@ -374,7 +374,7 @@ gtk_print_dialog_class_init (GtkPrintDialogClass *class)
                            G_PARAM_READWRITE|G_PARAM_STATIC_STRINGS|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkPrintDialog:page-setup: (attributes org.gtk.Property.get=gtk_print_dialog_get_page_setup org.gtk.Property.set=gtk_print_dialog_set_page_setup)
+   * GtkPrintDialog:page-setup:
    *
    * The page setup to use.
    *
@@ -386,7 +386,7 @@ gtk_print_dialog_class_init (GtkPrintDialogClass *class)
                            G_PARAM_READWRITE|G_PARAM_STATIC_STRINGS|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkPrintDialog:modal: (attributes org.gtk.Property.get=gtk_print_dialog_get_modal org.gtk.Property.set=gtk_print_dialog_set_modal)
+   * GtkPrintDialog:modal:
    *
    * Whether the print dialog is modal.
    *
@@ -398,7 +398,7 @@ gtk_print_dialog_class_init (GtkPrintDialogClass *class)
                             G_PARAM_READWRITE|G_PARAM_STATIC_STRINGS|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkPrintDialog:print-settings: (attributes org.gtk.Property.get=gtk_print_dialog_get_print_settings org.gtk.Property.set=gtk_print_dialog_set_print_settings)
+   * GtkPrintDialog:print-settings:
    *
    * The print settings to use.
    *
@@ -410,7 +410,7 @@ gtk_print_dialog_class_init (GtkPrintDialogClass *class)
                            G_PARAM_READWRITE|G_PARAM_STATIC_STRINGS|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkPrintDialog:title: (attributes org.gtk.Property.get=gtk_print_dialog_get_title org.gtk.Property.set=gtk_print_dialog_set_title)
+   * GtkPrintDialog:title:
    *
    * A title that may be shown on the print dialog that is
    * presented by [method@Gtk.PrintDialog.setup].
@@ -754,6 +754,7 @@ gtk_print_output_stream_set_print_done (GtkPrintOutputStream *stream,
 typedef struct
 {
   GtkWindow *exported_window;
+  char *exported_window_handle;
   char *portal_handle;
   unsigned int response_signal_id;
   unsigned int token;
@@ -778,6 +779,9 @@ print_task_data_free (gpointer data)
   PrintTaskData *ptd = data;
 
   g_free (ptd->portal_handle);
+  if (ptd->exported_window && ptd->exported_window_handle)
+    gtk_window_unexport_handle (ptd->exported_window, ptd->exported_window_handle);
+  g_clear_pointer (&ptd->exported_window_handle, g_free);
   g_clear_object (&ptd->exported_window);
   if (ptd->fds[0] != -1)
     close (ptd->fds[0]);
@@ -872,8 +876,12 @@ cleanup_portal_call_data (GTask *task)
       ptd->response_signal_id = 0;
     }
 
+  if (ptd->exported_window && ptd->exported_window_handle)
+    gtk_window_unexport_handle (ptd->exported_window, ptd->exported_window_handle);
+
   g_clear_pointer (&ptd->portal_handle, g_free);
   g_clear_object (&ptd->exported_window);
+  g_clear_pointer (&ptd->exported_window_handle, g_free);
 }
 
 /* }}} */
@@ -1015,6 +1023,12 @@ setup_window_handle_exported (GtkWindow  *window,
 
   g_assert (ptd->portal_handle == NULL);
   ptd->portal_handle = gtk_get_portal_request_path (connection, &handle_token);
+
+  if (window)
+    {
+      ptd->exported_window = g_object_ref (window);
+      ptd->exported_window_handle = g_strdup (window_handle);
+    }
 
   g_assert (ptd->response_signal_id == 0);
   ptd->response_signal_id =
@@ -1213,7 +1227,10 @@ print_window_handle_exported (GtkWindow  *window,
   int idx;
 
   if (window)
-    ptd->exported_window = g_object_ref (window);
+    {
+      ptd->exported_window = g_object_ref (window);
+      ptd->exported_window_handle = g_strdup (window_handle);
+    }
 
   g_assert (ptd->fds[0] != -1);
 
@@ -1771,4 +1788,4 @@ gtk_print_dialog_print_file_finish (GtkPrintDialog  *self,
 
 /* }}} */
 
-/* vim:set foldmethod=marker expandtab: */
+/* vim:set foldmethod=marker: */

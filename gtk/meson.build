@@ -882,7 +882,7 @@ gtk_use_wayland_or_x11_c_sources = files([
 ])
 
 gtk_dbus_src = gnome.gdbus_codegen('gtkdbusgenerated',
-  'gtkdbusinterfaces.xml',
+  sources:'gtkdbusinterfaces.xml',
   interface_prefix: 'org.Gtk.',
   namespace: '_Gtk',
 )
@@ -1090,7 +1090,7 @@ gtk_settings_schemas = [
   'org.gtk.gtk4.Settings.EmojiChooser.gschema.xml',
   'org.gtk.gtk4.Settings.Debug.gschema.xml',
 ]
-install_data(gtk_settings_schemas, install_dir: gtk_schemasdir)
+install_data(gtk_settings_schemas, install_dir: gtk_schemasdir, install_tag: 'runtime')
 gnome.compile_schemas(depend_files: files(gtk_settings_schemas), build_by_default: true)
 gtk_schema_build_dir = meson.current_build_dir()
 

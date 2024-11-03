@@ -235,12 +235,12 @@ struct _GtkTextViewPrivate
   /* X offset between widget coordinates and buffer coordinates
    * taking left_padding in account
    */
-  int xoffset;
+  double xoffset;
 
   /* Y offset between widget coordinates and buffer coordinates
    * taking top_padding and top_margin in account
    */
-  int yoffset;
+  double yoffset;
 
   /* Width and height of the buffer */
   int width;
@@ -692,6 +692,9 @@ static void gtk_text_view_real_redo (GtkWidget   *widget,
                                      const char *action_name,
                                      GVariant    *parameter);
 
+static double quantize_value (GtkAdjustment *adjustment,
+                              GtkWidget     *widget);
+
 
 /* FIXME probably need the focus methods. */
 
@@ -935,7 +938,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
    */
 
   /**
-   * GtkTextView:pixels-above-lines: (attributes org.gtk.Property.get=gtk_text_view_get_pixels_above_lines org.gtk.Property.set=gtk_text_view_set_pixels_above_lines)
+   * GtkTextView:pixels-above-lines:
    *
    * Pixels of blank space above paragraphs.
    */
@@ -946,7 +949,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
                                                      GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY));
 
   /**
-   * GtkTextView:pixels-below-lines: (attributes org.gtk.Property.get=gtk_text_view_get_pixels_below_lines org.gtk.Property.set=gtk_text_view_set_pixels_below_lines)
+   * GtkTextView:pixels-below-lines:
    *
    * Pixels of blank space below paragraphs.
    */
@@ -957,7 +960,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
                                                      GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY));
 
   /**
-   * GtkTextView:pixels-inside-wrap: (attributes org.gtk.Property.get=gtk_text_view_get_pixels_inside_wrap org.gtk.Property.set=gtk_text_view_set_pixels_inside_wrap)
+   * GtkTextView:pixels-inside-wrap:
    *
    * Pixels of blank space between wrapped lines in a paragraph.
    */
@@ -968,7 +971,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
                                                      GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY));
 
   /**
-   * GtkTextView:editable: (attributes org.gtk.Property.get=gtk_text_view_get_editable org.gtk.Property.set=gtk_text_view_set_editable)
+   * GtkTextView:editable:
    *
    * Whether the text can be modified by the user.
    */
@@ -979,7 +982,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
                                                          GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY));
 
   /**
-   * GtkTextView:wrap-mode: (attributes org.gtk.Property.get=gtk_text_view_get_wrap_mode org.gtk.Property.set=gtk_text_view_set_wrap_mode)
+   * GtkTextView:wrap-mode:
    *
    * Whether to wrap lines never, at word boundaries, or at character boundaries.
    */
@@ -991,7 +994,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
                                                       GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY));
 
   /**
-   * GtkTextView:justification: (attributes org.gtk.Property.get=gtk_text_view_get_justification org.gtk.Property.set=gtk_text_view_set_justification)
+   * GtkTextView:justification:
    *
    * Left, right, or center justification.
    */
@@ -1003,7 +1006,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
                                                       GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY));
 
   /**
-   * GtkTextView:left-margin: (attributes org.gtk.Property.get=gtk_text_view_get_left_margin org.gtk.Property.set=gtk_text_view_set_left_margin)
+   * GtkTextView:left-margin:
    *
    * The default left margin for text in the text view.
    *
@@ -1020,7 +1023,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
                                                      GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY));
 
   /**
-   * GtkTextView:right-margin: (attributes org.gtk.Property.get=gtk_text_view_get_right_margin org.gtk.Property.set=gtk_text_view_set_right_margin)
+   * GtkTextView:right-margin:
    *
    * The default right margin for text in the text view.
    *
@@ -1037,7 +1040,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
                                                      GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY));
 
   /**
-   * GtkTextView:top-margin: (attributes org.gtk.Property.get=gtk_text_view_get_top_margin org.gtk.Property.set=gtk_text_view_set_top_margin)
+   * GtkTextView:top-margin:
    *
    * The top margin for text in the text view.
    *
@@ -1054,7 +1057,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
                                                      GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY));
 
   /**
-   * GtkTextView:bottom-margin: (attributes org.gtk.Property.get=gtk_text_view_get_bottom_margin org.gtk.Property.set=gtk_text_view_set_bottom_margin)
+   * GtkTextView:bottom-margin:
    *
    * The bottom margin for text in the text view.
    *
@@ -1071,7 +1074,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
                                                      GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY));
 
   /**
-   * GtkTextView:indent: (attributes org.gtk.Property.get=gtk_text_view_get_indent org.gtk.Property.set=gtk_text_view_set_indent)
+   * GtkTextView:indent:
    *
    * Amount to indent the paragraph, in pixels.
    *
@@ -1087,7 +1090,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
                                                      GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY));
 
   /**
-   * GtkTextView:tabs: (attributes org.gtk.Property.get=gtk_text_view_get_tabs org.gtk.Property.set=gtk_text_view_set_tabs)
+   * GtkTextView:tabs:
    *
    * Custom tabs for this text.
    */
@@ -1098,7 +1101,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
 						       GTK_PARAM_READWRITE));
 
   /**
-   * GtkTextView:cursor-visible: (attributes org.gtk.Property.get=gtk_text_view_get_cursor_visible org.gtk.Property.set=gtk_text_view_set_cursor_visible)
+   * GtkTextView:cursor-visible:
    *
    * If the insertion cursor is shown.
    */
@@ -1109,7 +1112,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
                                                          GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY));
 
   /**
-   * GtkTextView:buffer: (attributes org.gtk.Property.get=gtk_text_view_get_buffer org.gtk.Property.set=gtk_text_view_set_buffer)
+   * GtkTextView:buffer:
    *
    * The buffer which is displayed.
    */
@@ -1120,7 +1123,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
 							GTK_PARAM_READWRITE));
 
   /**
-   * GtkTextView:overwrite: (attributes org.gtk.Property.get=gtk_text_view_get_overwrite org.gtk.Property.set=gtk_text_view_set_overwrite)
+   * GtkTextView:overwrite:
    *
    * Whether entered text overwrites existing contents.
    */
@@ -1131,7 +1134,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
                                                          GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY));
 
   /**
-   * GtkTextView:accepts-tab: (attributes org.gtk.Property.get=gtk_text_view_get_accepts_tab org.gtk.Property.set=gtk_text_view_set_accepts_tab)
+   * GtkTextView:accepts-tab:
    *
    * Whether Tab will result in a tab character being entered.
    */
@@ -1158,7 +1161,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
                                                          GTK_PARAM_READWRITE));
 
   /**
-   * GtkTextView:input-purpose: (attributes org.gtk.Property.get=gtk_text_view_get_input_purpose org.gtk.Property.set=gtk_text_view_set_input_purpose)
+   * GtkTextView:input-purpose:
    *
    * The purpose of this text field.
    *
@@ -1174,7 +1177,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
 
 
   /**
-   * GtkTextView:input-hints: (attributes org.gtk.Property.get=gtk_text_view_get_input_hints org.gtk.Property.set=gtk_text_view_set_input_hints)
+   * GtkTextView:input-hints:
    *
    * Additional hints (beyond [property@Gtk.TextView:input-purpose])
    * that allow input methods to fine-tune their behaviour.
@@ -1188,7 +1191,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
 
 
   /**
-   * GtkTextView:monospace: (attributes org.gtk.Property.get=gtk_text_view_get_monospace org.gtk.Property.set=gtk_text_view_set_monospace)
+   * GtkTextView:monospace:
    *
    * Whether text should be displayed in a monospace font.
    *
@@ -1202,7 +1205,7 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
                                                          GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY));
 
   /**
-   * GtkTextView:extra-menu: (attributes org.gtk.Property.get=gtk_text_view_get_extra_menu org.gtk.Property.set=gtk_text_view_set_extra_menu)
+   * GtkTextView:extra-menu:
    *
    * A menu model whose contents will be appended to the context menu.
    */
@@ -2268,7 +2271,7 @@ gtk_text_view_new_with_buffer (GtkTextBuffer *buffer)
 }
 
 /**
- * gtk_text_view_set_buffer: (attributes org.gtk.Method.set_property=buffer)
+ * gtk_text_view_set_buffer:
  * @text_view: a `GtkTextView`
  * @buffer: (nullable): a `GtkTextBuffer`
  *
@@ -2423,7 +2426,7 @@ gtk_text_view_create_buffer (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_get_buffer: (attributes org.gtk.Method.get_property=buffer)
+ * gtk_text_view_get_buffer:
  * @text_view: a `GtkTextView`
  *
  * Returns the `GtkTextBuffer` being displayed by this text view.
@@ -3280,7 +3283,40 @@ gtk_text_view_get_visible_rect (GtkTextView  *text_view,
 }
 
 /**
- * gtk_text_view_set_wrap_mode: (attributes org.gtk.Method.set_property=wrap-mode)
+ * gtk_text_view_get_visible_offset:
+ * @text_view: a `GtkTextView`
+ * @x_offset: (out) (nullable): a location for the X offset
+ * @y_offset: (out) (nullable): a location for the Y offset
+ *
+ * Gets the X,Y offset in buffer coordinates of the top-left corner of
+ * the textview's text contents.
+ *
+ * This allows for more-precise positioning than what is provided by
+ * [method@Gtk.TextView.get_visible_rect()] as you can discover what
+ * device pixel is being quantized for text positioning.
+ *
+ * You might want this when making ulterior widgets align with quantized
+ * device pixels of the textview contents such as line numbers.
+ *
+ * Since: 4.18
+ */
+void
+gtk_text_view_get_visible_offset (GtkTextView *text_view,
+                                  double      *x_offset,
+                                  double      *y_offset)
+{
+
+  g_return_if_fail (GTK_IS_TEXT_VIEW (text_view));
+
+  if (x_offset)
+    *x_offset = text_view->priv->xoffset;
+
+  if (y_offset)
+    *y_offset = text_view->priv->yoffset;
+}
+
+/**
+ * gtk_text_view_set_wrap_mode:
  * @text_view: a `GtkTextView`
  * @wrap_mode: a `GtkWrapMode`
  *
@@ -3310,7 +3346,7 @@ gtk_text_view_set_wrap_mode (GtkTextView *text_view,
 }
 
 /**
- * gtk_text_view_get_wrap_mode: (attributes org.gtk.Method.get_property=wrap-mode)
+ * gtk_text_view_get_wrap_mode:
  * @text_view: a `GtkTextView`
  *
  * Gets the line wrapping for the view.
@@ -3326,7 +3362,7 @@ gtk_text_view_get_wrap_mode (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_set_editable: (attributes org.gtk.Method.set_property=editable)
+ * gtk_text_view_set_editable:
  * @text_view: a `GtkTextView`
  * @setting: whether it’s editable
  *
@@ -3381,7 +3417,7 @@ gtk_text_view_set_editable (GtkTextView *text_view,
 }
 
 /**
- * gtk_text_view_get_editable: (attributes org.gtk.Method.get_property=editable)
+ * gtk_text_view_get_editable:
  * @text_view: a `GtkTextView`
  *
  * Returns the default editability of the `GtkTextView`.
@@ -3399,7 +3435,7 @@ gtk_text_view_get_editable (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_set_pixels_above_lines: (attributes org.gtk.Method.set_property=pixels-above-lines)
+ * gtk_text_view_set_pixels_above_lines:
  * @text_view: a `GtkTextView`
  * @pixels_above_lines: pixels above paragraphs
  *
@@ -3432,7 +3468,7 @@ gtk_text_view_set_pixels_above_lines (GtkTextView *text_view,
 }
 
 /**
- * gtk_text_view_get_pixels_above_lines: (attributes org.gtk.Method.get_property=pixels-above-lines)
+ * gtk_text_view_get_pixels_above_lines:
  * @text_view: a `GtkTextView`
  *
  * Gets the default number of pixels to put above paragraphs.
@@ -3451,7 +3487,7 @@ gtk_text_view_get_pixels_above_lines (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_set_pixels_below_lines: (attributes org.gtk.Method.set_property=pixels-below-lines)
+ * gtk_text_view_set_pixels_below_lines:
  * @text_view: a `GtkTextView`
  * @pixels_below_lines: pixels below paragraphs
  *
@@ -3485,7 +3521,7 @@ gtk_text_view_set_pixels_below_lines (GtkTextView *text_view,
 }
 
 /**
- * gtk_text_view_get_pixels_below_lines: (attributes org.gtk.Method.get_property=pixels-below-lines)
+ * gtk_text_view_get_pixels_below_lines:
  * @text_view: a `GtkTextView`
  *
  * Gets the default number of pixels to put below paragraphs.
@@ -3504,7 +3540,7 @@ gtk_text_view_get_pixels_below_lines (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_set_pixels_inside_wrap: (attributes org.gtk.Method.set_property=pixels-inside-wrap)
+ * gtk_text_view_set_pixels_inside_wrap:
  * @text_view: a `GtkTextView`
  * @pixels_inside_wrap: default number of pixels between wrapped lines
  *
@@ -3538,7 +3574,7 @@ gtk_text_view_set_pixels_inside_wrap (GtkTextView *text_view,
 }
 
 /**
- * gtk_text_view_get_pixels_inside_wrap: (attributes org.gtk.Method.get_property=pixels-inside-wrap)
+ * gtk_text_view_get_pixels_inside_wrap:
  * @text_view: a `GtkTextView`
  *
  * Gets the default number of pixels to put between wrapped lines
@@ -3555,7 +3591,7 @@ gtk_text_view_get_pixels_inside_wrap (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_set_justification: (attributes org.gtk.Method.set_property=justification)
+ * gtk_text_view_set_justification:
  * @text_view: a `GtkTextView`
  * @justification: justification
  *
@@ -3588,7 +3624,7 @@ gtk_text_view_set_justification (GtkTextView     *text_view,
 }
 
 /**
- * gtk_text_view_get_justification: (attributes org.gtk.Method.get_property=justification)
+ * gtk_text_view_get_justification:
  * @text_view: a `GtkTextView`
  *
  * Gets the default justification of paragraphs in @text_view.
@@ -3606,7 +3642,7 @@ gtk_text_view_get_justification (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_set_left_margin: (attributes org.gtk.Method.set_property=left-margin)
+ * gtk_text_view_set_left_margin:
  * @text_view: a `GtkTextView`
  * @left_margin: left margin in pixels
  *
@@ -3641,7 +3677,7 @@ gtk_text_view_set_left_margin (GtkTextView *text_view,
 }
 
 /**
- * gtk_text_view_get_left_margin: (attributes org.gtk.Method.get_property=left-margin)
+ * gtk_text_view_get_left_margin:
  * @text_view: a `GtkTextView`
  *
  * Gets the default left margin size of paragraphs in the @text_view.
@@ -3659,7 +3695,7 @@ gtk_text_view_get_left_margin (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_set_right_margin: (attributes org.gtk.Method.set_property=right-margin)
+ * gtk_text_view_set_right_margin:
  * @text_view: a `GtkTextView`
  * @right_margin: right margin in pixels
  *
@@ -3694,7 +3730,7 @@ gtk_text_view_set_right_margin (GtkTextView *text_view,
 }
 
 /**
- * gtk_text_view_get_right_margin: (attributes org.gtk.Method.get_property=right-margin)
+ * gtk_text_view_get_right_margin:
  * @text_view: a `GtkTextView`
  *
  * Gets the default right margin for text in @text_view.
@@ -3712,7 +3748,7 @@ gtk_text_view_get_right_margin (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_set_top_margin: (attributes org.gtk.Method.set_property=top-margin)
+ * gtk_text_view_set_top_margin:
  * @text_view: a `GtkTextView`
  * @top_margin: top margin in pixels
  *
@@ -3746,7 +3782,7 @@ gtk_text_view_set_top_margin (GtkTextView *text_view,
 }
 
 /**
- * gtk_text_view_get_top_margin: (attributes org.gtk.Method.get_property=top-margin)
+ * gtk_text_view_get_top_margin:
  * @text_view: a `GtkTextView`
  *
  * Gets the top margin for text in the @text_view.
@@ -3762,7 +3798,7 @@ gtk_text_view_get_top_margin (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_set_bottom_margin: (attributes org.gtk.Method.set_property=bottom-margin)
+ * gtk_text_view_set_bottom_margin:
  * @text_view: a `GtkTextView`
  * @bottom_margin: bottom margin in pixels
  *
@@ -3792,7 +3828,7 @@ gtk_text_view_set_bottom_margin (GtkTextView *text_view,
 }
 
 /**
- * gtk_text_view_get_bottom_margin: (attributes org.gtk.Method.get_property=bottom-margin)
+ * gtk_text_view_get_bottom_margin:
  * @text_view: a `GtkTextView`
  *
  * Gets the bottom margin for text in the @text_view.
@@ -3808,7 +3844,7 @@ gtk_text_view_get_bottom_margin (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_set_indent: (attributes org.gtk.Method.set_property=indent)
+ * gtk_text_view_set_indent:
  * @text_view: a `GtkTextView`
  * @indent: indentation in pixels
  *
@@ -3841,7 +3877,7 @@ gtk_text_view_set_indent (GtkTextView *text_view,
 }
 
 /**
- * gtk_text_view_get_indent: (attributes org.gtk.Method.get_property=indent)
+ * gtk_text_view_get_indent:
  * @text_view: a `GtkTextView`
  *
  * Gets the default indentation of paragraphs in @text_view.
@@ -3860,7 +3896,7 @@ gtk_text_view_get_indent (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_set_tabs: (attributes org.gtk.Method.set_property=tabs)
+ * gtk_text_view_set_tabs:
  * @text_view: a `GtkTextView`
  * @tabs: tabs as a `PangoTabArray`
  *
@@ -3899,7 +3935,7 @@ gtk_text_view_set_tabs (GtkTextView   *text_view,
 }
 
 /**
- * gtk_text_view_get_tabs: (attributes org.gtk.Method.get_property=tabs)
+ * gtk_text_view_get_tabs:
  * @text_view: a `GtkTextView`
  *
  * Gets the default tabs for @text_view.
@@ -3927,7 +3963,7 @@ gtk_text_view_toggle_cursor_visible (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_set_cursor_visible: (attributes org.gtk.Method.set_property=cursor-visible)
+ * gtk_text_view_set_cursor_visible:
  * @text_view: a `GtkTextView`
  * @setting: whether to show the insertion cursor
  *
@@ -3968,7 +4004,7 @@ gtk_text_view_set_cursor_visible (GtkTextView *text_view,
 }
 
 /**
- * gtk_text_view_get_cursor_visible: (attributes org.gtk.Method.get_property=cursor-visible)
+ * gtk_text_view_get_cursor_visible:
  * @text_view: a `GtkTextView`
  *
  * Find out whether the cursor should be displayed.
@@ -4485,7 +4521,7 @@ gtk_text_view_measure (GtkWidget      *widget,
 static void
 gtk_text_view_compute_child_allocation (GtkTextView         *text_view,
                                         const AnchoredChild *vc,
-                                        GtkAllocation       *allocation,
+                                        graphene_rect_t     *allocation,
                                         int                  gutter_width,
                                         int                  gutter_height)
 {
@@ -4502,12 +4538,12 @@ gtk_text_view_compute_child_allocation (GtkTextView         *text_view,
 
   buffer_y += vc->from_top_of_line;
 
-  allocation->x = vc->from_left_of_buffer - text_view->priv->xoffset + gutter_width;
-  allocation->y = buffer_y - text_view->priv->yoffset + gutter_height;
+  allocation->origin.x = vc->from_left_of_buffer - text_view->priv->xoffset + gutter_width;
+  allocation->origin.y = buffer_y - text_view->priv->yoffset + gutter_height;
 
   gtk_widget_get_preferred_size (vc->widget, &req, NULL);
-  allocation->width = req.width;
-  allocation->height = req.height;
+  allocation->size.width = req.width;
+  allocation->size.height = req.height;
 }
 
 static void
@@ -4516,17 +4552,21 @@ gtk_text_view_update_child_allocation (GtkTextView         *text_view,
                                        int                  gutter_width,
                                        int                  gutter_height)
 {
-  GtkAllocation allocation;
+  graphene_rect_t allocation;
 
   gtk_text_view_compute_child_allocation (text_view, vc, &allocation, gutter_width, gutter_height);
 
-  gtk_widget_size_allocate (vc->widget, &allocation, -1);
+  gtk_widget_allocate (vc->widget,
+                       allocation.size.width,
+                       allocation.size.height,
+                       -1,
+                       gsk_transform_translate (NULL, &allocation.origin));
 
 #if 0
-  g_print ("allocation for %p allocated to %d,%d yoffset = %d\n",
+  g_print ("allocation for %p allocated to %lf,%lf yoffset = %lf\n",
            vc->widget,
-           vc->widget->allocation.x,
-           vc->widget->allocation.y,
+           allocation.origin.x,
+           allocation.origin.y,
            text_view->priv->yoffset);
 #endif
 }
@@ -6057,12 +6097,10 @@ gtk_text_view_paint (GtkWidget   *widget,
   gtk_text_layout_snapshot (priv->layout,
                             widget,
                             snapshot,
-                            &(GdkRectangle) {
-                              priv->xoffset,
-                              priv->yoffset,
-                              gtk_widget_get_width (widget),
-                              gtk_widget_get_height (widget)
-                            },
+                            &GRAPHENE_RECT_INIT (priv->xoffset,
+                                                 priv->yoffset,
+                                                 gtk_widget_get_width (widget),
+                                                 gtk_widget_get_height (widget)),
                             priv->selection_style_changed,
                             priv->cursor_alpha);
 
@@ -6579,8 +6617,8 @@ gtk_text_view_move_cursor (GtkTextView     *text_view,
           break;
 	}
 
-      old_xpos = gtk_adjustment_get_value (priv->hadjustment);
-      old_ypos = gtk_adjustment_get_value (priv->vadjustment);
+      old_xpos = quantize_value (priv->hadjustment, GTK_WIDGET (text_view));
+      old_ypos = quantize_value (priv->vadjustment, GTK_WIDGET (text_view));
       gtk_text_view_move_viewport (text_view, scroll_step, count);
       if ((old_xpos == gtk_adjustment_get_target_value (priv->hadjustment) &&
            old_ypos == gtk_adjustment_get_target_value (priv->vadjustment)) &&
@@ -6792,6 +6830,7 @@ gtk_text_view_move_viewport (GtkTextView     *text_view,
 {
   GtkAdjustment *adjustment;
   double increment;
+  double value;
 
   switch (step)
     {
@@ -6829,7 +6868,8 @@ gtk_text_view_move_viewport (GtkTextView     *text_view,
       break;
     }
 
-  gtk_adjustment_animate_to_value (adjustment, gtk_adjustment_get_value (adjustment) + count * increment);
+  value = quantize_value (adjustment, GTK_WIDGET (text_view));
+  gtk_adjustment_animate_to_value (adjustment, value + count * increment);
 }
 
 static void
@@ -7370,7 +7410,7 @@ gtk_text_view_toggle_overwrite (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_get_overwrite: (attributes org.gtk.Method.get_property=overwrite)
+ * gtk_text_view_get_overwrite:
  * @text_view: a `GtkTextView`
  *
  * Returns whether the `GtkTextView` is in overwrite mode or not.
@@ -7386,7 +7426,7 @@ gtk_text_view_get_overwrite (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_set_overwrite: (attributes org.gtk.Method.set_property=overwrite)
+ * gtk_text_view_set_overwrite:
  * @text_view: a `GtkTextView`
  * @overwrite: %TRUE to turn on overwrite mode, %FALSE to turn it off
  *
@@ -7404,7 +7444,7 @@ gtk_text_view_set_overwrite (GtkTextView *text_view,
 }
 
 /**
- * gtk_text_view_set_accepts_tab: (attributes org.gtk.Method.set_property=accepts-tab)
+ * gtk_text_view_set_accepts_tab:
  * @text_view: A `GtkTextView`
  * @accepts_tab: %TRUE if pressing the Tab key should insert a tab
  *    character, %FALSE, if pressing the Tab key should move the
@@ -7435,7 +7475,7 @@ gtk_text_view_set_accepts_tab (GtkTextView *text_view,
 }
 
 /**
- * gtk_text_view_get_accepts_tab: (attributes org.gtk.Method.get_property=accepts-tab)
+ * gtk_text_view_get_accepts_tab:
  * @text_view: A `GtkTextView`
  *
  * Returns whether pressing the <kbd>Tab</kbd> key inserts a tab characters.
@@ -8588,7 +8628,7 @@ gtk_text_view_set_hadjustment_values (GtkTextView *text_view)
   priv = text_view->priv;
 
   screen_width = SCREEN_WIDTH (text_view);
-  old_value = gtk_adjustment_get_value (priv->hadjustment);
+  old_value = quantize_value (priv->hadjustment, GTK_WIDGET (text_view));
   new_upper = MAX (screen_width, priv->width);
 
   g_object_set (priv->hadjustment,
@@ -8618,7 +8658,7 @@ gtk_text_view_set_vadjustment_values (GtkTextView *text_view)
   priv = text_view->priv;
 
   screen_height = SCREEN_HEIGHT (text_view);
-  old_value = gtk_adjustment_get_value (priv->vadjustment);
+  old_value = quantize_value (priv->vadjustment, GTK_WIDGET (text_view));
   new_upper = MAX (screen_height, priv->height);
 
   g_object_set (priv->vadjustment,
@@ -8649,8 +8689,9 @@ gtk_text_view_value_changed (GtkAdjustment *adjustment,
   GtkTextViewPrivate *priv;
   GtkTextIter iter;
   int line_top;
-  int dx = 0;
-  int dy = 0;
+  double dx = 0;
+  double dy = 0;
+  double value;
 
   priv = text_view->priv;
 
@@ -8664,23 +8705,25 @@ gtk_text_view_value_changed (GtkAdjustment *adjustment,
              adjustment == priv->hadjustment ? "hadjustment" : adjustment == priv->vadjustment ? "vadjustment" : "none",
              adjustment ? gtk_adjustment_get_value (adjustment) : 0.0));
 
+  value = quantize_value (adjustment, GTK_WIDGET (text_view));
+
   if (adjustment == priv->hadjustment)
     {
-      dx = priv->xoffset - (int)gtk_adjustment_get_value (adjustment);
-      priv->xoffset = (int)gtk_adjustment_get_value (adjustment) - priv->left_padding;
+      dx = priv->xoffset - value;
+      priv->xoffset = value - priv->left_padding;
     }
   else if (adjustment == priv->vadjustment)
     {
-      dy = priv->yoffset - (int)gtk_adjustment_get_value (adjustment) + priv->top_margin ;
+      dy = priv->yoffset - value + priv->top_margin;
       priv->yoffset -= dy;
 
       if (priv->layout)
         {
-          gtk_text_layout_get_line_at_y (priv->layout, &iter, gtk_adjustment_get_value (adjustment), &line_top);
+          gtk_text_layout_get_line_at_y (priv->layout, &iter, value, &line_top);
 
           gtk_text_buffer_move_mark (get_buffer (text_view), priv->first_para_mark, &iter);
 
-          priv->first_para_pixels = gtk_adjustment_get_value (adjustment) - line_top;
+          priv->first_para_pixels = value - line_top;
         }
     }
 
@@ -10165,7 +10208,7 @@ gtk_text_view_move_visually (GtkTextView *text_view,
 }
 
 /**
- * gtk_text_view_set_input_purpose: (attributes org.gtk.Method.set_property=input-purpose)
+ * gtk_text_view_set_input_purpose:
  * @text_view: a `GtkTextView`
  * @purpose: the purpose
  *
@@ -10192,7 +10235,7 @@ gtk_text_view_set_input_purpose (GtkTextView     *text_view,
 }
 
 /**
- * gtk_text_view_get_input_purpose: (attributes org.gtk.Method.get_property=input-purpose)
+ * gtk_text_view_get_input_purpose:
  * @text_view: a `GtkTextView`
  *
  * Gets the `input-purpose` of the `GtkTextView`.
@@ -10214,7 +10257,7 @@ gtk_text_view_get_input_purpose (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_set_input_hints: (attributes org.gtk.Method.set_property=input-hints)
+ * gtk_text_view_set_input_hints:
  * @text_view: a `GtkTextView`
  * @hints: the hints
  *
@@ -10242,7 +10285,7 @@ gtk_text_view_set_input_hints (GtkTextView   *text_view,
 }
 
 /**
- * gtk_text_view_get_input_hints: (attributes org.gtk.Method.get_property=input-hints)
+ * gtk_text_view_get_input_hints:
  * @text_view: a `GtkTextView`
  *
  * Gets the `input-hints` of the `GtkTextView`.
@@ -10264,7 +10307,7 @@ gtk_text_view_get_input_hints (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_set_monospace: (attributes org.gtk.Method.set_property=monospace)
+ * gtk_text_view_set_monospace:
  * @text_view: a `GtkTextView`
  * @monospace: %TRUE to request monospace styling
  *
@@ -10293,7 +10336,7 @@ gtk_text_view_set_monospace (GtkTextView *text_view,
 }
 
 /**
- * gtk_text_view_get_monospace: (attributes org.gtk.Method.get_property=monospace)
+ * gtk_text_view_get_monospace:
  * @text_view: a `GtkTextView`
  *
  * Gets whether the `GtkTextView` uses monospace styling.
@@ -10378,7 +10421,7 @@ gtk_text_view_insert_emoji (GtkTextView *text_view)
 }
 
 /**
- * gtk_text_view_set_extra_menu: (attributes org.gtk.Method.set_property=extra-menu)
+ * gtk_text_view_set_extra_menu:
  * @text_view: a `GtkTextView`
  * @model: (nullable): a `GMenuModel`
  *
@@ -10403,7 +10446,7 @@ gtk_text_view_set_extra_menu (GtkTextView *text_view,
 }
 
 /**
- * gtk_text_view_get_extra_menu: (attributes org.gtk.Method.get_property=extra-menu)
+ * gtk_text_view_get_extra_menu:
  * @text_view: a `GtkTextView`
  *
  * Gets the menu model that gets added to the context menu
@@ -10523,6 +10566,26 @@ GtkEventController *
 gtk_text_view_get_key_controller (GtkTextView *text_view)
 {
   return text_view->priv->key_controller;
+}
+
+static double
+quantize_value (GtkAdjustment *adjustment,
+                GtkWidget     *widget)
+{
+  GtkNative *native;
+  GdkSurface *surface;
+  double inv_scale;
+
+  g_assert (GTK_IS_ADJUSTMENT (adjustment));
+  g_assert (GTK_IS_WIDGET (widget));
+
+  if (!(native = gtk_widget_get_native (widget)) ||
+      !(surface = gtk_native_get_surface (native)))
+    return (int)gtk_adjustment_get_value (adjustment);
+
+  inv_scale = 1. / gdk_surface_get_scale (surface);
+
+  return round (gtk_adjustment_get_value (adjustment) / inv_scale) * inv_scale;
 }
 
 /* {{{ GtkAccessibleText implementation */
@@ -10913,4 +10976,4 @@ gtk_text_view_accessible_text_init (GtkAccessibleTextInterface *iface)
 
 /* }}} */
 
-/* vim:set foldmethod=marker expandtab: */
+/* vim:set foldmethod=marker: */

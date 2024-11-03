@@ -55,7 +55,7 @@ G_BEGIN_DECLS
  * are interpreted relative to text direction.
  *
  * Baseline support is optional for containers and widgets, and is only available
- * for vertical alignment. `GTK_ALIGN_BASELINE_CENTER and `GTK_ALIGN_BASELINE_FILL`
+ * for vertical alignment. `GTK_ALIGN_BASELINE_CENTER` and `GTK_ALIGN_BASELINE_FILL`
  * are treated similar to `GTK_ALIGN_CENTER` and `GTK_ALIGN_FILL`, except that it
  * positions the widget to line up the baselines, where that is supported.
  */
@@ -1684,8 +1684,8 @@ typedef enum {
  *    that describes the object. Value type: reference
  * @GTK_ACCESSIBLE_RELATION_DETAILS: Identifies the element (or elements) that
  *    provide additional information related to the object. Value type: reference
- * @GTK_ACCESSIBLE_RELATION_ERROR_MESSAGE: Identifies the element that provides
- *    an error message for an object. Value type: reference
+ * @GTK_ACCESSIBLE_RELATION_ERROR_MESSAGE: Identifies the element (or elements) that
+ *    provide an error message for an object. Value type: reference
  * @GTK_ACCESSIBLE_RELATION_FLOW_TO: Identifies the next element (or elements)
  *    in an alternate reading order of content which, at the user's discretion,
  *    allows assistive technology to override the general default of reading in

@@ -66,29 +66,6 @@
  */
 G_LOCK_DEFINE_STATIC (rgba);
 
-static gboolean
-gsk_color_stops_are_opaque (const GskColorStop *stops,
-                            gsize               n_stops)
-{
-  gsize i;
-
-  for (i = 0; i < n_stops; i++)
-    {
-      if (!gdk_rgba_is_opaque (&stops[i].color))
-        return FALSE;
-    }
-
-  return TRUE;
-}
-
-/* FIXME: Replace this once GdkColor lands */
-static inline GdkMemoryDepth
-my_color_stops_get_depth (const GskColorStop *stops,
-                          gsize               n_stops)
-{
-  return gdk_color_state_get_depth (GDK_COLOR_STATE_SRGB);
-}
-
 static inline gboolean
 color_state_is_hdr (GdkColorState *color_state)
 {
@@ -324,7 +301,7 @@ gsk_color_node_new2 (const GdkColor        *color,
   node = (GskRenderNode *) self;
   node->offscreen_for_opacity = FALSE;
   node->fully_opaque = gdk_color_is_opaque (color);
-  node->preferred_depth = gdk_color_get_depth (color);
+  node->preferred_depth = GDK_MEMORY_NONE;
   node->is_hdr = color_state_is_hdr (color->color_state);
 
   gdk_color_init_copy (&self->color, color);
@@ -357,7 +334,11 @@ struct _GskLinearGradientNode
   graphene_point_t end;
 
   gsize n_stops;
-  GskColorStop *stops;
+  GskColorStop2 *stops;
+  GskColorStop *rgba_stops;
+
+  GdkColorState *interpolation;
+  GskHueInterpolation hue_interpolation;
 };
 
 static void
@@ -366,9 +347,149 @@ gsk_linear_gradient_node_finalize (GskRenderNode *node)
   GskLinearGradientNode *self = (GskLinearGradientNode *) node;
   GskRenderNodeClass *parent_class = g_type_class_peek (g_type_parent (GSK_TYPE_LINEAR_GRADIENT_NODE));
 
+  for (gsize i = 0; i < self->n_stops; i++)
+    gdk_color_finish (&self->stops[i].color);
   g_free (self->stops);
 
+  g_free (self->rgba_stops);
+
+  gdk_color_state_unref (self->interpolation);
+
   parent_class->finalize (node);
+}
+
+static float
+adjust_hue (GskHueInterpolation  interp,
+            float                h1,
+            float                h2)
+{
+  float d;
+
+  d = h2 - h1;
+  while (d > 360)
+    {
+      h2 -= 360;
+      d = h2 - h1;
+    }
+  while (d < -360)
+    {
+      h2 += 360;
+      d = h2 - h1;
+    }
+
+  g_assert (fabsf (d) <= 360);
+
+  switch (interp)
+    {
+    case GSK_HUE_INTERPOLATION_SHORTER:
+      {
+        if (d > 180)
+          h2 -= 360;
+        else if (d < -180)
+          h2 += 360;
+      }
+      g_assert (fabsf (h2 - h1) <= 180);
+      break;
+
+    case GSK_HUE_INTERPOLATION_LONGER:
+      {
+        if (0 < d && d < 180)
+          h2 -= 360;
+        else if (-180 < d && d <= 0)
+          h2 += 360;
+      g_assert (fabsf (h2 - h1) >= 180);
+      }
+      break;
+
+    case GSK_HUE_INTERPOLATION_INCREASING:
+      if (h2 < h1)
+        h2 += 360;
+      d = h2 - h1;
+      g_assert (h1 <= h2);
+      break;
+
+    case GSK_HUE_INTERPOLATION_DECREASING:
+      if (h1 < h2)
+        h2 -= 360;
+      d = h2 - h1;
+      g_assert (h1 >= h2);
+      break;
+
+    default:
+      g_assert_not_reached ();
+    }
+
+  return h2;
+}
+
+#define lerp(t,a,b) ((a) + (t) * ((b) - (a)))
+
+typedef void (* ColorStopCallback) (float          offset,
+                                    GdkColorState *ccs,
+                                    float          values[4],
+                                    gpointer       data);
+
+static void
+interpolate_color_stops (GdkColorState         *ccs,
+                         GdkColorState         *interpolation,
+                         GskHueInterpolation    hue_interpolation,
+                         float                  offset1,
+                         GdkColor              *color1,
+                         float                  offset2,
+                         GdkColor              *color2,
+                         ColorStopCallback      callback,
+                         gpointer               data)
+{
+  float values1[4];
+  float values2[4];
+  int n;
+
+  gdk_color_to_float (color1, interpolation, values1);
+  gdk_color_to_float (color2, interpolation, values2);
+
+  if (gdk_color_state_equal (interpolation, GDK_COLOR_STATE_OKLCH))
+    {
+      values2[2] = adjust_hue (hue_interpolation, values1[2], values2[2]);
+      /* don't make hue steps larger than 30° */
+      n = ceilf (fabsf (values2[2] - values1[2]) / 30);
+    }
+  else
+    {
+      /* just some steps */
+      n = 4;
+    }
+
+  for (int k = 1; k < n; k++)
+    {
+      float f = k / (float) n;
+      float values[4];
+      float offset;
+      GdkColor c;
+
+      values[0] = lerp (f, values1[0], values2[0]);
+      values[1] = lerp (f, values1[1], values2[1]);
+      values[2] = lerp (f, values1[2], values2[2]);
+      values[3] = lerp (f, values1[3], values2[3]);
+      offset = lerp (f, offset1, offset2);
+
+      gdk_color_init (&c, interpolation, values);
+      gdk_color_to_float (&c, ccs, values);
+
+      callback (offset, ccs, values, data);
+
+      gdk_color_finish (&c);
+    }
+}
+
+static void
+add_color_stop_to_pattern (float          offset,
+                           GdkColorState *ccs,
+                           float          values[4],
+                           gpointer       data)
+{
+  cairo_pattern_t *pattern = data;
+
+  cairo_pattern_add_color_stop_rgba (pattern, offset, values[0], values[1], values[2], values[3]);
 }
 
 static void
@@ -387,16 +508,46 @@ gsk_linear_gradient_node_draw (GskRenderNode *node,
     cairo_pattern_set_extend (pattern, CAIRO_EXTEND_REPEAT);
 
   if (self->stops[0].offset > 0.0)
-    gdk_cairo_pattern_add_color_stop_rgba_ccs (pattern, ccs, 0.0, &self->stops[0].color);
+    gdk_cairo_pattern_add_color_stop_color (pattern,
+                                            ccs,
+                                            0.0,
+                                            &self->stops[0].color);
+
   for (i = 0; i < self->n_stops; i++)
     {
-      gdk_cairo_pattern_add_color_stop_rgba_ccs (pattern,
-                                                 ccs,
-                                                 self->stops[i].offset,
-                                                 &self->stops[i].color);
+      if (!gdk_color_state_equal (self->interpolation, ccs))
+        interpolate_color_stops (ccs,
+                                 self->interpolation, self->hue_interpolation,
+                                 i > 0 ? self->stops[i-1].offset : 0,
+                                 i > 0 ? &self->stops[i-1].color : &self->stops[i].color,
+                                 self->stops[i].offset,
+                                 &self->stops[i].color,
+                                 add_color_stop_to_pattern,
+                                 pattern);
+
+      gdk_cairo_pattern_add_color_stop_color (pattern,
+                                              ccs,
+                                              self->stops[i].offset,
+                                              &self->stops[i].color);
     }
+
   if (self->stops[self->n_stops-1].offset < 1.0)
-    gdk_cairo_pattern_add_color_stop_rgba_ccs (pattern, ccs, 1.0, &self->stops[self->n_stops-1].color);
+    {
+      if (!gdk_color_state_equal (self->interpolation, ccs))
+        interpolate_color_stops (ccs,
+                                 self->interpolation, self->hue_interpolation,
+                                 self->stops[self->n_stops-1].offset,
+                                 &self->stops[self->n_stops-1].color,
+                                 1,
+                                 &self->stops[self->n_stops-1].color,
+                                 add_color_stop_to_pattern,
+                                 pattern);
+
+      gdk_cairo_pattern_add_color_stop_color (pattern,
+                                              ccs,
+                                              1.0,
+                                              &self->stops[self->n_stops-1].color);
+    }
 
   cairo_set_source (cr, pattern);
   cairo_pattern_destroy (pattern);
@@ -415,17 +566,18 @@ gsk_linear_gradient_node_diff (GskRenderNode *node1,
 
   if (graphene_point_equal (&self1->start, &self2->start) &&
       graphene_point_equal (&self1->end, &self2->end) &&
+      gdk_color_state_equal (self1->interpolation, self2->interpolation) &&
       self1->n_stops == self2->n_stops)
     {
       gsize i;
 
       for (i = 0; i < self1->n_stops; i++)
         {
-          GskColorStop *stop1 = &self1->stops[i];
-          GskColorStop *stop2 = &self2->stops[i];
+          GskColorStop2 *stop1 = &self1->stops[i];
+          GskColorStop2 *stop2 = &self2->stops[i];
 
           if (stop1->offset == stop2->offset &&
-              gdk_rgba_equal (&stop1->color, &stop2->color))
+              gdk_color_equal (&stop1->color, &stop2->color))
             continue;
 
           gsk_render_node_diff_impossible (node1, node2, data);
@@ -487,9 +639,8 @@ gsk_linear_gradient_node_new (const graphene_rect_t  *bounds,
                               const GskColorStop     *color_stops,
                               gsize                   n_color_stops)
 {
-  GskLinearGradientNode *self;
+  GskColorStop2 *stops;
   GskRenderNode *node;
-  gsize i;
 
   g_return_val_if_fail (bounds != NULL, NULL);
   g_return_val_if_fail (start != NULL, NULL);
@@ -497,6 +648,65 @@ gsk_linear_gradient_node_new (const graphene_rect_t  *bounds,
   g_return_val_if_fail (color_stops != NULL, NULL);
   g_return_val_if_fail (n_color_stops >= 2, NULL);
   g_return_val_if_fail (color_stops[0].offset >= 0, NULL);
+
+  stops = g_newa (GskColorStop2, n_color_stops);
+  for (gsize i = 0; i < n_color_stops; i++)
+    {
+      stops[i].offset = color_stops[i].offset;
+      gdk_color_init_from_rgba (&stops[i].color, &color_stops[i].color);
+    }
+
+  node = gsk_linear_gradient_node_new2 (bounds,
+                                        start, end,
+                                        GDK_COLOR_STATE_SRGB,
+                                        GSK_HUE_INTERPOLATION_SHORTER,
+                                        stops, n_color_stops);
+
+  for (gsize i = 0; i < n_color_stops; i++)
+    gdk_color_finish (&stops[i].color);
+
+  return node;
+}
+
+/*< private >
+ * gsk_linear_gradient_node_new2:
+ * @bounds: the rectangle to render the linear gradient into
+ * @start: the point at which the linear gradient will begin
+ * @end: the point at which the linear gradient will finish
+ * @interpolation: the color state to interpolate in
+ * @hue_interpolation: how to interpolate if @interpolation is polar
+ * @color_stops: (array length=n_color_stops): a pointer to an array of
+ *   `GskColorStop2` defining the gradient. The offsets of all color stops
+ *   must be increasing. The first stop's offset must be >= 0 and the last
+ *   stop's offset must be <= 1.
+ * @n_color_stops: the number of elements in @color_stops
+ *
+ * Creates a `GskRenderNode` that will create a linear gradient from the given
+ * points and color stops, and render that into the area given by @bounds.
+ *
+ * Returns: (transfer full) (type GskLinearGradientNode): A new `GskRenderNode`
+ */
+GskRenderNode *
+gsk_linear_gradient_node_new2 (const graphene_rect_t  *bounds,
+                               const graphene_point_t *start,
+                               const graphene_point_t *end,
+                               GdkColorState          *interpolation,
+                               GskHueInterpolation     hue_interpolation,
+                               const GskColorStop2    *color_stops,
+                               gsize                   n_color_stops)
+{
+  GskLinearGradientNode *self;
+  GskRenderNode *node;
+  gsize i;
+  gboolean opaque;
+
+  g_return_val_if_fail (bounds != NULL, NULL);
+  g_return_val_if_fail (start != NULL, NULL);
+  g_return_val_if_fail (end != NULL, NULL);
+  g_return_val_if_fail (color_stops != NULL, NULL);
+  g_return_val_if_fail (n_color_stops >= 2, NULL);
+  g_return_val_if_fail (color_stops[0].offset >= 0, NULL);
+
   for (i = 1; i < n_color_stops; i++)
     g_return_val_if_fail (color_stops[i].offset >= color_stops[i - 1].offset, NULL);
   g_return_val_if_fail (color_stops[n_color_stops - 1].offset <= 1, NULL);
@@ -504,17 +714,29 @@ gsk_linear_gradient_node_new (const graphene_rect_t  *bounds,
   self = gsk_render_node_alloc (GSK_LINEAR_GRADIENT_NODE);
   node = (GskRenderNode *) self;
   node->offscreen_for_opacity = FALSE;
-  node->fully_opaque = gsk_color_stops_are_opaque (color_stops, n_color_stops);
-  node->preferred_depth = my_color_stops_get_depth (color_stops, n_color_stops);
 
   gsk_rect_init_from_rect (&node->bounds, bounds);
   gsk_rect_normalize (&node->bounds);
   graphene_point_init_from_point (&self->start, start);
   graphene_point_init_from_point (&self->end, end);
 
+  opaque = TRUE;
+
   self->n_stops = n_color_stops;
-  self->stops = g_malloc_n (n_color_stops, sizeof (GskColorStop));
-  memcpy (self->stops, color_stops, n_color_stops * sizeof (GskColorStop));
+  self->stops = g_new (GskColorStop2, n_color_stops);
+  for (i = 0; i < n_color_stops; i++)
+    {
+      self->stops[i].offset = color_stops[i].offset;
+      gdk_color_init_copy (&self->stops[i].color, &color_stops[i].color);
+      opaque = opaque && gdk_color_is_opaque (&color_stops[i].color);
+    }
+
+  node->fully_opaque = opaque;
+  node->preferred_depth = gdk_color_state_get_depth (interpolation);
+  node->is_hdr = color_state_is_hdr (interpolation);
+
+  self->interpolation = gdk_color_state_ref (interpolation);
+  self->hue_interpolation = hue_interpolation;
 
   return node;
 }
@@ -543,9 +765,8 @@ gsk_repeating_linear_gradient_node_new (const graphene_rect_t  *bounds,
                                         const GskColorStop     *color_stops,
                                         gsize                   n_color_stops)
 {
-  GskLinearGradientNode *self;
+  GskColorStop2 *stops;
   GskRenderNode *node;
-  gsize i;
 
   g_return_val_if_fail (bounds != NULL, NULL);
   g_return_val_if_fail (start != NULL, NULL);
@@ -553,6 +774,66 @@ gsk_repeating_linear_gradient_node_new (const graphene_rect_t  *bounds,
   g_return_val_if_fail (color_stops != NULL, NULL);
   g_return_val_if_fail (n_color_stops >= 2, NULL);
   g_return_val_if_fail (color_stops[0].offset >= 0, NULL);
+
+  stops = g_newa (GskColorStop2, n_color_stops);
+  for (gsize i = 0; i < n_color_stops; i++)
+    {
+      stops[i].offset = color_stops[i].offset;
+      gdk_color_init_from_rgba (&stops[i].color, &color_stops[i].color);
+    }
+
+  node = gsk_repeating_linear_gradient_node_new2 (bounds,
+                                                  start, end,
+                                                  GDK_COLOR_STATE_SRGB,
+                                                  GSK_HUE_INTERPOLATION_SHORTER,
+                                                  stops, n_color_stops);
+
+  for (gsize i = 0; i < n_color_stops; i++)
+    gdk_color_finish (&stops[i].color);
+
+  return node;
+}
+
+/*< private >
+ * gsk_repeating_linear_gradient_node_new2:
+ * @bounds: the rectangle to render the linear gradient into
+ * @start: the point at which the linear gradient will begin
+ * @end: the point at which the linear gradient will finish
+ * @interpolation: the color state to interpolate in
+ * @hue_interpolation: how to interpolate if @interpolation is polar
+ * @color_stops: (array length=n_color_stops): a pointer to an array of
+ * `GskColorStop2` defining the gradient. The offsets of all color stops
+ *   must be increasing. The first stop's offset must be >= 0 and the last
+ *   stop's offset must be <= 1.
+ * @n_color_stops: the number of elements in @color_stops
+ *
+ * Creates a `GskRenderNode` that will create a repeating linear gradient
+ * from the given points and color stops, and render that into the area
+ * given by @bounds.
+ *
+ * Returns: (transfer full) (type GskRepeatingLinearGradientNode): A new `GskRenderNode`
+ */
+GskRenderNode *
+gsk_repeating_linear_gradient_node_new2 (const graphene_rect_t  *bounds,
+                                         const graphene_point_t *start,
+                                         const graphene_point_t *end,
+                                         GdkColorState          *interpolation,
+                                         GskHueInterpolation     hue_interpolation,
+                                         const GskColorStop2    *color_stops,
+                                         gsize                   n_color_stops)
+{
+  GskLinearGradientNode *self;
+  GskRenderNode *node;
+  gsize i;
+  gboolean opaque;
+
+  g_return_val_if_fail (bounds != NULL, NULL);
+  g_return_val_if_fail (start != NULL, NULL);
+  g_return_val_if_fail (end != NULL, NULL);
+  g_return_val_if_fail (color_stops != NULL, NULL);
+  g_return_val_if_fail (n_color_stops >= 2, NULL);
+  g_return_val_if_fail (color_stops[0].offset >= 0, NULL);
+
   for (i = 1; i < n_color_stops; i++)
     g_return_val_if_fail (color_stops[i].offset >= color_stops[i - 1].offset, NULL);
   g_return_val_if_fail (color_stops[n_color_stops - 1].offset <= 1, NULL);
@@ -560,17 +841,30 @@ gsk_repeating_linear_gradient_node_new (const graphene_rect_t  *bounds,
   self = gsk_render_node_alloc (GSK_REPEATING_LINEAR_GRADIENT_NODE);
   node = (GskRenderNode *) self;
   node->offscreen_for_opacity = FALSE;
-  node->fully_opaque = gsk_color_stops_are_opaque (color_stops, n_color_stops);
-  node->preferred_depth = my_color_stops_get_depth (color_stops, n_color_stops);
 
   gsk_rect_init_from_rect (&node->bounds, bounds);
   gsk_rect_normalize (&node->bounds);
   graphene_point_init_from_point (&self->start, start);
   graphene_point_init_from_point (&self->end, end);
 
-  self->stops = g_malloc_n (n_color_stops, sizeof (GskColorStop));
-  memcpy (self->stops, color_stops, n_color_stops * sizeof (GskColorStop));
+  opaque = TRUE;
+
+  self->stops = g_new (GskColorStop2, n_color_stops);
   self->n_stops = n_color_stops;
+  for (i = 0; i < n_color_stops; i++)
+    {
+      self->stops[i].offset = color_stops[i].offset;
+      gdk_color_init_copy (&self->stops[i].color, &color_stops[i].color);
+
+      opaque = opaque && gdk_color_is_opaque (&color_stops[i].color);
+    }
+
+  node->fully_opaque = opaque;
+  node->preferred_depth = gdk_color_state_get_depth (interpolation);
+  node->is_hdr = color_state_is_hdr (interpolation);
+
+  self->interpolation = gdk_color_state_ref (interpolation);
+  self->hue_interpolation = hue_interpolation;
 
   return node;
 }
@@ -636,12 +930,77 @@ const GskColorStop *
 gsk_linear_gradient_node_get_color_stops (const GskRenderNode *node,
                                           gsize               *n_stops)
 {
-  const GskLinearGradientNode *self = (const GskLinearGradientNode *) node;
+  GskLinearGradientNode *self = (GskLinearGradientNode *) node;
+  const GskColorStop *stops;
 
   if (n_stops != NULL)
     *n_stops = self->n_stops;
 
+  G_LOCK (rgba);
+
+  if (self->rgba_stops == NULL)
+    {
+      self->rgba_stops = g_new (GskColorStop, self->n_stops);
+      for (gsize i = 0; i < self->n_stops; i++)
+        {
+          self->rgba_stops[i].offset = self->stops[i].offset;
+          gdk_color_to_float (&self->stops[i].color, GDK_COLOR_STATE_SRGB, (float *) &self->rgba_stops[i].color);
+        }
+    }
+
+  stops = self->rgba_stops;
+
+  G_UNLOCK (rgba);
+
+  return stops;
+}
+
+/*< private >
+ * gsk_linear_gradient_node_get_color_stops2:
+ * @node: (type GskLinearGradientNode): a `GskRenderNode` for a linear gradient
+ *
+ * Retrieves the color stops in the gradient.
+ *
+ * Returns: (array length=n_stops): the color stops in the gradient
+ */
+const GskColorStop2 *
+gsk_linear_gradient_node_get_color_stops2 (const GskRenderNode *node)
+{
+  const GskLinearGradientNode *self = (const GskLinearGradientNode *) node;
+
   return self->stops;
+}
+
+/*< private >
+ * gsk_linear_gradient_node_get_interpolation_color_state:
+ * @node: (type GskLinearGradientNode): a `GskRenderNode` for a linear gradient
+ *
+ * Retrieves the color state that the gradient is interpolated in.
+ *
+ * Returns: (array length=n_stops): the interpolation color state
+ */
+GdkColorState *
+gsk_linear_gradient_node_get_interpolation_color_state (const GskRenderNode *node)
+{
+  const GskLinearGradientNode *self = (const GskLinearGradientNode *) node;
+
+  return self->interpolation;
+}
+
+/*< private >
+ * gsk_linear_gradient_node_get_hue_interpolation:
+ * @node: (type GskLinearGradientNode): a `GskRenderNode` for a linear gradient
+ *
+ * Retrieves the hue interplation for the gradient.
+ *
+ * Returns: (array length=n_stops): the hue interpolation
+ */
+GskHueInterpolation
+gsk_linear_gradient_node_get_hue_interpolation (const GskRenderNode *node)
+{
+  const GskLinearGradientNode *self = (const GskLinearGradientNode *) node;
+
+  return self->hue_interpolation;
 }
 
 /* }}} */
@@ -670,7 +1029,11 @@ struct _GskRadialGradientNode
   float end;
 
   gsize n_stops;
-  GskColorStop *stops;
+  GskColorStop2 *stops;
+  GskColorStop *rgba_stops;
+
+  GdkColorState *interpolation;
+  GskHueInterpolation hue_interpolation;
 };
 
 static void
@@ -679,7 +1042,13 @@ gsk_radial_gradient_node_finalize (GskRenderNode *node)
   GskRadialGradientNode *self = (GskRadialGradientNode *) node;
   GskRenderNodeClass *parent_class = g_type_class_peek (g_type_parent (GSK_TYPE_RADIAL_GRADIENT_NODE));
 
+  for (gsize i = 0; i < self->n_stops; i++)
+    gdk_color_finish (&self->stops[i].color);
   g_free (self->stops);
+
+  g_free (self->rgba_stops);
+
+  gdk_color_state_unref (self->interpolation);
 
   parent_class->finalize (node);
 }
@@ -710,16 +1079,46 @@ gsk_radial_gradient_node_draw (GskRenderNode *node,
     cairo_pattern_set_extend (pattern, CAIRO_EXTEND_PAD);
 
   if (self->stops[0].offset > 0.0)
-    gdk_cairo_pattern_add_color_stop_rgba_ccs (pattern, ccs, 0.0, &self->stops[0].color);
+    gdk_cairo_pattern_add_color_stop_color (pattern,
+                                            ccs,
+                                            0.0,
+                                            &self->stops[0].color);
+
   for (i = 0; i < self->n_stops; i++)
     {
-      gdk_cairo_pattern_add_color_stop_rgba_ccs (pattern,
-                                                 ccs,
-                                                 self->stops[i].offset,
-                                                 &self->stops[i].color);
+      if (!gdk_color_state_equal (self->interpolation, ccs))
+        interpolate_color_stops (ccs,
+                                 self->interpolation, self->hue_interpolation,
+                                 i > 0 ? self->stops[i-1].offset : 0,
+                                 i > 0 ? &self->stops[i-1].color : &self->stops[i].color,
+                                 self->stops[i].offset,
+                                 &self->stops[i].color,
+                                 add_color_stop_to_pattern,
+                                 pattern);
+
+      gdk_cairo_pattern_add_color_stop_color (pattern,
+                                              ccs,
+                                              self->stops[i].offset,
+                                              &self->stops[i].color);
     }
+
   if (self->stops[self->n_stops-1].offset < 1.0)
-    gdk_cairo_pattern_add_color_stop_rgba_ccs (pattern, ccs, 1.0, &self->stops[self->n_stops-1].color);
+    {
+      if (!gdk_color_state_equal (self->interpolation, ccs))
+        interpolate_color_stops (ccs,
+                                 self->interpolation, self->hue_interpolation,
+                                 self->stops[self->n_stops-1].offset,
+                                 &self->stops[self->n_stops-1].color,
+                                 1,
+                                 &self->stops[self->n_stops-1].color,
+                                 add_color_stop_to_pattern,
+                                 pattern);
+
+      gdk_cairo_pattern_add_color_stop_color (pattern,
+                                              ccs,
+                                              1.0,
+                                              &self->stops[self->n_stops-1].color);
+    }
 
   gdk_cairo_rect (cr, &node->bounds);
   cairo_translate (cr, self->center.x, self->center.y);
@@ -742,17 +1141,18 @@ gsk_radial_gradient_node_diff (GskRenderNode *node1,
       self1->vradius == self2->vradius &&
       self1->start == self2->start &&
       self1->end == self2->end &&
+      gdk_color_state_equal (self1->interpolation, self2->interpolation) &&
       self1->n_stops == self2->n_stops)
     {
       gsize i;
 
       for (i = 0; i < self1->n_stops; i++)
         {
-          GskColorStop *stop1 = &self1->stops[i];
-          GskColorStop *stop2 = &self2->stops[i];
+          GskColorStop2 *stop1 = &self1->stops[i];
+          GskColorStop2 *stop2 = &self2->stops[i];
 
           if (stop1->offset == stop2->offset &&
-              gdk_rgba_equal (&stop1->color, &stop2->color))
+              gdk_color_equal (&stop1->color, &stop2->color))
             continue;
 
           gsk_render_node_diff_impossible (node1, node2, data);
@@ -823,9 +1223,8 @@ gsk_radial_gradient_node_new (const graphene_rect_t  *bounds,
                               const GskColorStop     *color_stops,
                               gsize                   n_color_stops)
 {
-  GskRadialGradientNode *self;
+  GskColorStop2 *stops;
   GskRenderNode *node;
-  gsize i;
 
   g_return_val_if_fail (bounds != NULL, NULL);
   g_return_val_if_fail (center != NULL, NULL);
@@ -837,6 +1236,79 @@ gsk_radial_gradient_node_new (const graphene_rect_t  *bounds,
   g_return_val_if_fail (color_stops != NULL, NULL);
   g_return_val_if_fail (n_color_stops >= 2, NULL);
   g_return_val_if_fail (color_stops[0].offset >= 0, NULL);
+
+  stops = g_newa (GskColorStop2, n_color_stops);
+  for (gsize i = 0; i < n_color_stops; i++)
+    {
+      stops[i].offset = color_stops[i].offset;
+      gdk_color_init_from_rgba (&stops[i].color, &color_stops[i].color);
+    }
+
+  node = gsk_radial_gradient_node_new2 (bounds, center,
+                                        hradius, vradius,
+                                        start, end,
+                                        GDK_COLOR_STATE_SRGB,
+                                        GSK_HUE_INTERPOLATION_SHORTER,
+                                        stops, n_color_stops);
+
+  for (gsize i = 0; i < n_color_stops; i++)
+    gdk_color_finish (&stops[i].color);
+
+  return node;
+}
+
+/*< private >
+ * gsk_radial_gradient_node_new2:
+ * @bounds: the bounds of the node
+ * @center: the center of the gradient
+ * @hradius: the horizontal radius
+ * @vradius: the vertical radius
+ * @start: a percentage >= 0 that defines the start of the gradient around @center
+ * @end: a percentage >= 0 that defines the end of the gradient around @center
+ * @interpolation: the color state to interpolate in
+ * @hue_interpolation: how to interpolate if @interpolation is polar
+ * @color_stops: (array length=n_color_stops): a pointer to an array of
+ *   `GskColorStop2` defining the gradient. The offsets of all color stops
+ *   must be increasing. The first stop's offset must be >= 0 and the last
+ *   stop's offset must be <= 1.
+ * @n_color_stops: the number of elements in @color_stops
+ *
+ * Creates a `GskRenderNode` that draws a radial gradient.
+ *
+ * The radial gradient
+ * starts around @center. The size of the gradient is dictated by @hradius
+ * in horizontal orientation and by @vradius in vertical orientation.
+ *
+ * Returns: (transfer full) (type GskRadialGradientNode): A new `GskRenderNode`
+ */
+GskRenderNode *
+gsk_radial_gradient_node_new2 (const graphene_rect_t   *bounds,
+                               const graphene_point_t  *center,
+                               float                    hradius,
+                               float                    vradius,
+                               float                    start,
+                               float                    end,
+                               GdkColorState           *interpolation,
+                               GskHueInterpolation      hue_interpolation,
+                               const GskColorStop2     *color_stops,
+                               gsize                    n_color_stops)
+{
+  GskRadialGradientNode *self;
+  GskRenderNode *node;
+  gsize i;
+  gboolean opaque;
+
+  g_return_val_if_fail (bounds != NULL, NULL);
+  g_return_val_if_fail (center != NULL, NULL);
+  g_return_val_if_fail (hradius > 0., NULL);
+  g_return_val_if_fail (vradius > 0., NULL);
+  g_return_val_if_fail (start >= 0., NULL);
+  g_return_val_if_fail (end >= 0., NULL);
+  g_return_val_if_fail (end > start, NULL);
+  g_return_val_if_fail (color_stops != NULL, NULL);
+  g_return_val_if_fail (n_color_stops >= 2, NULL);
+  g_return_val_if_fail (color_stops[0].offset >= 0, NULL);
+
   for (i = 1; i < n_color_stops; i++)
     g_return_val_if_fail (color_stops[i].offset >= color_stops[i - 1].offset, NULL);
   g_return_val_if_fail (color_stops[n_color_stops - 1].offset <= 1, NULL);
@@ -844,8 +1316,6 @@ gsk_radial_gradient_node_new (const graphene_rect_t  *bounds,
   self = gsk_render_node_alloc (GSK_RADIAL_GRADIENT_NODE);
   node = (GskRenderNode *) self;
   node->offscreen_for_opacity = FALSE;
-  node->fully_opaque = gsk_color_stops_are_opaque (color_stops, n_color_stops);
-  node->preferred_depth = my_color_stops_get_depth (color_stops, n_color_stops);
 
   gsk_rect_init_from_rect (&node->bounds, bounds);
   gsk_rect_normalize (&node->bounds);
@@ -856,9 +1326,23 @@ gsk_radial_gradient_node_new (const graphene_rect_t  *bounds,
   self->start = start;
   self->end = end;
 
+  opaque = TRUE;
+
   self->n_stops = n_color_stops;
-  self->stops = g_malloc_n (n_color_stops, sizeof (GskColorStop));
-  memcpy (self->stops, color_stops, n_color_stops * sizeof (GskColorStop));
+  self->stops = g_new (GskColorStop2, n_color_stops);
+  for (i = 0; i < n_color_stops; i++)
+    {
+      gdk_color_init_copy (&self->stops[i].color, &color_stops[i].color);
+      self->stops[i].offset = color_stops[i].offset;
+      opaque = opaque && gdk_color_is_opaque (&color_stops[i].color);
+    }
+
+  node->fully_opaque = opaque;
+  node->preferred_depth = gdk_color_state_get_depth (interpolation);
+  node->is_hdr = color_state_is_hdr (interpolation);
+
+  self->interpolation = gdk_color_state_ref (interpolation);
+  self->hue_interpolation = hue_interpolation;
 
   return node;
 }
@@ -895,9 +1379,8 @@ gsk_repeating_radial_gradient_node_new (const graphene_rect_t  *bounds,
                                         const GskColorStop     *color_stops,
                                         gsize                   n_color_stops)
 {
-  GskRadialGradientNode *self;
+  GskColorStop2 *stops;
   GskRenderNode *node;
-  gsize i;
 
   g_return_val_if_fail (bounds != NULL, NULL);
   g_return_val_if_fail (center != NULL, NULL);
@@ -909,6 +1392,79 @@ gsk_repeating_radial_gradient_node_new (const graphene_rect_t  *bounds,
   g_return_val_if_fail (color_stops != NULL, NULL);
   g_return_val_if_fail (n_color_stops >= 2, NULL);
   g_return_val_if_fail (color_stops[0].offset >= 0, NULL);
+
+  stops = g_newa (GskColorStop2, n_color_stops);
+  for (gsize i = 0; i < n_color_stops; i++)
+    {
+      stops[i].offset = color_stops[i].offset;
+      gdk_color_init_from_rgba (&stops[i].color, &color_stops[i].color);
+    }
+
+  node = gsk_repeating_radial_gradient_node_new2 (bounds, center,
+                                                  hradius, vradius,
+                                                  start, end,
+                                                  GDK_COLOR_STATE_SRGB,
+                                                  GSK_HUE_INTERPOLATION_SHORTER,
+                                                  stops, n_color_stops);
+
+  for (gsize i = 0; i < n_color_stops; i++)
+    gdk_color_finish (&stops[i].color);
+
+  return node;
+}
+
+/*< private >
+ * gsk_repeating_radial_gradient_node_new2:
+ * @bounds: the bounds of the node
+ * @center: the center of the gradient
+ * @hradius: the horizontal radius
+ * @vradius: the vertical radius
+ * @start: a percentage >= 0 that defines the start of the gradient around @center
+ * @end: a percentage >= 0 that defines the end of the gradient around @center
+ * @interpolation: the color state to interpolate in
+ * @hue_interpolation: how to interpolate if @interpolation is polar
+ * @color_stops: (array length=n_color_stops): a pointer to an array of
+ *   `GskColorStop2` defining the gradient. The offsets of all color stops
+ *   must be increasing. The first stop's offset must be >= 0 and the last
+ *   stop's offset must be <= 1.
+ * @n_color_stops: the number of elements in @color_stops
+ *
+ * Creates a `GskRenderNode` that draws a repeating radial gradient.
+ *
+ * The radial gradient starts around @center. The size of the gradient
+ * is dictated by @hradius in horizontal orientation and by @vradius
+ * in vertical orientation.
+ *
+ * Returns: (transfer full) (type GskRepeatingRadialGradientNode): A new `GskRenderNode`
+ */
+GskRenderNode *
+gsk_repeating_radial_gradient_node_new2 (const graphene_rect_t   *bounds,
+                                         const graphene_point_t  *center,
+                                         float                    hradius,
+                                         float                    vradius,
+                                         float                    start,
+                                         float                    end,
+                                         GdkColorState           *interpolation,
+                                         GskHueInterpolation      hue_interpolation,
+                                         const GskColorStop2     *color_stops,
+                                         gsize                    n_color_stops)
+{
+  GskRadialGradientNode *self;
+  GskRenderNode *node;
+  gsize i;
+  gboolean opaque;
+
+  g_return_val_if_fail (bounds != NULL, NULL);
+  g_return_val_if_fail (center != NULL, NULL);
+  g_return_val_if_fail (hradius > 0., NULL);
+  g_return_val_if_fail (vradius > 0., NULL);
+  g_return_val_if_fail (start >= 0., NULL);
+  g_return_val_if_fail (end >= 0., NULL);
+  g_return_val_if_fail (end > start, NULL);
+  g_return_val_if_fail (color_stops != NULL, NULL);
+  g_return_val_if_fail (n_color_stops >= 2, NULL);
+  g_return_val_if_fail (color_stops[0].offset >= 0, NULL);
+
   for (i = 1; i < n_color_stops; i++)
     g_return_val_if_fail (color_stops[i].offset >= color_stops[i - 1].offset, NULL);
   g_return_val_if_fail (color_stops[n_color_stops - 1].offset <= 1, NULL);
@@ -916,8 +1472,6 @@ gsk_repeating_radial_gradient_node_new (const graphene_rect_t  *bounds,
   self = gsk_render_node_alloc (GSK_REPEATING_RADIAL_GRADIENT_NODE);
   node = (GskRenderNode *) self;
   node->offscreen_for_opacity = FALSE;
-  node->fully_opaque = gsk_color_stops_are_opaque (color_stops, n_color_stops);
-  node->preferred_depth = my_color_stops_get_depth (color_stops, n_color_stops);
 
   gsk_rect_init_from_rect (&node->bounds, bounds);
   gsk_rect_normalize (&node->bounds);
@@ -928,9 +1482,23 @@ gsk_repeating_radial_gradient_node_new (const graphene_rect_t  *bounds,
   self->start = start;
   self->end = end;
 
+  opaque = TRUE;
+
   self->n_stops = n_color_stops;
-  self->stops = g_malloc_n (n_color_stops, sizeof (GskColorStop));
-  memcpy (self->stops, color_stops, n_color_stops * sizeof (GskColorStop));
+  self->stops = g_new (GskColorStop2, n_color_stops);
+  for (i = 0; i < n_color_stops; i++)
+    {
+      gdk_color_init_copy (&self->stops[i].color, &color_stops[i].color);
+      self->stops[i].offset = color_stops[i].offset;
+      opaque = opaque && gdk_color_is_opaque (&color_stops[i].color);
+    }
+
+  node->fully_opaque = opaque;
+  node->preferred_depth = gdk_color_state_get_depth (interpolation);
+  node->is_hdr = color_state_is_hdr (interpolation);
+
+  self->interpolation = gdk_color_state_ref (interpolation);
+  self->hue_interpolation = hue_interpolation;
 
   return node;
 }
@@ -964,12 +1532,77 @@ const GskColorStop *
 gsk_radial_gradient_node_get_color_stops (const GskRenderNode *node,
                                           gsize               *n_stops)
 {
-  const GskRadialGradientNode *self = (const GskRadialGradientNode *) node;
+  GskRadialGradientNode *self = (GskRadialGradientNode *) node;
+  const GskColorStop *stops;
 
   if (n_stops != NULL)
     *n_stops = self->n_stops;
 
+  G_LOCK (rgba);
+
+  if (self->rgba_stops == NULL)
+    {
+      self->rgba_stops = g_new (GskColorStop, self->n_stops);
+      for (gsize i = 0; i < self->n_stops; i++)
+        {
+          self->rgba_stops[i].offset = self->stops[i].offset;
+          gdk_color_to_float (&self->stops[i].color, GDK_COLOR_STATE_SRGB, (float *) &self->rgba_stops[i].color);
+        }
+    }
+
+  stops = self->rgba_stops;
+
+  G_UNLOCK (rgba);
+
+  return stops;
+}
+
+/*< private >
+ * gsk_radial_gradient_node_get_color_stops2:
+ * @node: (type GskRadialGradientNode): a `GskRenderNode` for a radial gradient
+ *
+ * Retrieves the color stops in the gradient.
+ *
+ * Returns: (array length=n_stops): the color stops in the gradient
+ */
+const GskColorStop2 *
+gsk_radial_gradient_node_get_color_stops2 (const GskRenderNode *node)
+{
+  const GskRadialGradientNode *self = (const GskRadialGradientNode *) node;
+
   return self->stops;
+}
+
+/*< private >
+ * gsk_radial_gradient_node_get_interpolation_color_state:
+ * @node: (type GskRadialradientNode): a `GskRenderNode` for a radial gradient
+ *
+ * Retrieves the color state that the gradient is interpolated in.
+ *
+ * Returns: (array length=n_stops): the interpolation color state
+ */
+GdkColorState *
+gsk_radial_gradient_node_get_interpolation_color_state (const GskRenderNode *node)
+{
+  const GskRadialGradientNode *self = (const GskRadialGradientNode *) node;
+
+  return self->interpolation;
+}
+
+/*< private >
+ * gsk_radial_gradient_node_get_hue_interpolation:
+ * @node: (type GskRadialGradientNode): a `GskRenderNode` for a radial gradient
+ *
+ * Retrieves the hue interplation for the gradient.
+ *
+ * Returns: (array length=n_stops): the hue interpolation
+ */
+GskHueInterpolation
+gsk_radial_gradient_node_get_hue_interpolation (const GskRenderNode *node)
+{
+  const GskRadialGradientNode *self = (const GskRadialGradientNode *) node;
+
+  return self->hue_interpolation;
 }
 
 /**
@@ -1070,7 +1703,11 @@ struct _GskConicGradientNode
   float angle;
 
   gsize n_stops;
-  GskColorStop *stops;
+  GskColorStop2 *stops;
+  GskColorStop *rgba_stops;
+
+  GdkColorState *interpolation;
+  GskHueInterpolation hue_interpolation;
 };
 
 static void
@@ -1079,7 +1716,13 @@ gsk_conic_gradient_node_finalize (GskRenderNode *node)
   GskConicGradientNode *self = (GskConicGradientNode *) node;
   GskRenderNodeClass *parent_class = g_type_class_peek (g_type_parent (GSK_TYPE_CONIC_GRADIENT_NODE));
 
+  for (gsize i = 0; i < self->n_stops; i++)
+    gdk_color_finish (&self->stops[i].color);
   g_free (self->stops);
+
+  g_free (self->rgba_stops);
+
+  gdk_color_state_unref (self->interpolation);
 
   parent_class->finalize (node);
 }
@@ -1114,15 +1757,13 @@ project (double  angle,
 
 static void
 gsk_conic_gradient_node_add_patch (cairo_pattern_t *pattern,
-                                   GdkColorState   *ccs,
                                    float            radius,
                                    float            start_angle,
-                                   const GdkRGBA   *start_color,
+                                   const float      start_color[4],
                                    float            end_angle,
-                                   const GdkRGBA   *end_color)
+                                   const float      end_color[4])
 {
   double x, y;
-  float start[4], end[4];
 
   cairo_mesh_pattern_begin_patch (pattern);
 
@@ -1133,12 +1774,10 @@ gsk_conic_gradient_node_add_patch (cairo_pattern_t *pattern,
   cairo_mesh_pattern_line_to  (pattern, x, y);
   cairo_mesh_pattern_line_to  (pattern, 0, 0);
 
-  gdk_color_state_from_rgba (ccs, start_color, start);
-  _cairo_mesh_pattern_set_corner_rgba (pattern, 0, start);
-  _cairo_mesh_pattern_set_corner_rgba (pattern, 1, start);
-  gdk_color_state_from_rgba (ccs, end_color, end);
-  _cairo_mesh_pattern_set_corner_rgba (pattern, 2, end);
-  _cairo_mesh_pattern_set_corner_rgba (pattern, 3, end);
+  _cairo_mesh_pattern_set_corner_rgba (pattern, 0, start_color);
+  _cairo_mesh_pattern_set_corner_rgba (pattern, 1, start_color);
+  _cairo_mesh_pattern_set_corner_rgba (pattern, 2, end_color);
+  _cairo_mesh_pattern_set_corner_rgba (pattern, 3, end_color);
 
   cairo_mesh_pattern_end_patch (pattern);
 }
@@ -1167,6 +1806,29 @@ gdk_rgba_color_interpolate (GdkRGBA       *dest,
 }
 
 static void
+add_color_stop_to_array (float    offset,
+                         GdkColorState *ccs,
+                         float    values[4],
+                         gpointer data)
+{
+  GArray *stops = data;
+  GskColorStop2 stop;
+
+  stop.offset = offset;
+  gdk_color_init (&stop.color, ccs, values);
+
+  g_array_append_val (stops, stop);
+}
+
+static void
+clear_stop (gpointer data)
+{
+  GskColorStop2 *stop = data;
+
+  gdk_color_finish (&stop->color);
+}
+
+static void
 gsk_conic_gradient_node_draw (GskRenderNode *node,
                               cairo_t       *cr,
                               GdkColorState *ccs)
@@ -1176,6 +1838,7 @@ gsk_conic_gradient_node_draw (GskRenderNode *node,
   graphene_point_t corner;
   float radius;
   gsize i;
+  GArray *stops;
 
   pattern = cairo_pattern_create_mesh ();
   graphene_rect_get_top_right (&node->bounds, &corner);
@@ -1187,40 +1850,77 @@ gsk_conic_gradient_node_draw (GskRenderNode *node,
   graphene_rect_get_top_left (&node->bounds, &corner);
   radius = MAX (radius, graphene_point_distance (&self->center, &corner, NULL, NULL));
 
-  for (i = 0; i <= self->n_stops; i++)
+  stops = g_array_new (FALSE, TRUE, sizeof (GskColorStop2));
+  g_array_set_clear_func (stops, clear_stop);
+
+  if (gdk_color_state_equal (self->interpolation, ccs))
     {
-      GskColorStop *stop1 = &self->stops[MAX (i, 1) - 1];
-      GskColorStop *stop2 = &self->stops[MIN (i, self->n_stops - 1)];
+      for (i = 0; i < self->n_stops; i++)
+        {
+          GskColorStop2 *stop = &self->stops[i];
+          g_array_append_val (stops, *stop);
+          /* take a ref, since clear_stop removes one */
+          gdk_color_state_ref (stop->color.color_state);
+        }
+    }
+  else
+    {
+      g_array_append_val (stops, self->stops[0]);
+
+      for (i = 1; i < self->n_stops; i++)
+        {
+          interpolate_color_stops (ccs,
+                                   self->interpolation, self->hue_interpolation,
+                                   self->stops[i-1].offset, &self->stops[i-1].color,
+                                   self->stops[i].offset, &self->stops[i].color,
+                                   add_color_stop_to_array,
+                                   stops);
+          g_array_append_val (stops, self->stops[i]);
+          /* take a ref, since clear_stop removes one */
+          gdk_color_state_ref (self->stops[i].color.color_state);
+        }
+    }
+
+  for (i = 0; i <= stops->len; i++)
+    {
+      GskColorStop2 *stop1 = &g_array_index (stops, GskColorStop2, MAX (i, 1) - 1);
+      GskColorStop2 *stop2 = &g_array_index (stops, GskColorStop2, MIN (i, stops->len - 1));
       double offset1 = i > 0 ? stop1->offset : 0;
       double offset2 = i < self->n_stops ? stop2->offset : 1;
       double start_angle, end_angle;
+      float color1[4];
+      float color2[4];
 
       offset1 = offset1 * 360 + self->rotation - 90;
       offset2 = offset2 * 360 + self->rotation - 90;
 
+      gdk_color_to_float (&stop1->color, ccs, color1);
+      gdk_color_to_float (&stop2->color, ccs, color2);
+
       for (start_angle = offset1; start_angle < offset2; start_angle = end_angle)
         {
-          GdkRGBA start_color, end_color;
+          float start_color[4], end_color[4];
           end_angle = (floor (start_angle / 45) + 1) * 45;
           end_angle = MIN (end_angle, offset2);
-          gdk_rgba_color_interpolate (&start_color,
-                                      &stop1->color,
-                                      &stop2->color,
+          gdk_rgba_color_interpolate ((GdkRGBA *) &start_color,
+                                      (const GdkRGBA *) &color1,
+                                      (const GdkRGBA *) &color2,
                                       (start_angle - offset1) / (offset2 - offset1));
-          gdk_rgba_color_interpolate (&end_color,
-                                      &stop1->color,
-                                      &stop2->color,
+          gdk_rgba_color_interpolate ((GdkRGBA *) &end_color,
+                                      (const GdkRGBA *) &color1,
+                                      (const GdkRGBA *) &color2,
                                       (end_angle - offset1) / (offset2 - offset1));
 
           gsk_conic_gradient_node_add_patch (pattern,
-                                             ccs,
                                              radius,
                                              DEG_TO_RAD (start_angle),
-                                             &start_color,
+                                             start_color,
                                              DEG_TO_RAD (end_angle),
-                                             &end_color);
+                                             end_color);
         }
     }
+
+  g_array_unref (stops);
 
   cairo_pattern_set_extend (pattern, CAIRO_EXTEND_PAD);
 
@@ -1243,7 +1943,8 @@ gsk_conic_gradient_node_diff (GskRenderNode *node1,
 
   if (!graphene_point_equal (&self1->center, &self2->center) ||
       self1->rotation != self2->rotation ||
-      self1->n_stops != self2->n_stops)
+      self1->n_stops != self2->n_stops ||
+      !gdk_color_state_equal (self1->interpolation, self2->interpolation))
     {
       gsk_render_node_diff_impossible (node1, node2, data);
       return;
@@ -1251,11 +1952,11 @@ gsk_conic_gradient_node_diff (GskRenderNode *node1,
 
   for (i = 0; i < self1->n_stops; i++)
     {
-      GskColorStop *stop1 = &self1->stops[i];
-      GskColorStop *stop2 = &self2->stops[i];
+      GskColorStop2 *stop1 = &self1->stops[i];
+      GskColorStop2 *stop2 = &self2->stops[i];
 
       if (stop1->offset != stop2->offset ||
-          !gdk_rgba_equal (&stop1->color, &stop2->color))
+          !gdk_color_equal (&stop1->color, &stop2->color))
         {
           gsk_render_node_diff_impossible (node1, node2, data);
           return;
@@ -1302,15 +2003,75 @@ gsk_conic_gradient_node_new (const graphene_rect_t  *bounds,
                              const GskColorStop     *color_stops,
                              gsize                   n_color_stops)
 {
-  GskConicGradientNode *self;
+  GskColorStop2 *stops;
   GskRenderNode *node;
-  gsize i;
 
   g_return_val_if_fail (bounds != NULL, NULL);
   g_return_val_if_fail (center != NULL, NULL);
   g_return_val_if_fail (color_stops != NULL, NULL);
   g_return_val_if_fail (n_color_stops >= 2, NULL);
   g_return_val_if_fail (color_stops[0].offset >= 0, NULL);
+
+  stops = g_newa (GskColorStop2, n_color_stops);
+  for (gsize i = 0; i < n_color_stops; i++)
+    {
+      stops[i].offset = color_stops[i].offset;
+      gdk_color_init_from_rgba (&stops[i].color, &color_stops[i].color);
+    }
+
+  node = gsk_conic_gradient_node_new2 (bounds,
+                                       center, rotation,
+                                       GDK_COLOR_STATE_SRGB,
+                                       GSK_HUE_INTERPOLATION_SHORTER,
+                                       stops, n_color_stops);
+
+  for (gsize i = 0; i < n_color_stops; i++)
+    gdk_color_finish (&stops[i].color);
+
+  return node;
+}
+
+/*< private >
+ * gsk_conic_gradient_node_new2:
+ * @bounds: the bounds of the node
+ * @center: the center of the gradient
+ * @rotation: the rotation of the gradient in degrees
+ * @interpolation: the color state to interpolate in
+ * @hue_interpolation: how to interpolate if @interpolation is polar
+ * @color_stops: (array length=n_color_stops): a pointer to an array of
+ *   `GskColorStop` defining the gradient. The offsets of all color stops
+ *   must be increasing. The first stop's offset must be >= 0 and the last
+ *   stop's offset must be <= 1.
+ * @n_color_stops: the number of elements in @color_stops
+ *
+ * Creates a `GskRenderNode` that draws a conic gradient.
+ *
+ * The conic gradient
+ * starts around @center in the direction of @rotation. A rotation of 0 means
+ * that the gradient points up. Color stops are then added clockwise.
+ *
+ * Returns: (transfer full) (type GskConicGradientNode): A new `GskRenderNode`
+ */
+GskRenderNode *
+gsk_conic_gradient_node_new2 (const graphene_rect_t   *bounds,
+                              const graphene_point_t  *center,
+                              float                    rotation,
+                              GdkColorState           *interpolation,
+                              GskHueInterpolation      hue_interpolation,
+                              const GskColorStop2     *color_stops,
+                              gsize                    n_color_stops)
+{
+  GskConicGradientNode *self;
+  GskRenderNode *node;
+  gsize i;
+  gboolean opaque;
+
+  g_return_val_if_fail (bounds != NULL, NULL);
+  g_return_val_if_fail (center != NULL, NULL);
+  g_return_val_if_fail (color_stops != NULL, NULL);
+  g_return_val_if_fail (n_color_stops >= 2, NULL);
+  g_return_val_if_fail (color_stops[0].offset >= 0, NULL);
+
   for (i = 1; i < n_color_stops; i++)
     g_return_val_if_fail (color_stops[i].offset >= color_stops[i - 1].offset, NULL);
   g_return_val_if_fail (color_stops[n_color_stops - 1].offset <= 1, NULL);
@@ -1318,8 +2079,6 @@ gsk_conic_gradient_node_new (const graphene_rect_t  *bounds,
   self = gsk_render_node_alloc (GSK_CONIC_GRADIENT_NODE);
   node = (GskRenderNode *) self;
   node->offscreen_for_opacity = FALSE;
-  node->fully_opaque = gsk_color_stops_are_opaque (color_stops, n_color_stops);
-  node->preferred_depth = my_color_stops_get_depth (color_stops, n_color_stops);
 
   gsk_rect_init_from_rect (&node->bounds, bounds);
   gsk_rect_normalize (&node->bounds);
@@ -1327,15 +2086,29 @@ gsk_conic_gradient_node_new (const graphene_rect_t  *bounds,
 
   self->rotation = rotation;
 
+  opaque = TRUE;
+
   self->n_stops = n_color_stops;
-  self->stops = g_malloc_n (n_color_stops, sizeof (GskColorStop));
-  memcpy (self->stops, color_stops, n_color_stops * sizeof (GskColorStop));
+  self->stops = g_new (GskColorStop2, n_color_stops);
+  for (i = 0; i < n_color_stops; i++)
+    {
+      gdk_color_init_copy (&self->stops[i].color, &color_stops[i].color);
+      self->stops[i].offset = color_stops[i].offset;
+      opaque = opaque && gdk_color_is_opaque (&color_stops[i].color);
+    }
+
+  node->fully_opaque = opaque;
+  node->preferred_depth = gdk_color_state_get_depth (interpolation);
+  node->is_hdr = color_state_is_hdr (interpolation);
 
   self->angle = 90.f - self->rotation;
   self->angle = G_PI * self->angle / 180.f;
   self->angle = fmodf (self->angle, 2.f * G_PI);
   if (self->angle < 0.f)
     self->angle += 2.f * G_PI;
+
+  self->interpolation = gdk_color_state_ref (interpolation);
+  self->hue_interpolation = hue_interpolation;
 
   return node;
 }
@@ -1369,12 +2142,77 @@ const GskColorStop *
 gsk_conic_gradient_node_get_color_stops (const GskRenderNode *node,
                                          gsize               *n_stops)
 {
-  const GskConicGradientNode *self = (const GskConicGradientNode *) node;
+  GskConicGradientNode *self = (GskConicGradientNode *) node;
+  const GskColorStop *stops;
 
   if (n_stops != NULL)
     *n_stops = self->n_stops;
 
+  G_LOCK (rgba);
+
+  if (self->rgba_stops == NULL)
+    {
+      self->rgba_stops = g_new (GskColorStop, self->n_stops);
+      for (gsize i = 0; i < self->n_stops; i++)
+        {
+          self->rgba_stops[i].offset = self->stops[i].offset;
+          gdk_color_to_float (&self->stops[i].color, GDK_COLOR_STATE_SRGB, (float *) &self->rgba_stops[i].color);
+        }
+    }
+
+  stops = self->rgba_stops;
+
+  G_UNLOCK (rgba);
+
+  return stops;
+}
+
+/*< private >
+ * gsk_conic_gradient_node_get_color_stops2:
+ * @node: (type GskConicGradientNode): a `GskRenderNode` for a conic gradient
+ *
+ * Retrieves the color stops in the gradient.
+ *
+ * Returns: (array length=n_stops): the color stops in the gradient
+ */
+const GskColorStop2 *
+gsk_conic_gradient_node_get_color_stops2 (const GskRenderNode *node)
+{
+  const GskConicGradientNode *self = (const GskConicGradientNode *) node;
+
   return self->stops;
+}
+
+/*< private >
+ * gsk_conic_gradient_node_get_interpolation_color_state:
+ * @node: (type GskConicGradientNode): a `GskRenderNode` for a conic gradient
+ *
+ * Retrieves the color state that the gradient is interpolated in.
+ *
+ * Returns: (array length=n_stops): the interpolation color state
+ */
+GdkColorState *
+gsk_conic_gradient_node_get_interpolation_color_state (const GskRenderNode *node)
+{
+  const GskConicGradientNode *self = (const GskConicGradientNode *) node;
+
+  return self->interpolation;
+}
+
+/*< private >
+ * gsk_conic_gradient_node_get_hue_interpolation:
+ * @node: (type GskConicGradientNode): a `GskRenderNode` for a conic gradient
+ *
+ * Retrieves the hue interplation for the gradient.
+ *
+ * Returns: (array length=n_stops): the hue interpolation
+ */
+GskHueInterpolation
+gsk_conic_gradient_node_get_hue_interpolation (const GskRenderNode *node)
+{
+  const GskConicGradientNode *self = (const GskConicGradientNode *) node;
+
+  return self->hue_interpolation;
 }
 
 /**
@@ -1748,15 +2586,18 @@ gsk_border_node_new (const GskRoundedRect *outline,
                      const float           border_width[4],
                      const GdkRGBA         border_color[4])
 {
+  GskRenderNode *node;
   GdkColor color[4];
 
   for (int i = 0; i < 4; i++)
     gdk_color_init_from_rgba (&color[i], &border_color[i]);
 
-  return gsk_border_node_new2 (outline, border_width, color);
+  node = gsk_border_node_new2 (outline, border_width, color);
 
   for (int i = 0; i < 4; i++)
     gdk_color_finish (&color[i]);
+
+  return node;
 }
 
 /*< private >
@@ -1789,11 +2630,7 @@ gsk_border_node_new2 (const GskRoundedRect *outline,
   self = gsk_render_node_alloc (GSK_BORDER_NODE);
   node = (GskRenderNode *) self;
   node->offscreen_for_opacity = FALSE;
-  node->preferred_depth = gdk_memory_depth_merge (
-                            gdk_memory_depth_merge (gdk_color_get_depth (&border_color[0]),
-                                                    gdk_color_get_depth (&border_color[1])),
-                            gdk_memory_depth_merge (gdk_color_get_depth (&border_color[2]),
-                                                    gdk_color_get_depth (&border_color[3])));
+  node->preferred_depth = GDK_MEMORY_NONE;
 
   gsk_rounded_rect_init_copy (&self->outline, outline);
   memcpy (self->border_width, border_width, sizeof (self->border_width));
@@ -2811,7 +3648,7 @@ gsk_inset_shadow_node_new2 (const GskRoundedRect   *outline,
   self = gsk_render_node_alloc (GSK_INSET_SHADOW_NODE);
   node = (GskRenderNode *) self;
   node->offscreen_for_opacity = FALSE;
-  node->preferred_depth = gdk_color_get_depth (color);
+  node->preferred_depth = GDK_MEMORY_NONE;
 
   gsk_rounded_rect_init_copy (&self->outline, outline);
   gdk_color_init_copy (&self->color, color);
@@ -3207,7 +4044,7 @@ gsk_outset_shadow_node_new2 (const GskRoundedRect   *outline,
   self = gsk_render_node_alloc (GSK_OUTSET_SHADOW_NODE);
   node = (GskRenderNode *) self;
   node->offscreen_for_opacity = FALSE;
-  node->preferred_depth = gdk_color_get_depth (color);
+  node->preferred_depth = GDK_MEMORY_NONE;
 
   gsk_rounded_rect_init_copy (&self->outline, outline);
   gdk_color_init_copy (&self->color, color);
@@ -5801,7 +6638,6 @@ gsk_shadow_node_new2 (GskRenderNode    *child,
   GskShadowNode *self;
   GskRenderNode *node;
   gsize i;
-  GdkMemoryDepth depth;
   gboolean is_hdr;
 
   g_return_val_if_fail (GSK_IS_RENDER_NODE (child), NULL);
@@ -5816,7 +6652,6 @@ gsk_shadow_node_new2 (GskRenderNode    *child,
   self->n_shadows = n_shadows;
   self->shadows = g_new (GskShadow2, n_shadows);
 
-  depth = gsk_render_node_get_preferred_depth (child);
   is_hdr = gsk_render_node_is_hdr (child);
 
   for (i = 0; i < n_shadows; i++)
@@ -5824,11 +6659,10 @@ gsk_shadow_node_new2 (GskRenderNode    *child,
       gdk_color_init_copy (&self->shadows[i].color, &shadows[i].color);
       graphene_point_init_from_point (&self->shadows[i].offset, &shadows[i].offset);
       self->shadows[i].radius = shadows[i].radius;
-      depth = gdk_memory_depth_merge (depth, gdk_color_get_depth (&shadows[i].color));
       is_hdr = is_hdr || color_state_is_hdr (shadows[i].color.color_state);
     }
 
-  node->preferred_depth = depth;
+  node->preferred_depth = gsk_render_node_get_preferred_depth (child);
   node->is_hdr = is_hdr;
 
   gsk_shadow_node_get_bounds (self, &node->bounds);
@@ -6347,6 +7181,7 @@ struct _GskTextNode
   PangoFontMap *fontmap;
   PangoFont *font;
   gboolean has_color_glyphs;
+  cairo_hint_style_t hint_style;
 
   GdkColor color;
   graphene_point_t offset;
@@ -6520,7 +7355,7 @@ gsk_text_node_new2 (PangoFont              *font,
   self = gsk_render_node_alloc (GSK_TEXT_NODE);
   node = (GskRenderNode *) self;
   node->offscreen_for_opacity = FALSE;
-  node->preferred_depth = gdk_color_get_depth (color);
+  node->preferred_depth = GDK_MEMORY_NONE;
   node->is_hdr = color_state_is_hdr (color->color_state);
 
   self->fontmap = g_object_ref (pango_font_get_font_map (font));
@@ -6528,6 +7363,7 @@ gsk_text_node_new2 (PangoFont              *font,
   gdk_color_init_copy (&self->color, color);
   self->offset = *offset;
   self->has_color_glyphs = FALSE;
+  self->hint_style = gsk_font_get_hint_style (font);
 
   glyph_infos = g_malloc_n (glyphs->num_glyphs, sizeof (PangoGlyphInfo));
 
@@ -6609,6 +7445,14 @@ gsk_text_node_get_font (const GskRenderNode *node)
   const GskTextNode *self = (const GskTextNode *) node;
 
   return self->font;
+}
+
+cairo_hint_style_t
+gsk_text_node_get_font_hint_style (const GskRenderNode *node)
+{
+  const GskTextNode *self = (const GskTextNode *) node;
+
+  return self->hint_style;
 }
 
 /**
@@ -8165,7 +9009,7 @@ gsk_render_node_png_serializer (GdkContentSerializer *serializer)
 
   node = gsk_value_get_render_node (gdk_content_serializer_get_value (serializer));
 
-  renderer = gsk_gl_renderer_new ();
+  renderer = gsk_ngl_renderer_new ();
   if (!gsk_renderer_realize (renderer, NULL, NULL))
     {
       g_object_unref (renderer);
@@ -8305,4 +9149,4 @@ gsk_render_node_init_types (void)
     }
 }
 
-/* vim:set foldmethod=marker expandtab: */
+/* vim:set foldmethod=marker: */

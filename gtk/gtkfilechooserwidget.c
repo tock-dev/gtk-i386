@@ -4787,7 +4787,10 @@ gtk_file_chooser_widget_get_files (GtkFileChooser *chooser)
       current_folder = gtk_file_chooser_get_current_folder (chooser);
 
       if (current_folder)
-        g_list_store_append (result, current_folder);
+        {
+          g_list_store_append (result, current_folder);
+          g_object_unref (current_folder);
+        }
     }
 
   return G_LIST_MODEL (result);
@@ -6956,7 +6959,7 @@ match_func (gpointer item, gpointer user_data)
   return g_file_info_get_attribute_boolean (G_FILE_INFO (item), "filechooser::visible");
 }
 
-static GtkOrdering
+static int
 directory_sort_func (gconstpointer a,
                      gconstpointer b,
                      gpointer      user_data)
@@ -6977,13 +6980,13 @@ directory_sort_func (gconstpointer a,
   return GTK_ORDERING_EQUAL;
 }
 
-static GtkOrdering
+static int
 name_sort_func (gconstpointer a,
                 gconstpointer b,
                 gpointer      user_data)
 {
   char *key_a, *key_b;
-  GtkOrdering result;
+  int result;
 
   /* FIXME: use sortkeys for these */
   key_a = g_utf8_collate_key_for_filename (g_file_info_get_display_name ((GFileInfo *)a), -1);
@@ -7023,7 +7026,7 @@ location_sort_func (gconstpointer a,
   return result;
 }
 
-static GtkOrdering
+static int
 size_sort_func (gconstpointer a,
                 gconstpointer b,
                 gpointer      user_data)
@@ -7041,14 +7044,14 @@ size_sort_func (gconstpointer a,
     return GTK_ORDERING_EQUAL;
 }
 
-static GtkOrdering
+static int
 type_sort_func (gconstpointer a,
                 gconstpointer b,
                 gpointer      user_data)
 {
   GtkFileChooserWidget *impl = user_data;
   char *key_a, *key_b;
-  GtkOrdering result;
+  int result;
 
   /* FIXME: use sortkeys for these */
   key_a = get_type_information (impl, (GFileInfo *)a);
@@ -7062,7 +7065,7 @@ type_sort_func (gconstpointer a,
   return result;
 }
 
-static GtkOrdering
+static int
 time_sort_func (gconstpointer a,
                 gconstpointer b,
                 gpointer      user_data)
@@ -7091,12 +7094,12 @@ time_sort_func (gconstpointer a,
     return GTK_ORDERING_EQUAL;
 }
 
-static GtkOrdering
+static int
 recent_sort_func (gconstpointer a,
                   gconstpointer b,
                   gpointer      user_data)
 {
-  GtkOrdering result;
+  int result;
 
   result = time_sort_func (a, b, user_data);
 
@@ -7113,12 +7116,12 @@ recent_sort_func (gconstpointer a,
   return result;
 }
 
-static GtkOrdering
+static int
 search_sort_func (gconstpointer a,
                   gconstpointer b,
                   gpointer      user_data)
 {
-  GtkOrdering result;
+  int result;
 
   result = location_sort_func (a, b, user_data);
 

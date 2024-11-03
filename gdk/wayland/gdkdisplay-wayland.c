@@ -43,6 +43,7 @@
 #include "gdksurface-wayland.h"
 #include "gdksurfaceprivate.h"
 #include "gdkdeviceprivate.h"
+#include "gdkdevice-wayland-private.h"
 #include "gdkkeysprivate.h"
 #include "gdkprivate-wayland.h"
 #include "gdkcairocontext-wayland.h"
@@ -547,6 +548,12 @@ gdk_registry_handle_global (void               *data,
                           &wp_single_pixel_buffer_manager_v1_interface,
                           MIN (version, 1));
     }
+  else if (strcmp (interface, xdg_system_bell_v1_interface.name) == 0)
+    {
+      display_wayland->system_bell =
+        wl_registry_bind (display_wayland->wl_registry, id,
+                          &xdg_system_bell_v1_interface, 1);
+    }
 
   g_hash_table_insert (display_wayland->known_globals,
                        GUINT_TO_POINTER (id), g_strdup (interface));
@@ -623,7 +630,7 @@ _gdk_wayland_display_open (const char *display_name)
   display = g_object_new (GDK_TYPE_WAYLAND_DISPLAY, NULL);
   display_wayland = GDK_WAYLAND_DISPLAY (display);
   display_wayland->wl_display = wl_display;
-  display_wayland->event_source = _gdk_wayland_display_event_source_new (display);
+  gdk_wayland_display_install_gsources (display_wayland);
 
   init_settings (display);
 
@@ -724,12 +731,7 @@ gdk_wayland_display_dispose (GObject *object)
 
   g_list_free_full (display_wayland->toplevels, destroy_toplevel);
 
-  if (display_wayland->event_source)
-    {
-      g_source_destroy (display_wayland->event_source);
-      g_source_unref (display_wayland->event_source);
-      display_wayland->event_source = NULL;
-    }
+  gdk_wayland_display_uninstall_gsources (display_wayland);
 
   g_list_free_full (display_wayland->async_roundtrips, (GDestroyNotify) wl_callback_destroy);
 
@@ -767,6 +769,7 @@ gdk_wayland_display_dispose (GObject *object)
   g_clear_pointer (&display_wayland->linux_dmabuf, zwp_linux_dmabuf_v1_destroy);
   g_clear_pointer (&display_wayland->dmabuf_formats_info, dmabuf_formats_info_free);
   g_clear_pointer (&display_wayland->color, gdk_wayland_color_free);
+  g_clear_pointer (&display_wayland->system_bell, xdg_system_bell_v1_destroy);
 
   g_clear_pointer (&display_wayland->shm, wl_shm_destroy);
   g_clear_pointer (&display_wayland->wl_registry, wl_registry_destroy);
@@ -813,23 +816,32 @@ gdk_wayland_display_get_name (GdkDisplay *display)
 
 void
 gdk_wayland_display_system_bell (GdkDisplay *display,
-                                 GdkSurface  *window)
+                                 GdkSurface *surface)
 {
   GdkWaylandDisplay *display_wayland;
-  struct gtk_surface1 *gtk_surface;
+  struct gtk_surface1 *gtk_surface = NULL;
+  struct wl_surface *wl_surface = NULL;
   gint64 now_ms;
 
   g_return_if_fail (GDK_IS_DISPLAY (display));
 
   display_wayland = GDK_WAYLAND_DISPLAY (display);
 
-  if (!display_wayland->gtk_shell)
+  if (!display_wayland->gtk_shell &&
+      !display_wayland->system_bell)
     return;
 
-  if (window && GDK_IS_WAYLAND_TOPLEVEL (window))
-    gtk_surface = gdk_wayland_toplevel_get_gtk_surface (GDK_WAYLAND_TOPLEVEL (window));
-  else
-    gtk_surface = NULL;
+  if (surface)
+    {
+      if (GDK_IS_WAYLAND_TOPLEVEL (surface))
+        {
+          GdkWaylandToplevel *toplevel = GDK_WAYLAND_TOPLEVEL (surface);
+
+          gtk_surface = gdk_wayland_toplevel_get_gtk_surface (toplevel);
+        }
+
+      wl_surface = gdk_wayland_surface_get_wl_surface (surface);
+    }
 
   now_ms = g_get_monotonic_time () / 1000;
   if (now_ms - display_wayland->last_bell_time_ms < MIN_SYSTEM_BELL_DELAY_MS)
@@ -837,7 +849,10 @@ gdk_wayland_display_system_bell (GdkDisplay *display,
 
   display_wayland->last_bell_time_ms = now_ms;
 
-  gtk_shell1_system_bell (display_wayland->gtk_shell, gtk_surface);
+  if (display_wayland->system_bell)
+    xdg_system_bell_v1_ring (display_wayland->system_bell, wl_surface);
+  else
+    gtk_shell1_system_bell (display_wayland->gtk_shell, gtk_surface);
 }
 
 static void
@@ -879,12 +894,6 @@ gdk_wayland_display_make_default (GdkDisplay *display)
   startup_id = gdk_get_startup_notification_id ();
   if (startup_id)
     display_wayland->startup_notification_id = g_strdup (startup_id);
-}
-
-static gboolean
-gdk_wayland_display_has_pending (GdkDisplay *display)
-{
-  return FALSE;
 }
 
 static gulong
@@ -1053,7 +1062,6 @@ gdk_wayland_display_class_init (GdkWaylandDisplayClass *class)
   display_class->sync = gdk_wayland_display_sync;
   display_class->flush = gdk_wayland_display_flush;
   display_class->make_default = gdk_wayland_display_make_default;
-  display_class->has_pending = gdk_wayland_display_has_pending;
   display_class->queue_events = _gdk_wayland_display_queue_events;
   display_class->get_app_launch_context = _gdk_wayland_display_get_app_launch_context;
   display_class->get_next_serial = gdk_wayland_display_get_next_serial;
@@ -1130,6 +1138,9 @@ get_cursor_theme (GdkWaylandDisplay *display_wayland,
         return theme;
     }
 
+  if (strcmp (name, "default") != 0)
+    return get_cursor_theme (display_wayland, "default", size);
+
   /* This may fall back to builtin cursors */
   return wl_cursor_theme_create ("/usr/share/icons/default/cursors", size, display_wayland->shm);
 }
@@ -1160,6 +1171,7 @@ _gdk_wayland_display_set_cursor_theme (GdkDisplay *display,
 {
   GdkWaylandDisplay *display_wayland = GDK_WAYLAND_DISPLAY(display);
   struct wl_cursor_theme *theme;
+  GList *seats;
 
   g_assert (display_wayland);
   g_assert (display_wayland->shm);
@@ -1189,6 +1201,15 @@ _gdk_wayland_display_set_cursor_theme (GdkDisplay *display,
     g_free (display_wayland->cursor_theme_name);
   display_wayland->cursor_theme_name = g_strdup (name);
   display_wayland->cursor_theme_size = size;
+
+ seats = gdk_display_list_seats (display);
+ for (GList *l = seats; l; l = l->next)
+   {
+     GdkSeat *seat = l->data;
+
+     gdk_wayland_device_update_surface_cursor (gdk_seat_get_pointer (seat));
+   }
+ g_list_free (seats);
 }
 
 struct wl_cursor_theme *
@@ -1216,7 +1237,7 @@ _gdk_wayland_display_load_cursor_theme (GdkWaylandDisplay *display_wayland)
   if (gdk_display_get_setting (GDK_DISPLAY (display_wayland), "gtk-cursor-theme-size", &v))
     size = g_value_get_int (&v);
   else
-    size = 32;
+    size = 24;
   g_value_unset (&v);
 
   g_value_init (&v, G_TYPE_STRING);
@@ -1750,7 +1771,7 @@ static TranslationEntry translations[] = {
   { FALSE, "org.gnome.desktop.interface", "gtk-theme", "gtk-theme-name" , G_TYPE_STRING, { .s = "Adwaita" } },
   { FALSE, "org.gnome.desktop.interface", "icon-theme", "gtk-icon-theme-name", G_TYPE_STRING, { .s = "gnome" } },
   { FALSE, "org.gnome.desktop.interface", "cursor-theme", "gtk-cursor-theme-name", G_TYPE_STRING, { .s = "Adwaita" } },
-  { FALSE, "org.gnome.desktop.interface", "cursor-size", "gtk-cursor-theme-size", G_TYPE_INT, { .i = 32 } },
+  { FALSE, "org.gnome.desktop.interface", "cursor-size", "gtk-cursor-theme-size", G_TYPE_INT, { .i = 24 } },
   { FALSE, "org.gnome.desktop.interface", "font-name", "gtk-font-name", G_TYPE_STRING, { .s = "Cantarell 11" } },
   { FALSE, "org.gnome.desktop.interface", "cursor-blink", "gtk-cursor-blink", G_TYPE_BOOLEAN,  { .b = TRUE } },
   { FALSE, "org.gnome.desktop.interface", "cursor-blink-time", "gtk-cursor-blink-time", G_TYPE_INT, { .i = 1200 } },
@@ -1994,6 +2015,7 @@ init_settings (GdkDisplay *display)
           g_debug ("Received no portal settings");
           g_clear_pointer (&iter, g_variant_iter_free);
           g_clear_pointer (&ret, g_variant_unref);
+          g_clear_object (&display_wayland->settings_portal);
 
           goto fallback;
         }

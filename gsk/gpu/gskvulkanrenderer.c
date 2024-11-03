@@ -10,6 +10,7 @@
 #include "gskvulkanframeprivate.h"
 #include "gskvulkanimageprivate.h"
 
+#include "gdk/gdkvulkancontextprivate.h"
 #include "gdk/gdkdisplayprivate.h"
 #endif
 
@@ -110,6 +111,18 @@ gsk_vulkan_renderer_make_current (GskGpuRenderer *renderer)
 {
 }
 
+static gpointer
+gsk_vulkan_renderer_save_current (GskGpuRenderer *renderer)
+{
+  return NULL;
+}
+
+static void
+gsk_vulkan_renderer_restore_current (GskGpuRenderer *renderer,
+                                     gpointer        current)
+{
+}
+
 static GskGpuImage *
 gsk_vulkan_renderer_get_backbuffer (GskGpuRenderer *renderer)
 {
@@ -119,14 +132,6 @@ gsk_vulkan_renderer_get_backbuffer (GskGpuRenderer *renderer)
   context = GDK_VULKAN_CONTEXT (gsk_gpu_renderer_get_context (renderer));
 
   return self->targets[gdk_vulkan_context_get_draw_index (context)];
-}
-
-static GdkDmabufFormats *
-gsk_vulkan_renderer_get_dmabuf_formats (GskGpuRenderer *renderer)
-{
-  GdkDisplay *display = GDK_DISPLAY (gdk_draw_context_get_display (gsk_gpu_renderer_get_context (renderer)));
-
-  return display->vk_dmabuf_formats;
 }
 
 static void
@@ -155,8 +160,9 @@ gsk_vulkan_renderer_class_init (GskVulkanRendererClass *klass)
   gpu_renderer_class->get_device = gsk_vulkan_device_get_for_display;
   gpu_renderer_class->create_context = gsk_vulkan_renderer_create_context;
   gpu_renderer_class->make_current = gsk_vulkan_renderer_make_current;
+  gpu_renderer_class->save_current = gsk_vulkan_renderer_save_current;
+  gpu_renderer_class->restore_current = gsk_vulkan_renderer_restore_current;
   gpu_renderer_class->get_backbuffer = gsk_vulkan_renderer_get_backbuffer;
-  gpu_renderer_class->get_dmabuf_formats = gsk_vulkan_renderer_get_dmabuf_formats;
 
   renderer_class->unrealize = gsk_vulkan_renderer_unrealize;
 #endif

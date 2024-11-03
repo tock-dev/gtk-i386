@@ -18,7 +18,6 @@
 
 #include "config.h"
 
-#if defined(HAVE_DMABUF) && defined (HAVE_EGL)
 #include "gdkdmabufeglprivate.h"
 
 #include "gdkdmabufformatsbuilderprivate.h"
@@ -32,6 +31,8 @@
 
 #include <graphene.h>
 
+#if defined(HAVE_DMABUF) && defined (HAVE_EGL)
+
 /* A dmabuf downloader implementation that downloads buffers via
  * gsk_renderer_render_texture + GL texture download.
  */
@@ -39,7 +40,7 @@
 static gboolean
 gdk_dmabuf_egl_downloader_collect_formats (GdkDisplay                *display,
                                            GdkDmabufFormatsBuilder   *formats,
-                                           GdkDmabufFormatsBuilder   *external)
+                                           GdkDmabufFormatsBuilder   *internal)
 {
   GdkGLContext *context = gdk_display_get_gl_context (display);
   EGLDisplay egl_display = gdk_display_get_egl_display (display);
@@ -60,8 +61,8 @@ gdk_dmabuf_egl_downloader_collect_formats (GdkDisplay                *display,
   eglQueryDmaBufFormatsEXT (egl_display, num_fourccs, fourccs, &num_fourccs);
 
   n_mods = 80;
-  modifiers = g_new (guint64, n_mods);
-  external_only = g_new (unsigned int, n_mods);
+  modifiers = g_new0 (guint64, n_mods);
+  external_only = g_new0 (unsigned int, n_mods);
 
   for (int i = 0; i < num_fourccs; i++)
     {
@@ -93,24 +94,27 @@ gdk_dmabuf_egl_downloader_collect_formats (GdkDisplay                *display,
 
       for (int j = 0; j < num_modifiers; j++)
         {
-          /* All linear formats we support are already added my the mmap downloader.
+          /* All linear formats we support are already advertised by the mmap downloader.
            * We don't add external formats, unless we can use them (via GLES)
            */
-          if (modifiers[j] != DRM_FORMAT_MOD_LINEAR &&
-              (!external_only[j] || gdk_gl_context_get_use_es (context)))
-            {
-              GDK_DISPLAY_DEBUG (display, DMABUF,
-                                 "%s EGL dmabuf format %.4s:%#" G_GINT64_MODIFIER "x",
-                                 external_only[j] ? "external " : "",
-                                 (char *) &fourccs[i],
-                                 modifiers[j]);
+          gboolean advertise = modifiers[j] != DRM_FORMAT_MOD_LINEAR &&
+                               (!external_only[j] || gdk_gl_context_get_use_es (context));
 
-              gdk_dmabuf_formats_builder_add_format (formats, fourccs[i], modifiers[j]);
+          GDK_DISPLAY_DEBUG (display, DMABUF,
+                             "EGL %s %sdmabuf format %.4s::%016" G_GINT64_MODIFIER "x",
+                             advertise ? "advertises" : "supports",
+                             external_only[j] ? "external " : "",
+                             (char *) &fourccs[i],
+                             modifiers[j]);
+
+          if (advertise)
+            gdk_dmabuf_formats_builder_add_format (formats, fourccs[i], modifiers[j]);
+
+          if (!external_only[j])
+            {
+              gdk_dmabuf_formats_builder_add_format (internal, fourccs[i], modifiers[j]);
+              all_external = FALSE;
             }
-          if (external_only[j])
-            gdk_dmabuf_formats_builder_add_format (external, fourccs[i], modifiers[j]);
-          else
-            all_external = FALSE;
         }
 
       /* Accept implicit modifiers as long as we accept the format at all.
@@ -122,8 +126,8 @@ gdk_dmabuf_egl_downloader_collect_formats (GdkDisplay                *display,
        */
       if (!all_external || gdk_gl_context_get_use_es (context))
         gdk_dmabuf_formats_builder_add_format (formats, fourccs[i], DRM_FORMAT_MOD_INVALID);
-      if (all_external)
-        gdk_dmabuf_formats_builder_add_format (external, fourccs[i], DRM_FORMAT_MOD_INVALID);
+      if (!all_external)
+        gdk_dmabuf_formats_builder_add_format (internal, fourccs[i], DRM_FORMAT_MOD_INVALID);
     }
 
   g_free (modifiers);
@@ -131,77 +135,6 @@ gdk_dmabuf_egl_downloader_collect_formats (GdkDisplay                *display,
   g_free (fourccs);
 
   return TRUE;
-}
-
-/* Hack. We don't include gsk/gsk.h here to avoid a build order problem
- * with the generated header gskenumtypes.h, so we need to hack around
- * a bit to access the gsk api we need.
- */
-
-typedef struct _GskRenderer GskRenderer;
-
-extern GskRenderer *   gsk_gl_renderer_new                      (void);
-extern gboolean        gsk_renderer_realize_for_display         (GskRenderer  *renderer,
-                                                                 GdkDisplay   *display,
-                                                                 GError      **error);
-
-GdkDmabufDownloader *
-gdk_dmabuf_get_egl_downloader (GdkDisplay              *display,
-                               GdkDmabufFormatsBuilder *builder)
-{
-  GdkDmabufFormatsBuilder *formats;
-  GdkDmabufFormatsBuilder *external;
-  gboolean retval = FALSE;
-  GError *error = NULL;
-  GskRenderer *renderer;
-  GdkGLContext *previous;
-
-  g_assert (display->egl_dmabuf_formats == NULL);
-  g_assert (display->egl_external_formats == NULL);
-
-  if (!gdk_display_prepare_gl (display, NULL))
-    return NULL;
-
-  previous = gdk_gl_context_get_current ();
-  if (previous)
-    g_object_ref (previous);
-  formats = gdk_dmabuf_formats_builder_new ();
-  external = gdk_dmabuf_formats_builder_new ();
-
-  retval = gdk_dmabuf_egl_downloader_collect_formats (display, formats, external);
-
-  display->egl_dmabuf_formats = gdk_dmabuf_formats_builder_free_to_formats (formats);
-  display->egl_external_formats = gdk_dmabuf_formats_builder_free_to_formats (external);
-
-  gdk_dmabuf_formats_builder_add_formats (builder, display->egl_dmabuf_formats);
-
-  if (!retval)
-    {
-      if (previous)
-        gdk_gl_context_make_current (previous);
-      return NULL;
-    }
-
-  renderer = gsk_gl_renderer_new ();
-
-  if (!gsk_renderer_realize_for_display (renderer, display, &error))
-    {
-      g_warning ("Failed to realize GL renderer: %s", error->message);
-      g_error_free (error);
-      g_object_unref (renderer);
-      if (previous)
-        gdk_gl_context_make_current (previous);
-
-      return NULL;
-    }
-
-  if (previous)
-    {
-      gdk_gl_context_make_current (previous);
-      g_object_unref (previous);
-    }
-
-  return GDK_DMABUF_DOWNLOADER (renderer);
 }
 
 EGLImage
@@ -283,10 +216,86 @@ gdk_dmabuf_egl_create_image (GdkDisplay      *display,
       GDK_DISPLAY_DEBUG (display, DMABUF,
                          "Creating EGLImage for dmabuf failed: %#x",
                          eglGetError ());
-      return 0;
     }
 
   return image;
 }
 
 #endif  /* HAVE_DMABUF && HAVE_EGL */
+
+/* Hack. We don't include gsk/gsk.h here to avoid a build order problem
+ * with the generated header gskenumtypes.h, so we need to hack around
+ * a bit to access the gsk api we need.
+ */
+
+typedef struct _GskRenderer GskRenderer;
+
+extern GskRenderer *   gsk_gl_renderer_new                      (void);
+extern GskRenderer *   gsk_ngl_renderer_new                     (void);
+extern gboolean        gsk_renderer_realize_for_display         (GskRenderer  *renderer,
+                                                                 GdkDisplay   *display,
+                                                                 GError      **error);
+
+void
+gdk_dmabuf_egl_init (GdkDisplay *display)
+{
+#if defined (HAVE_DMABUF) && defined (HAVE_EGL)
+  GdkDmabufFormatsBuilder *formats;
+  GdkDmabufFormatsBuilder *internal;
+  gboolean retval = FALSE;
+  GError *error = NULL;
+  GskRenderer *renderer;
+  GdkGLContext *previous;
+
+  if (display->egl_dmabuf_formats != NULL)
+    return;
+
+  if (!gdk_has_feature (GDK_FEATURE_DMABUF) ||
+      !gdk_display_prepare_gl (display, NULL))
+    {
+      return;
+    }
+
+  formats = gdk_dmabuf_formats_builder_new ();
+  internal = gdk_dmabuf_formats_builder_new ();
+
+  previous = gdk_gl_context_get_current ();
+  if (previous)
+    g_object_ref (previous);
+
+  retval = gdk_dmabuf_egl_downloader_collect_formats (display, formats, internal);
+
+  display->egl_dmabuf_formats = gdk_dmabuf_formats_builder_free_to_formats (formats);
+  display->egl_internal_formats = gdk_dmabuf_formats_builder_free_to_formats (internal);
+
+  if (!retval)
+    {
+      if (previous)
+        gdk_gl_context_make_current (previous);
+      return;
+    }
+
+  renderer = gsk_ngl_renderer_new ();
+
+  if (!gsk_renderer_realize_for_display (renderer, display, &error))
+    {
+      g_warning ("Failed to realize GL renderer: %s", error->message);
+      g_error_free (error);
+      g_object_unref (renderer);
+      if (previous)
+        gdk_gl_context_make_current (previous);
+
+      return;
+    }
+
+  if (previous)
+    {
+      gdk_gl_context_make_current (previous);
+      g_object_unref (previous);
+    }
+
+  display->egl_downloader = GDK_DMABUF_DOWNLOADER (renderer);
+
+#endif
+}
+

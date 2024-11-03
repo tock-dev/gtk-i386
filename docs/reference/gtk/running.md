@@ -358,6 +358,9 @@ disable certain features.
 `color-mgmt`
 : Disable color management
 
+`aerosnap`
+: Disable Aerosnap support on Windows
+
 ### `GDK_GL_DISABLE`
 
 This variable can be set to a list of values, which cause GDK to
@@ -380,13 +383,6 @@ does not support them.
 `base-instance`
 :GL_EXT_base_instance
 
-### `GDK_VULKAN_DEVICE`
-
-This variable can be set to the index of a Vulkan device to override
-the default selection of the device that is used for Vulkan rendering.
-The special value `list` can be used to obtain a list of all Vulkan
-devices.
-
 ### `GDK_VULKAN_DISABLE`
 
 This variable can be set to a list of values, which cause GDK to
@@ -400,15 +396,6 @@ does not support them.
 `ycbr`
 : Do not support Ycbcr textures
 
-`descriptor-indexing`
-: Force slow descriptor set layout codepath
-
-`dynamic-indexing`
-: Hardcode small number of buffer and texture arrays
-
-`nonuniform-indexing`
-: Split draw calls to ensure uniform texture accesses
-
 `semaphore-export`
 : Disable sync of exported dmabufs
 
@@ -417,6 +404,9 @@ does not support them.
 
 `incremental-present`
 : Do not send damage regions
+
+`swapchain-maintenance`
+: Do not use advanced swapchain features
 
 The special value `all` can be used to turn on all values. The special
 value `help` can be used to obtain a list of all supported values.
@@ -436,14 +426,8 @@ using and the GDK backend supports them:
 `cairo`
 : Selects the fallback Cairo renderer
 
-`opengl`
-: Selects the default OpenGL renderer
-
-`gl`
-: Selects the "gl" OpenGL renderer
-
 `ngl`
-: Selects the "ngl" OpenGL renderer
+: Selects the OpenGL renderer
 
 `vulkan`
 : Selects the Vulkan renderer
@@ -493,6 +477,8 @@ disable certain optimizations of the "ngl" and "vulkan" renderer.
 `occlusion`
 : Disable occlusion culling via opacity tracking
 
+`repeat`
+: Repeat drawing operations instead of using offscreen and GL_REPEAT
 
 The special value `all` can be used to turn on all values. The special
 value `help` can be used to obtain a list of all supported values.

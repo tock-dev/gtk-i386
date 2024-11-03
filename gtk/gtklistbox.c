@@ -155,6 +155,8 @@ struct _GtkListBox
   GtkListBoxCreateWidgetFunc create_widget_func;
   gpointer create_widget_func_data;
   GDestroyNotify create_widget_func_data_destroy;
+
+  GtkListTabBehavior tab_behavior;
 };
 
 struct _GtkListBoxClass
@@ -214,6 +216,7 @@ enum {
   PROP_ACTIVATE_ON_SINGLE_CLICK,
   PROP_ACCEPT_UNPAIRED_RELEASE,
   PROP_SHOW_SEPARATORS,
+  PROP_TAB_BEHAVIOR,
   LAST_PROPERTY
 };
 
@@ -405,6 +408,9 @@ gtk_list_box_get_property (GObject    *obj,
     case PROP_SHOW_SEPARATORS:
       g_value_set_boolean (value, box->show_separators);
       break;
+    case PROP_TAB_BEHAVIOR:
+      g_value_set_enum (value, box->tab_behavior);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
       break;
@@ -432,6 +438,9 @@ gtk_list_box_set_property (GObject      *obj,
       break;
     case PROP_SHOW_SEPARATORS:
       gtk_list_box_set_show_separators (box, g_value_get_boolean (value));
+      break;
+    case PROP_TAB_BEHAVIOR:
+      gtk_list_box_set_tab_behavior (box, g_value_get_enum (value));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
@@ -505,7 +514,7 @@ gtk_list_box_class_init (GtkListBoxClass *klass)
   klass->selected_rows_changed = gtk_list_box_selected_rows_changed;
 
   /**
-   * GtkListBox:selection-mode: (attributes org.gtk.Property.get=gtk_list_box_get_selection_mode org.gtk.Property.set=gtk_list_box_set_selection_mode)
+   * GtkListBox:selection-mode:
    *
    * The selection mode used by the list box.
    */
@@ -516,7 +525,7 @@ gtk_list_box_class_init (GtkListBoxClass *klass)
                        G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
 
     /**
-   * GtkListBox:activate-on-single-click: (attributes org.gtk.Property.get=gtk_list_box_get_activate_on_single_click org.gtk.Property.set=gtk_list_box_set_activate_on_single_click)
+   * GtkListBox:activate-on-single-click:
    *
    * Determines whether children can be activated with a single
    * click, or require a double-click.
@@ -538,7 +547,7 @@ gtk_list_box_class_init (GtkListBoxClass *klass)
 
 
   /**
-   * GtkListBox:show-separators: (attributes org.gtk.Property.get=gtk_list_box_get_show_separators org.gtk.Property.set=gtk_list_box_set_show_separators)
+   * GtkListBox:show-separators:
    *
    * Whether to show separators between rows.
    */
@@ -546,6 +555,19 @@ gtk_list_box_class_init (GtkListBoxClass *klass)
     g_param_spec_boolean ("show-separators", NULL, NULL,
                           FALSE,
                           G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
+
+                          /**
+                           * GtkListBox:tab-behavior:
+                           * 
+                           * Behavior of the <kbd>Tab</kbd> key
+                           *
+                           * Since: 4.18 
+                           */
+                          properties[PROP_TAB_BEHAVIOR] =
+                            g_param_spec_enum ("tab-behavior", NULL, NULL,
+                                               GTK_TYPE_LIST_TAB_BEHAVIOR,
+                                               GTK_LIST_TAB_ALL,
+                                               G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
 
   g_object_class_install_properties (object_class, LAST_PROPERTY, properties);
 
@@ -1181,7 +1203,7 @@ gtk_list_box_parent_cb (GObject    *object,
 }
 
 /**
- * gtk_list_box_set_selection_mode: (attributes org.gtk.Method.set_property=selection-mode)
+ * gtk_list_box_set_selection_mode:
  * @box: a `GtkListBox`
  * @mode: The `GtkSelectionMode`
  *
@@ -1220,7 +1242,7 @@ gtk_list_box_set_selection_mode (GtkListBox       *box,
 }
 
 /**
- * gtk_list_box_get_selection_mode: (attributes org.gtk.Method.get_property=selection-mode)
+ * gtk_list_box_get_selection_mode:
  * @box: a `GtkListBox`
  *
  * Gets the selection mode of the listbox.
@@ -1502,7 +1524,7 @@ gtk_list_box_got_row_changed (GtkListBox    *box,
 }
 
 /**
- * gtk_list_box_set_activate_on_single_click: (attributes org.gtk.Method.set_property=activate-on-single-click)
+ * gtk_list_box_set_activate_on_single_click:
  * @box: a `GtkListBox`
  * @single: a boolean
  *
@@ -1526,7 +1548,7 @@ gtk_list_box_set_activate_on_single_click (GtkListBox *box,
 }
 
 /**
- * gtk_list_box_get_activate_on_single_click: (attributes org.gtk.Method.get_property=activate-on-single-click)
+ * gtk_list_box_get_activate_on_single_click:
  * @box: a `GtkListBox`
  *
  * Returns whether rows activate on single clicks.
@@ -2022,7 +2044,7 @@ gtk_list_box_focus (GtkWidget        *widget,
       if (gtk_widget_child_focus (focus_child, direction))
         return TRUE;
 
-      if (direction == GTK_DIR_UP || direction == GTK_DIR_TAB_BACKWARD)
+      if (direction == GTK_DIR_UP || (direction == GTK_DIR_TAB_BACKWARD && box->tab_behavior == GTK_LIST_TAB_ALL))
         {
           if (GTK_IS_LIST_BOX_ROW (focus_child))
             {
@@ -2052,7 +2074,7 @@ gtk_list_box_focus (GtkWidget        *widget,
               i = gtk_list_box_get_previous_visible (box, i);
             }
         }
-      else if (direction == GTK_DIR_DOWN || direction == GTK_DIR_TAB_FORWARD)
+      else if (direction == GTK_DIR_DOWN || (direction == GTK_DIR_TAB_FORWARD && box->tab_behavior == GTK_LIST_TAB_ALL))
         {
           if (GTK_IS_LIST_BOX_ROW (focus_child))
             i = gtk_list_box_get_next_visible (box, ROW_PRIV (GTK_LIST_BOX_ROW (focus_child))->iter);
@@ -3029,7 +3051,7 @@ gtk_list_box_row_new (void)
 }
 
 /**
- * gtk_list_box_row_set_child: (attributes org.gtk.Method.set_property=child)
+ * gtk_list_box_row_set_child:
  * @row: a `GtkListBoxRow`
  * @child: (nullable): the child widget
  *
@@ -3057,7 +3079,7 @@ gtk_list_box_row_set_child (GtkListBoxRow *row,
 }
 
 /**
- * gtk_list_box_row_get_child: (attributes org.gtk.Method.get_property=child)
+ * gtk_list_box_row_get_child:
  * @row: a `GtkListBoxRow`
  *
  * Gets the child widget of @row.
@@ -3350,7 +3372,7 @@ gtk_list_box_update_row_styles (GtkListBox *box)
 }
 
 /**
- * gtk_list_box_row_set_activatable: (attributes org.gtk.Method.set_property=activatable)
+ * gtk_list_box_row_set_activatable:
  * @row: a `GtkListBoxRow`
  * @activatable: %TRUE to mark the row as activatable
  *
@@ -3374,7 +3396,7 @@ gtk_list_box_row_set_activatable (GtkListBoxRow *row,
 }
 
 /**
- * gtk_list_box_row_get_activatable: (attributes org.gtk.Method.get_property=activatable)
+ * gtk_list_box_row_get_activatable:
  * @row: a `GtkListBoxRow`
  *
  * Gets whether the row is activatable.
@@ -3390,7 +3412,7 @@ gtk_list_box_row_get_activatable (GtkListBoxRow *row)
 }
 
 /**
- * gtk_list_box_row_set_selectable: (attributes org.gtk.Method.set_property=selectable)
+ * gtk_list_box_row_set_selectable:
  * @row: a `GtkListBoxRow`
  * @selectable: %TRUE to mark the row as selectable
  *
@@ -3426,7 +3448,7 @@ gtk_list_box_row_set_selectable (GtkListBoxRow *row,
 }
 
 /**
- * gtk_list_box_row_get_selectable: (attributes org.gtk.Method.get_property=selectable)
+ * gtk_list_box_row_get_selectable:
  * @row: a `GtkListBoxRow`
  *
  * Gets whether the row can be selected.
@@ -3633,7 +3655,7 @@ gtk_list_box_row_class_init (GtkListBoxRowClass *klass)
   gtk_widget_class_set_activate_signal (widget_class, row_signals[ROW__ACTIVATE]);
 
   /**
-   * GtkListBoxRow:activatable: (attributes org.gtk.Property.get=gtk_list_box_row_get_activatable org.gtk.Property.set=gtk_list_box_row_set_activatable)
+   * GtkListBoxRow:activatable:
    *
    * Determines whether the ::row-activated
    * signal will be emitted for this row.
@@ -3644,7 +3666,7 @@ gtk_list_box_row_class_init (GtkListBoxRowClass *klass)
                           G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkListBoxRow:selectable: (attributes org.gtk.Property.get=gtk_list_box_row_get_selectable org.gtk.Property.set=gtk_list_box_row_set_selectable)
+   * GtkListBoxRow:selectable:
    *
    * Determines whether this row can be selected.
    */
@@ -3654,7 +3676,7 @@ gtk_list_box_row_class_init (GtkListBoxRowClass *klass)
                           G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
 
   /**
-   * GtkListBoxRow:child: (attributes org.gtk.Property.get=gtk_list_box_row_get_child org.gtk.Property.set=gtk_list_box_row_set_child)
+   * GtkListBoxRow:child:
    *
    * The child widget.
    */
@@ -3828,7 +3850,7 @@ gtk_list_box_bind_model (GtkListBox                 *box,
 }
 
 /**
- * gtk_list_box_set_show_separators: (attributes org.gtk.Method.set_property=show-separators)
+ * gtk_list_box_set_show_separators:
  * @box: a `GtkListBox`
  * @show_separators: %TRUE to show separators
  *
@@ -3855,7 +3877,7 @@ gtk_list_box_set_show_separators (GtkListBox *box,
 }
 
 /**
- * gtk_list_box_get_show_separators: (attributes org.gtk.Method.get_property=show-separators)
+ * gtk_list_box_get_show_separators:
  * @box: a `GtkListBox`
  *
  * Returns whether the list box should show separators
@@ -3869,4 +3891,45 @@ gtk_list_box_get_show_separators (GtkListBox *box)
   g_return_val_if_fail (GTK_IS_LIST_BOX (box), FALSE);
 
   return box->show_separators;
+}
+
+/**
+ * gtk_list_box_set_tab_behavior:
+ * @box: a `GtkListBox`
+ * @behavior: the tab behavior
+ * 
+ * Sets the behavior of the <kbd>Tab</kbd> and <kbd>Shift</kbd>+<kbd>Tab</kbd> keys.
+ *
+ * Since: 4.18
+ */
+void
+gtk_list_box_set_tab_behavior (GtkListBox         *box,
+                               GtkListTabBehavior  behavior)
+{
+  g_return_if_fail (GTK_IS_LIST_BOX (box));
+
+  if (box->tab_behavior == behavior)
+    return;
+
+  box->tab_behavior = behavior;
+
+  g_object_notify_by_pspec (G_OBJECT (box), properties[PROP_TAB_BEHAVIOR]);
+}
+
+/**
+ * gtk_list_box_get_tab_behavior:
+ * @box: a `GtkListBox`
+ *
+ * Returns the behavior of the <kbd>Tab</kbd> and <kbd>Shift</kbd>+<kbd>Tab</kbd> keys.
+ *
+ * Returns: the tab behavior
+ * 
+ * Since: 4.18
+ */
+GtkListTabBehavior
+gtk_list_box_get_tab_behavior (GtkListBox *box)
+{
+  g_return_val_if_fail (GTK_IS_LIST_BOX (box), GTK_LIST_TAB_ALL);
+
+  return box->tab_behavior;
 }

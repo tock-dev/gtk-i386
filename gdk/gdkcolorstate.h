@@ -50,6 +50,12 @@ GDK_AVAILABLE_IN_4_16
 GdkColorState * gdk_color_state_get_rec2100_linear      (void);
 
 GDK_AVAILABLE_IN_4_16
+GdkColorState * gdk_color_state_get_oklab               (void);
+
+GDK_AVAILABLE_IN_4_16
+GdkColorState * gdk_color_state_get_oklch               (void);
+
+GDK_AVAILABLE_IN_4_16
 gboolean        gdk_color_state_equal                   (GdkColorState  *self,
                                                          GdkColorState  *other);
 
@@ -57,6 +63,6 @@ GDK_AVAILABLE_IN_4_16
 GdkCicpParams  *gdk_color_state_create_cicp_params      (GdkColorState  *self);
 
 
-G_DEFINE_AUTOPTR_CLEANUP_FUNC(GdkColorState, gdk_color_state_unref);
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GdkColorState, gdk_color_state_unref)
 
 G_END_DECLS

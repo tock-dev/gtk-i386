@@ -230,7 +230,7 @@ gdk_display_class_init (GdkDisplayClass *class)
   class->opened = gdk_display_real_opened;
 
   /**
-   * GdkDisplay:composited: (attributes org.gtk.Property.get=gdk_display_is_composited)
+   * GdkDisplay:composited: (getter is_composited)
    *
    * %TRUE if the display properly composites the alpha channel.
    */
@@ -240,7 +240,7 @@ gdk_display_class_init (GdkDisplayClass *class)
                           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
   /**
-   * GdkDisplay:rgba: (attributes org.gtk.Property.get=gdk_display_is_rgba)
+   * GdkDisplay:rgba: (getter is_rgba)
    *
    * %TRUE if the display supports an alpha channel.
    */
@@ -250,7 +250,7 @@ gdk_display_class_init (GdkDisplayClass *class)
                           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
   /**
-   * GdkDisplay:shadow-width: (attributes org.gtk.Property.get=gdk_display_supports_shadow_width)
+   * GdkDisplay:shadow-width: (getter supports_shadow_width)
    *
    * %TRUE if the display supports extensible frames.
    *
@@ -262,7 +262,7 @@ gdk_display_class_init (GdkDisplayClass *class)
                           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
   /**
-   * GdkDisplay:input-shapes: (attributes org.gtk.Property.get=gdk_display_supports_input_shapes)
+   * GdkDisplay:input-shapes: (getter supports_input_shapes)
    *
    * %TRUE if the display supports input shapes.
    */
@@ -272,7 +272,7 @@ gdk_display_class_init (GdkDisplayClass *class)
                           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
   /**
-   * GdkDisplay:dmabuf-formats: (attributes org.gtk.Property.get=gdk_display_get_dmabuf_formats)
+   * GdkDisplay:dmabuf-formats:
    *
    * The dma-buf formats that are supported on this display
    *
@@ -418,15 +418,17 @@ gdk_display_dispose (GObject *object)
 {
   GdkDisplay *display = GDK_DISPLAY (object);
   GdkDisplayPrivate *priv = gdk_display_get_instance_private (display);
-  gsize i;
 
-  for (i = 0; i < G_N_ELEMENTS (display->dmabuf_downloaders); i++)
+  if (display->vk_downloader)
     {
-      if (display->dmabuf_downloaders[i] == NULL)
-        continue;
+      gdk_dmabuf_downloader_close (display->vk_downloader);
+      g_clear_object (&display->vk_downloader);
+    }
 
-      gdk_dmabuf_downloader_close (display->dmabuf_downloaders[i]);
-      g_clear_object (&display->dmabuf_downloaders[i]);
+  if (display->egl_downloader)
+    {
+      gdk_dmabuf_downloader_close (display->egl_downloader);
+      g_clear_object (&display->egl_downloader);
     }
 
   _gdk_display_manager_remove_display (gdk_display_manager_get (), display);
@@ -434,7 +436,7 @@ gdk_display_dispose (GObject *object)
   g_queue_clear (&display->queued_events);
 
   g_clear_pointer (&display->egl_dmabuf_formats, gdk_dmabuf_formats_unref);
-  g_clear_pointer (&display->egl_external_formats, gdk_dmabuf_formats_unref);
+  g_clear_pointer (&display->egl_internal_formats, gdk_dmabuf_formats_unref);
 #ifdef GDK_RENDERING_VULKAN
   if (display->vk_dmabuf_formats)
     {
@@ -1116,7 +1118,7 @@ gdk_display_get_primary_clipboard (GdkDisplay *display)
 }
 
 /**
- * gdk_display_supports_input_shapes: (attributes org.gtk.Method.get_property=input-shapes)
+ * gdk_display_supports_input_shapes: (get-property input-shapes)
  * @display: a `GdkDisplay`
  *
  * Returns %TRUE if the display supports input shapes.
@@ -1196,8 +1198,9 @@ gdk_display_get_app_launch_context (GdkDisplay *display)
 GdkDisplay *
 gdk_display_open (const char *display_name)
 {
-  return gdk_display_manager_open_display (gdk_display_manager_get (),
-                                           display_name);
+  gdk_ensure_initialized ();
+
+  return gdk_display_manager_open_display (gdk_display_manager_get (), display_name);
 }
 
 gulong
@@ -1965,33 +1968,6 @@ gdk_display_get_egl_display (GdkDisplay *self)
 #endif
 }
 
-#ifdef HAVE_DMABUF
-static void
-gdk_display_add_dmabuf_downloader (GdkDisplay          *display,
-                                   GdkDmabufDownloader *downloader)
-{
-  gsize i;
-
-  if (downloader == NULL)
-    return;
-
-  /* dmabuf_downloaders is NULL-terminated */
-  for (i = 0; i < G_N_ELEMENTS (display->dmabuf_downloaders) - 1; i++)
-    {
-      if (display->dmabuf_downloaders[i] == NULL)
-        break;
-    }
-
-  g_assert (i < G_N_ELEMENTS (display->dmabuf_downloaders) - 1);
-
-  display->dmabuf_downloaders[i] = downloader;
-}
-#endif
-
-/* To support a drm format, we must be able to import it into GL
- * using the relevant EGL extensions, and download it into a memory
- * texture, possibly doing format conversion with shaders (in GSK).
- */
 void
 gdk_display_init_dmabuf (GdkDisplay *self)
 {
@@ -2009,22 +1985,25 @@ gdk_display_init_dmabuf (GdkDisplay *self)
   if (gdk_has_feature (GDK_FEATURE_DMABUF))
     {
 #ifdef GDK_RENDERING_VULKAN
-      gdk_display_add_dmabuf_downloader (self, gdk_vulkan_get_dmabuf_downloader (self, builder));
+      gdk_vulkan_init_dmabuf (self);
+      if (self->vk_dmabuf_formats)
+        gdk_dmabuf_formats_builder_add_formats (builder, self->vk_dmabuf_formats);
 #endif
 
 #ifdef HAVE_EGL
-      gdk_display_add_dmabuf_downloader (self, gdk_dmabuf_get_egl_downloader (self, builder));
+      gdk_dmabuf_egl_init (self);
+      if (self->egl_dmabuf_formats)
+        gdk_dmabuf_formats_builder_add_formats (builder, self->egl_dmabuf_formats);
 #endif
 
-      gdk_dmabuf_formats_builder_add_formats (builder,
-                                              gdk_dmabuf_get_mmap_formats ());
+      gdk_dmabuf_formats_builder_add_formats (builder, gdk_dmabuf_get_mmap_formats ());
     }
 #endif
 
   self->dmabuf_formats = gdk_dmabuf_formats_builder_free_to_formats (builder);
 
   GDK_DISPLAY_DEBUG (self, DMABUF,
-                     "Initialized support for %zu dmabuf formats",
+                     "Initialization finished. Advertising %zu dmabuf formats",
                      gdk_dmabuf_formats_get_n_formats (self->dmabuf_formats));
 }
 
@@ -2075,7 +2054,7 @@ gdk_display_set_debug_flags (GdkDisplay    *display,
 }
 
 /**
- * gdk_display_is_composited: (attributes org.gtk.Method.get_property=composited)
+ * gdk_display_is_composited: (get-property composited)
  * @display: a `GdkDisplay`
  *
  * Returns whether surfaces can reasonably be expected to have
@@ -2120,7 +2099,7 @@ gdk_display_set_composited (GdkDisplay *display,
 }
 
 /**
- * gdk_display_is_rgba: (attributes org.gtk.Method.get_property=rgba)
+ * gdk_display_is_rgba: (get-property rgba)
  * @display: a `GdkDisplay`
  *
  * Returns whether surfaces on this @display are created with an
@@ -2165,7 +2144,7 @@ gdk_display_set_rgba (GdkDisplay *display,
 }
 
 /**
- * gdk_display_supports_shadow_width: (attributes org.gtk.Method.get_property=shadow-width)
+ * gdk_display_supports_shadow_width: (get-property shadow-width)
  * @display: a `GdkDisplay`
  *
  * Returns whether it's possible for a surface to draw outside of the window area.

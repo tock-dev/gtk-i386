@@ -436,6 +436,17 @@ emoji_activated (GtkFlowBox      *box,
   GVariant *item;
   gunichar modifier;
 
+  label = gtk_flow_box_child_get_child (child);
+  text = g_strdup (gtk_label_get_label (GTK_LABEL (label)));
+
+  item = (GVariant*) g_object_get_data (G_OBJECT (child), "emoji-data");
+  modifier = (gunichar) GPOINTER_TO_UINT (g_object_get_data (G_OBJECT (child), "modifier"));
+  if ((GtkWidget *) box != chooser->recent.box)
+    add_recent_item (chooser, item, modifier);
+
+  g_signal_emit (data, signals[EMOJI_PICKED], 0, text);
+  g_free (text);
+
   if (should_close (chooser))
     gtk_popover_popdown (GTK_POPOVER (chooser));
   else
@@ -446,16 +457,6 @@ emoji_activated (GtkFlowBox      *box,
       if (popover != GTK_WIDGET (chooser))
         gtk_popover_popdown (GTK_POPOVER (popover));
     }
-
-  label = gtk_flow_box_child_get_child (child);
-  text = g_strdup (gtk_label_get_label (GTK_LABEL (label)));
-
-  item = (GVariant*) g_object_get_data (G_OBJECT (child), "emoji-data");
-  modifier = (gunichar) GPOINTER_TO_UINT (g_object_get_data (G_OBJECT (child), "modifier"));
-  add_recent_item (chooser, item, modifier);
-
-  g_signal_emit (data, signals[EMOJI_PICKED], 0, text);
-  g_free (text);
 }
 
 static gboolean

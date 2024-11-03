@@ -78,10 +78,7 @@ gboolean                gdk_display_init_vulkan                         (GdkDisp
 void                    gdk_display_ref_vulkan                          (GdkDisplay            *display);
 void                    gdk_display_unref_vulkan                        (GdkDisplay            *display);
 
-#ifdef HAVE_DMABUF
-GdkDmabufDownloader *   gdk_vulkan_get_dmabuf_downloader                (GdkDisplay            *display,
-                                                                         GdkDmabufFormatsBuilder *builder);
-#endif
+void                    gdk_vulkan_init_dmabuf                          (GdkDisplay            *display);
 
 VkShaderModule          gdk_display_get_vk_shader_module                (GdkDisplay            *display,
                                                                          const char            *resource_name);
@@ -120,4 +117,3 @@ gdk_display_ref_vulkan (GdkDisplay  *display,
 #endif /* !GDK_RENDERING_VULKAN */
 
 G_END_DECLS
-

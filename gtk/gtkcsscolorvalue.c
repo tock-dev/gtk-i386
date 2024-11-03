@@ -700,6 +700,8 @@ gtk_css_color_value_do_resolve (GtkCssValue          *color,
         GtkCssValue *vals[4];
 
         origin = gtk_css_color_value_do_resolve (color->relative.origin, context, current, cycle_list);
+        if (origin == NULL)
+          return NULL;
 
         for (guint i = 0; i < 4; i++)
           {
@@ -2237,4 +2239,4 @@ gtk_css_color_value_get_coord (const GtkCssValue *color,
 
 /* }}} */
 
-/* vim:set foldmethod=marker expandtab: */
+/* vim:set foldmethod=marker: */

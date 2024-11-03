@@ -113,6 +113,12 @@ static int gdk_initialized = 0;                     /* 1 if the library is initi
                                                      * 0 otherwise.
                                                      */
 
+gboolean
+gdk_is_initialized (void)
+{
+  return gdk_initialized != 0;
+}
+
 static const GdkDebugKey gdk_debug_keys[] = {
   { "misc",            GDK_DEBUG_MISC, "Miscellaneous information" },
   { "events",          GDK_DEBUG_EVENTS, "Information about events" },
@@ -152,6 +158,7 @@ static const GdkDebugKey gdk_feature_keys[] = {
   { "dmabuf",     GDK_FEATURE_DMABUF,           "Disable dmabuf support" },
   { "offload",    GDK_FEATURE_OFFLOAD,          "Disable graphics offload" },
   { "color-mgmt", GDK_FEATURE_COLOR_MANAGEMENT, "Disable color management" },
+  { "aerosnap",   GDK_FEATURE_AEROSNAP,         "Disable Aerosnap support on Windows" },
 };
 
 
@@ -360,13 +367,12 @@ gdk_display_open_default (void)
 {
   GdkDisplay *display;
 
-  g_return_val_if_fail (gdk_initialized, NULL);
+  gdk_ensure_initialized ();
 
   display = gdk_display_get_default ();
-  if (display)
-    return display;
 
-  display = gdk_display_open (NULL);
+  if (!display)
+    display = gdk_display_open (NULL);
 
   return display;
 }

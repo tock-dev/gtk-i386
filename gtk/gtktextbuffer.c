@@ -371,7 +371,9 @@ gtk_text_buffer_deserialize_text_plain (GdkContentDeserializer *deserializer)
                       buffer);
 
   /* validates the stream */
-  converter = g_charset_converter_new ("utf-8", "utf-8", &error);
+  converter = g_charset_converter_new ("utf-8",
+                                       gdk_content_deserializer_get_user_data (deserializer),
+                                       &error);
   if (converter == NULL)
     {
       gdk_content_deserializer_return_error (deserializer, error);
@@ -414,6 +416,23 @@ gtk_text_buffer_serialize_text_plain (GdkContentSerializer *serializer)
   GtkTextBuffer *buffer;
   GtkTextIter start, end;
   char *str;
+  GOutputStream *filter;
+  GCharsetConverter *converter;
+  GError *error = NULL;
+
+  converter = g_charset_converter_new (gdk_content_serializer_get_user_data (serializer),
+                                       "utf-8",
+                                       &error);
+  if (converter == NULL)
+    {
+      gdk_content_serializer_return_error (serializer, error);
+      return;
+    }
+  g_charset_converter_set_use_fallback (converter, TRUE);
+
+  filter = g_converter_output_stream_new (gdk_content_serializer_get_output_stream (serializer),
+                                          G_CONVERTER (converter));
+  g_object_unref (converter);
 
   buffer = g_value_get_object (gdk_content_serializer_get_value (serializer));
 
@@ -427,28 +446,57 @@ gtk_text_buffer_serialize_text_plain (GdkContentSerializer *serializer)
     }
   gdk_content_serializer_set_task_data (serializer, str, g_free);
 
-  g_output_stream_write_all_async (gdk_content_serializer_get_output_stream (serializer),
+  g_output_stream_write_all_async (filter,
                                    str,
                                    strlen (str),
                                    gdk_content_serializer_get_priority (serializer),
                                    gdk_content_serializer_get_cancellable (serializer),
                                    gtk_text_buffer_serialize_text_plain_finish,
                                    serializer);
+  g_object_unref (filter);
 }
 
 static void
 gtk_text_buffer_register_serializers (void)
 {
+  const char *charset;
+
   gdk_content_register_deserializer ("text/plain;charset=utf-8",
                                      GTK_TYPE_TEXT_BUFFER,
                                      gtk_text_buffer_deserialize_text_plain,
-                                     NULL,
+                                     (gpointer) "utf-8",
                                      NULL);
   gdk_content_register_serializer (GTK_TYPE_TEXT_BUFFER,
                                    "text/plain;charset=utf-8",
                                    gtk_text_buffer_serialize_text_plain,
-                                   NULL,
+                                   (gpointer) "utf-8",
                                    NULL);
+  gdk_content_register_deserializer ("text/plain",
+                                     GTK_TYPE_TEXT_BUFFER,
+                                     gtk_text_buffer_deserialize_text_plain,
+                                     (gpointer) "ASCII",
+                                     NULL);
+  gdk_content_register_serializer (GTK_TYPE_TEXT_BUFFER,
+                                   "text/plain",
+                                   gtk_text_buffer_serialize_text_plain,
+                                   (gpointer) "ASCII",
+                                   NULL);
+  if (!g_get_charset (&charset))
+    {
+      char *mime = g_strdup_printf ("text/plain;charset=%s", charset);
+      gdk_content_register_serializer (GTK_TYPE_TEXT_BUFFER,
+                                       mime,
+                                       gtk_text_buffer_serialize_text_plain,
+                                       (gpointer) charset,
+                                       NULL);
+      gdk_content_register_deserializer (mime,
+                                         GTK_TYPE_TEXT_BUFFER,
+                                         gtk_text_buffer_deserialize_text_plain,
+                                         (gpointer) charset,
+                                         NULL);
+      g_free (mime);
+    }
+
 }
 
 static void
@@ -473,7 +521,7 @@ gtk_text_buffer_class_init (GtkTextBufferClass *klass)
 
   /* Construct */
   /**
-   * GtkTextBuffer:tag-table: (attributes org.gtk.Property.get=gtk_text_buffer_get_tag_table)
+   * GtkTextBuffer:tag-table:
    *
    * The GtkTextTagTable for the buffer.
    */
@@ -485,7 +533,7 @@ gtk_text_buffer_class_init (GtkTextBufferClass *klass)
   /* Normal properties */
 
   /**
-   * GtkTextBuffer:text: (attributes org.gtk.Property.set=gtk_text_buffer_set_text)
+   * GtkTextBuffer:text:
    *
    * The text content of the buffer.
    *
@@ -508,7 +556,7 @@ gtk_text_buffer_class_init (GtkTextBufferClass *klass)
                             GTK_PARAM_READABLE);
 
   /**
-   * GtkTextBuffer:can-undo: (attributes org.gtk.Property.get=gtk_text_buffer_get_can_undo)
+   * GtkTextBuffer:can-undo:
    *
    * Denotes that the buffer can undo the last applied action.
    */
@@ -518,7 +566,7 @@ gtk_text_buffer_class_init (GtkTextBufferClass *klass)
                           GTK_PARAM_READABLE);
 
   /**
-   * GtkTextBuffer:can-redo: (attributes org.gtk.Property.get=gtk_text_buffer_get_can_redo)
+   * GtkTextBuffer:can-redo:
    *
    * Denotes that the buffer can reapply the last undone action.
    */
@@ -528,7 +576,7 @@ gtk_text_buffer_class_init (GtkTextBufferClass *klass)
                           GTK_PARAM_READABLE);
 
   /**
-   * GtkTextBuffer:enable-undo: (attributes org.gtk.Property.get=gtk_text_buffer_get_enable_undo org.gtk.Property.set=gtk_text_buffer_set_enable_undo)
+   * GtkTextBuffer:enable-undo:
    *
    * Denotes if support for undoing and redoing changes to the buffer is allowed.
    */
@@ -1142,7 +1190,7 @@ _gtk_text_buffer_get_btree (GtkTextBuffer *buffer)
 }
 
 /**
- * gtk_text_buffer_get_tag_table: (attributes org.gtk.Method.get_property=tag-table)
+ * gtk_text_buffer_get_tag_table:
  * @buffer: a `GtkTextBuffer`
  *
  * Get the `GtkTextTagTable` associated with this buffer.
@@ -1158,7 +1206,7 @@ gtk_text_buffer_get_tag_table (GtkTextBuffer *buffer)
 }
 
 /**
- * gtk_text_buffer_set_text: (attributes org.gtk.Method.set_property=text)
+ * gtk_text_buffer_set_text:
  * @buffer: a `GtkTextBuffer`
  * @text: UTF-8 text to insert
  * @len: length of @text in bytes
@@ -4942,7 +4990,7 @@ gtk_text_buffer_real_redo (GtkTextBuffer *buffer)
 }
 
 /**
- * gtk_text_buffer_get_can_undo: (attributes org.gtk.Method.get_property=can-undo)
+ * gtk_text_buffer_get_can_undo:
  * @buffer: a `GtkTextBuffer`
  *
  * Gets whether there is an undoable action in the history.
@@ -4958,7 +5006,7 @@ gtk_text_buffer_get_can_undo (GtkTextBuffer *buffer)
 }
 
 /**
- * gtk_text_buffer_get_can_redo: (attributes org.gtk.Method.get_property=can-redo)
+ * gtk_text_buffer_get_can_redo:
  * @buffer: a `GtkTextBuffer`
  *
  * Gets whether there is a redoable action in the history.
@@ -5075,7 +5123,7 @@ gtk_text_buffer_redo (GtkTextBuffer *buffer)
 }
 
 /**
- * gtk_text_buffer_get_enable_undo: (attributes org.gtk.Method.get_property=enable-undo)
+ * gtk_text_buffer_get_enable_undo:
  * @buffer: a `GtkTextBuffer`
  *
  * Gets whether the buffer is saving modifications to the buffer
@@ -5096,7 +5144,7 @@ gtk_text_buffer_get_enable_undo (GtkTextBuffer *buffer)
 }
 
 /**
- * gtk_text_buffer_set_enable_undo: (attributes org.gtk.Method.set_property=enable-undo)
+ * gtk_text_buffer_set_enable_undo:
  * @buffer: a `GtkTextBuffer`
  * @enable_undo: %TRUE to enable undo
  *

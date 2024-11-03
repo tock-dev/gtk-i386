@@ -148,8 +148,6 @@
 #include "gskglshaderprivate.h"
 #include "gskdebugprivate.h"
 
-#include "gl/gskglrendererprivate.h"
-
 G_GNUC_BEGIN_IGNORE_DEPRECATIONS
 
 static GskGLUniformType
@@ -450,7 +448,7 @@ gsk_gl_shader_class_init (GskGLShaderClass *klass)
   object_class->constructed = gsk_gl_shader_constructed;
 
   /**
-   * GskGLShader:source: (attributes org.gtk.Property.get=gsk_gl_shader_get_source)
+   * GskGLShader:source:
    *
    * The source code for the shader, as a `GBytes`.
    */
@@ -462,7 +460,7 @@ gsk_gl_shader_class_init (GskGLShaderClass *klass)
                         G_PARAM_STATIC_STRINGS);
 
   /**
-   * GskGLShader:resource: (attributes org.gtk.Property.get=gsk_gl_shader_get_resource)
+   * GskGLShader:resource:
    *
    * Resource containing the source code for the shader.
    *
@@ -562,9 +560,6 @@ gsk_gl_shader_compile (GskGLShader  *shader,
 {
   g_return_val_if_fail (GSK_IS_GL_SHADER (shader), FALSE);
 
-  if (GSK_IS_GL_RENDERER (renderer))
-    return gsk_gl_renderer_try_compile_gl_shader (GSK_GL_RENDERER (renderer), shader, error);
-
   g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
                "The renderer does not support gl shaders");
   return FALSE;
@@ -572,7 +567,7 @@ gsk_gl_shader_compile (GskGLShader  *shader,
 
 
 /**
- * gsk_gl_shader_get_source: (attributes org.gtk.Method.get_property=source)
+ * gsk_gl_shader_get_source:
  * @shader: a `GskGLShader`
  *
  * Gets the GLSL sourcecode being used to render this shader.
@@ -592,7 +587,7 @@ gsk_gl_shader_get_source (GskGLShader *shader)
 }
 
 /**
- * gsk_gl_shader_get_resource: (attributes org.gtk.Method.get_property=resource)
+ * gsk_gl_shader_get_resource:
  * @shader: a `GskGLShader`
  *
  * Gets the resource path for the GLSL sourcecode being used

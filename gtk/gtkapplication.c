@@ -88,6 +88,10 @@
  * displays the shortcuts window, associate the item with the action
  * `win.show-help-overlay`.
  *
+ * `GtkApplication` will also automatically set the application id as the
+ * default window icon. Use [func@Gtk.Window.set_default_icon_name] or
+ * [property@Gtk.Window:icon-name] to override that behavior.
+ *
  * ## A simple application
  *
  * [A simple example](https://gitlab.gnome.org/GNOME/gtk/tree/main/examples/bp/bloatpad.c)
@@ -244,6 +248,23 @@ gtk_application_load_resources (GtkApplication *application)
   }
 }
 
+static void
+gtk_application_set_window_icon (GtkApplication *application)
+{
+  GtkIconTheme *default_theme;
+  const char *appid;
+
+  if (gtk_window_get_default_icon_name () != NULL)
+    return;
+
+  default_theme = gtk_icon_theme_get_for_display (gdk_display_get_default ());
+  appid = g_application_get_application_id (G_APPLICATION (application));
+
+  if (!gtk_icon_theme_has_icon (default_theme, appid))
+    return;
+
+  gtk_window_set_default_icon_name (appid);
+}
 
 static void
 gtk_application_startup (GApplication *g_application)
@@ -267,6 +288,7 @@ gtk_application_startup (GApplication *g_application)
   gtk_application_impl_startup (priv->impl, priv->register_session);
 
   gtk_application_load_resources (application);
+  gtk_application_set_window_icon (application);
 
   gdk_profiler_end_mark (before, "Application startup", NULL);
 }
@@ -305,8 +327,6 @@ static void
 gtk_application_add_platform_data (GApplication    *application,
                                    GVariantBuilder *builder)
 {
-  GdkDisplay *display;
-
   /* This is slightly evil.
    *
    * We don't have an impl here because we're remote so we can't figure
@@ -314,21 +334,14 @@ gtk_application_add_platform_data (GApplication    *application,
    *
    * So we do all the things... which currently is just one thing.
    */
-  display = gdk_display_get_default ();
-  if (display)
-    {
-      const char *startup_id;
+  const char *startup_id = gdk_get_startup_notification_id ();
 
-G_GNUC_BEGIN_IGNORE_DEPRECATIONS
-      startup_id = gdk_display_get_startup_notification_id (display);
-G_GNUC_END_IGNORE_DEPRECATIONS
-      if (startup_id && g_utf8_validate (startup_id, -1, NULL))
-        {
-          g_variant_builder_add (builder, "{sv}", "activation-token",
-                                 g_variant_new_string (startup_id));
-          g_variant_builder_add (builder, "{sv}", "desktop-startup-id",
-                                 g_variant_new_string (startup_id));
-        }
+  if (startup_id && g_utf8_validate (startup_id, -1, NULL))
+    {
+      g_variant_builder_add (builder, "{sv}", "activation-token",
+                             g_variant_new_string (startup_id));
+      g_variant_builder_add (builder, "{sv}", "desktop-startup-id",
+                             g_variant_new_string (startup_id));
     }
 }
 
@@ -616,7 +629,7 @@ gtk_application_class_init (GtkApplicationClass *class)
                           G_PARAM_READABLE|G_PARAM_STATIC_STRINGS);
 
   /**
-   * GtkApplication:menubar: (attributes org.gtk.Property.get=gtk_application_get_menubar org.gtk.Property.set=gtk_application_set_menubar)
+   * GtkApplication:menubar:
    *
    * The `GMenuModel` to be used for the application's menu bar.
    */
@@ -626,7 +639,7 @@ gtk_application_class_init (GtkApplicationClass *class)
                          G_PARAM_READWRITE|G_PARAM_STATIC_STRINGS);
 
   /**
-   * GtkApplication:active-window: (attributes org.gtk.Property.get=gtk_application_get_active_window)
+   * GtkApplication:active-window:
    *
    * The currently focused window of the application.
    */
@@ -805,7 +818,7 @@ gtk_application_get_window_by_id (GtkApplication *application,
 }
 
 /**
- * gtk_application_get_active_window: (attributes org.gtk.Method.get_property=active-window)
+ * gtk_application_get_active_window:
  * @application: a `GtkApplication`
  *
  * Gets the “active” window for the application.
@@ -838,7 +851,7 @@ gtk_application_update_accels (GtkApplication *application)
 }
 
 /**
- * gtk_application_set_menubar: (attributes org.gtk.Method.set_property=menubar)
+ * gtk_application_set_menubar:
  * @application: a `GtkApplication`
  * @menubar: (nullable): a `GMenuModel`
  *
@@ -881,7 +894,7 @@ gtk_application_set_menubar (GtkApplication *application,
 }
 
 /**
- * gtk_application_get_menubar: (attributes org.gtk.Method.get_property=menubar)
+ * gtk_application_get_menubar:
  * @application: a `GtkApplication`
  *
  * Returns the menu model that has been set with

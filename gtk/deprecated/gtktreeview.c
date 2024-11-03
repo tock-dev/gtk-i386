@@ -2959,6 +2959,11 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
 
       if (focus_cell)
         gtk_tree_view_column_focus_cell (column, focus_cell);
+        
+      priv->button_pressed_node = priv->prelight_node;
+      priv->button_pressed_tree = priv->prelight_tree;
+
+      grab_focus_and_unset_draw_keyfocus (tree_view);
 
       if (modify)
         {
@@ -2983,16 +2988,6 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
     {
       gtk_tree_view_row_activated (tree_view, path, column);
       gtk_gesture_set_state (GTK_GESTURE (gesture), GTK_EVENT_SEQUENCE_CLAIMED);
-    }
-  else
-    {
-      if (n_press == 1)
-        {
-          priv->button_pressed_node = priv->prelight_node;
-          priv->button_pressed_tree = priv->prelight_tree;
-        }
-
-      grab_focus_and_unset_draw_keyfocus (tree_view);
     }
 
   gtk_tree_path_free (path);

@@ -169,3 +169,21 @@ gdk_cairo_surface_convert_color_state (cairo_surface_t *surface,
   cairo_surface_mark_dirty (surface);
 }
 
+static inline void
+gdk_cairo_scale_and_apply_region (cairo_t              *cr,
+                                  const cairo_region_t *region,
+                                  double                scale)
+{
+  for (int i = 0; i < cairo_region_num_rectangles (region); i++)
+    {
+      cairo_rectangle_int_t rect;
+      double x, y, width, height;
+
+      cairo_region_get_rectangle (region, i, &rect);
+      x = floor (rect.x * scale);
+      y = floor (rect.y * scale);
+      width = ceil ((rect.x + rect.width) * scale) - x;
+      height = ceil ((rect.y + rect.height) * scale) - y;
+      cairo_rectangle (cr, x, y, width, height);
+    }
+}

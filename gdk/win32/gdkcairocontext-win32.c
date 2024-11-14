@@ -46,7 +46,6 @@ create_cairo_surface_for_surface (GdkSurface *surface,
     }
 
   cairo_surface = cairo_win32_surface_create_with_format (hdc, CAIRO_FORMAT_ARGB32);
-  cairo_surface_set_device_scale (cairo_surface, scale, scale);
 
   return cairo_surface;
 }
@@ -111,9 +110,9 @@ G_GNUC_END_IGNORE_DEPRECATIONS
    * that we're going to use as a buffer.
    */
   cr = cairo_create (self->paint_surface);
-  cairo_set_source_rgba (cr, 0, 0, 0, 00);
+  cairo_set_source_rgba (cr, 0, 0, 0, 0);
   cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
-  gdk_cairo_region (cr, region);
+  gdk_cairo_scale_and_apply_region (cr, region, gdk_surface_get_scale (surface));
   cairo_clip (cr);
   cairo_paint (cr);
   cairo_destroy (cr);

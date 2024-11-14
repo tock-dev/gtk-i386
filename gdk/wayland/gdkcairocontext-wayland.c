@@ -24,6 +24,7 @@
 #include "gdksurface-wayland-private.h"
 
 #include "gdkprofilerprivate.h"
+#include "gdkcairoprivate.h"
 
 static const cairo_user_data_key_t gdk_wayland_cairo_context_key;
 static const cairo_user_data_key_t gdk_wayland_cairo_region_key;
@@ -173,7 +174,7 @@ gdk_wayland_cairo_context_begin_frame (GdkDrawContext  *draw_context,
   /* clear the repaint area */
   cr = cairo_create (self->paint_surface);
   cairo_set_operator (cr, CAIRO_OPERATOR_CLEAR);
-  gdk_cairo_region (cr, region);
+  gdk_cairo_scale_and_apply_region (cr, region, gdk_surface_get_scale (surface));
   cairo_fill (cr);
   cairo_destroy (cr);
 

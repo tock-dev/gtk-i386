@@ -1458,10 +1458,6 @@ gdk_wayland_display_create_shm_surface (GdkWaylandDisplay        *display,
   cairo_surface_set_user_data (surface, &gdk_wayland_shm_surface_cairo_key,
                                data, gdk_wayland_cairo_surface_destroy);
 
-  cairo_surface_set_device_scale (surface,
-                                  gdk_fractional_scale_to_double (scale),
-                                  gdk_fractional_scale_to_double (scale));
-
   status = cairo_surface_status (surface);
   if (status != CAIRO_STATUS_SUCCESS)
     {

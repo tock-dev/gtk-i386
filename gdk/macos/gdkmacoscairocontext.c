@@ -91,7 +91,6 @@ _gdk_macos_cairo_context_cairo_create (GdkCairoContext *cairo_context)
                                                        width,
                                                        height,
                                                        stride);
-  cairo_surface_set_device_scale (image_surface, scale, scale);
 
   /* The buffer should already be locked at this point, and will
    * be unlocked as part of end_frame.
@@ -103,7 +102,7 @@ _gdk_macos_cairo_context_cairo_create (GdkCairoContext *cairo_context)
   /* Clip to the current damage region */
   if (damage != NULL)
     {
-      gdk_cairo_region (cr, damage);
+      gdk_cairo_scale_and_apply_region (cr, damage, scale);
       cairo_clip (cr);
     }
 

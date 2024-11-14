@@ -25,6 +25,8 @@
 #include "gdkcairocontextprivate.h"
 
 #include "gdkcairo.h"
+#include "gdksurface.h"
+#include "gdkcairoprivate.h"
 
 /**
  * GdkCairoContext:
@@ -77,6 +79,10 @@ gdk_cairo_context_cairo_create (GdkCairoContext *self)
 {
   GdkDrawContext *draw_context;
   cairo_t *cr;
+  GdkSurface *surface;
+  double scale;
+  const cairo_region_t *region;
+  double sx, sy;
 
   g_return_val_if_fail (GDK_IS_CAIRO_CONTEXT (self), NULL);
 
@@ -89,8 +95,25 @@ G_GNUC_END_IGNORE_DEPRECATIONS
 
   cr = GDK_CAIRO_CONTEXT_GET_CLASS (self)->cairo_create (self);
 
-  gdk_cairo_region (cr, gdk_draw_context_get_frame_region (draw_context));
-  cairo_clip (cr);
+  surface = gdk_draw_context_get_surface (draw_context);
+  scale = gdk_surface_get_scale (surface);
+  region = gdk_draw_context_get_frame_region (draw_context);
+
+  /* Until all backends are converted to provide an unscaled cairo
+   * surface, we keep both code paths
+   */
+  cairo_surface_get_device_scale (cairo_get_target (cr), &sx, &sy);
+  if (sx != 1)
+    {
+      gdk_cairo_region (cr, region);
+      cairo_clip (cr);
+    }
+  else
+    {
+      gdk_cairo_scale_and_apply_region (cr, region, scale);
+      cairo_clip (cr);
+      cairo_scale (cr, scale, scale);
+    }
 
   return cr;
 }

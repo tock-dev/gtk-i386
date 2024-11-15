@@ -26,7 +26,9 @@
 #include "gtkcssstyleprivate.h"
 #include "gtkprivate.h"
 
+#ifdef HAVE_FENV_H
 #include <fenv.h>
+#endif
 
 #define RAD_TO_DEG(x) ((x) * 180.0 / G_PI)
 #define DEG_TO_RAD(x) ((x) * G_PI / 180.0)
@@ -1846,13 +1848,25 @@ gtk_css_dimension_value_is_zero (const GtkCssValue *value)
   return value->dimension.value == 0;
 }
 
+#ifdef HAVE_FENV_H
+static inline double
+_round_fenv (int mode, double a, double b)
+{
+  double result;
+  int old_mode;
+
+  old_mode = fegetround ();
+  fesetround (mode);
+  result = nearbyint (a/b) * b;
+  fesetround (old_mode);
+
+  return result;
+}
+#endif
+
 static double
 _round (guint mode, double a, double b)
 {
-  int old_mode;
-  int modes[] = { FE_TONEAREST, FE_UPWARD, FE_DOWNWARD, FE_TOWARDZERO };
-  double result;
-
   if (b == 0)
     return NAN;
 
@@ -1880,14 +1894,35 @@ _round (guint mode, double a, double b)
         }
     }
 
-  old_mode = fegetround ();
-  fesetround (modes[mode]);
-
-  result = nearbyint (a/b) * b;
-
-  fesetround (old_mode);
-
-  return result;
+  switch (mode)
+    {
+    case ROUND_NEAREST:
+#ifdef FE_TONEAREST
+      return _round_fenv (FE_TONEAREST, a, b);
+#else
+      return round (a/b) * b;
+#endif
+    case ROUND_UP:
+#ifdef FE_UPWARD
+      return _round_fenv (FE_UPWARD, a, b);
+#else
+      return (((a/b) >= 0) ? ceil (a/b) : floor (a/b)) * b;
+#endif
+    case ROUND_DOWN:
+#ifdef FE_DOWNWARD
+      return _round_fenv (FE_DOWNWARD, a, b);
+#else
+      return (((a/b) >= 0) ? floor (a/b) : ceil (a/b)) * b;
+#endif
+    case ROUND_TO_ZERO:
+#ifdef FE_TOWARDZERO
+      return _round_fenv (FE_TOWARDZERO, a, b);
+#else
+      return (((a/b) >= 0) ? floor (a/b) : ceil (a/b)) * b;
+#endif
+    default:
+      g_assert_not_reached ();
+    }
 }
 
 static double

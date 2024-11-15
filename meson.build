@@ -191,6 +191,7 @@ cdata.set_quoted('GETTEXT_PACKAGE', 'gtk40')
 
 check_headers = [
   'dev/evdev/input.h',
+  'fenv.h',
   'ftw.h',
   'linux/input.h',
   'linux/memfd.h',

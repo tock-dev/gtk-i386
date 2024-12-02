@@ -492,6 +492,7 @@ typedef struct {
   char *name;           /* Name of the template automatic child */
   gboolean internal_child; /* Whether the automatic widget should be exported as an <internal-child> */
   gssize offset;         /* Instance private data offset where to set the automatic child (or 0) */
+  gboolean should_unparent;  /* Whether this child should be unparented automatically on dispose, or whether the widget subclass is managing its children */
 } AutomaticChildClass;
 
 enum {
@@ -639,6 +640,9 @@ static void     add_parent_surface_transform_changed_listener    (GtkWidget *wid
 static void     gtk_widget_queue_compute_expand                  (GtkWidget *widget);
 
 static GtkATContext *create_at_context (GtkWidget *self);
+
+static AutomaticChildClass *find_auto_child_class_for_child (GtkBuildable *buildable,
+                                                             GObject      *child);
 
 
 static int              GtkWidget_private_offset = 0;
@@ -8728,6 +8732,19 @@ gtk_widget_buildable_add_child (GtkBuildable  *buildable,
     }
   if (GTK_IS_WIDGET (child))
     {
+      AutomaticChildClass *child_class;
+
+      /* If this child has been bound to a class member (e.g. using
+       * gtk_widget_class_bind_template_child()), mark it as to be unparented
+       * when gtk_widget_dispose_template() is called. Some GtkWidget subclasses
+       * will override gtk_widget_buildable_add_child() to do their own child
+       * management — we don’t want gtk_widget_dispose_template() to unparent
+       * those children and interfere with that management.
+       */
+      child_class = find_auto_child_class_for_child (buildable, child);
+      if (child_class != NULL)
+        child_class->should_unparent = TRUE;
+
       gtk_widget_set_parent (GTK_WIDGET (child), GTK_WIDGET (buildable));
     }
   else if (GTK_IS_EVENT_CONTROLLER (child))
@@ -11146,6 +11163,7 @@ template_child_class_new (const char *name,
   child_class->name = g_strdup (name);
   child_class->internal_child = internal_child;
   child_class->offset = offset;
+  child_class->should_unparent = FALSE;
 
   return child_class;
 }
@@ -11189,6 +11207,45 @@ get_auto_child_hash (GtkWidget *widget,
     }
 
   return auto_child_hash;
+}
+
+static AutomaticChildClass *
+find_auto_child_class_for_child (GtkBuildable *buildable,
+                                 GObject      *child)
+{
+  const char *childname;
+
+  /* Equivalent to object_get_id() in the GtkBuilder code */
+  if (GTK_IS_BUILDABLE (child))
+    childname = gtk_buildable_get_buildable_id (GTK_BUILDABLE (child));
+  else
+    childname = g_object_get_data (child, "gtk-builder-id");
+
+  if (childname == NULL)
+    return NULL;
+
+  /* Work up through the buildable’s class hierarchy looking for an
+   * AutomaticChildClass which matches by name/ID.
+   */
+  for (GtkWidgetClass *class = GTK_WIDGET_GET_CLASS (buildable);
+       GTK_IS_WIDGET_CLASS (class);
+       class = g_type_class_peek_parent (class))
+    {
+      GtkWidgetTemplate *template = class->priv->template;
+
+      if (!template)
+        continue;
+
+      for (GSList *l = template->children; l; l = l->next)
+        {
+          AutomaticChildClass *child_class = l->data;
+
+          if (strcmp (childname, child_class->name) == 0)
+            return child_class;
+        }
+    }
+
+  return NULL;
 }
 
 /**
@@ -11329,6 +11386,11 @@ out:
  * }
  * ```
  *
+ * If your widget subclass manages its own children by overriding the
+ * [vfunc@GtkBuildable.add_child] virtual function, this function will *not*
+ * unparent those children. Bound pointers to them in the instance structure
+ * will still be cleared to `NULL`.
+ *
  * Since: 4.8
  */
 void
@@ -11357,7 +11419,8 @@ gtk_widget_dispose_template (GtkWidget *widget,
           g_assert (child != NULL);
 
           /* We have to explicitly unparent direct children of this widget */
-          if (GTK_IS_WIDGET (child) && _gtk_widget_get_parent (child) == widget)
+          if (child_class->should_unparent &&
+              GTK_IS_WIDGET (child) && _gtk_widget_get_parent (child) == widget)
             gtk_widget_unparent (child);
 
           g_hash_table_remove (auto_child_hash, child_class->name);

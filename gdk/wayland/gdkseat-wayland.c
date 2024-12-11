@@ -1162,6 +1162,7 @@ keyboard_handle_enter (void               *data,
   seat->keyboard_focus = wl_surface_get_user_data (surface);
   g_object_ref (seat->keyboard_focus);
   seat->repeat_key = 0;
+  seat->keyboard_key_serial = serial;
 
   event = gdk_focus_event_new (seat->keyboard_focus,
                                seat->logical_keyboard,

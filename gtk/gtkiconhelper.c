@@ -442,7 +442,7 @@ gtk_icon_helper_new (GtkCssNode *css_node,
   self->node = css_node;
   self->owner = owner;
   g_signal_connect_swapped (owner, "direction-changed", G_CALLBACK (gtk_icon_helper_invalidate), self);
-  g_signal_connect_swapped (owner, "notify::scale-factor", G_CALLBACK (gtk_icon_helper_invalidate), self);
+  g_signal_connect_swapped (owner, "notify::scale", G_CALLBACK (gtk_icon_helper_invalidate), self);
 
   return self;
 }

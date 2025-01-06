@@ -120,6 +120,11 @@ gtk_icon_helper_load_paintable (GtkIconHelper   *self,
   GdkPaintable *paintable;
   GIcon *gicon;
   gboolean symbolic;
+  int scale_factor;
+
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+  scale_factor = gtk_widget_get_scale_factor (self->owner);
+G_GNUC_END_IGNORE_DEPRECATIONS
 
   switch (gtk_image_definition_get_storage_type (self->def))
     {
@@ -135,7 +140,7 @@ gtk_icon_helper_load_paintable (GtkIconHelper   *self,
         gicon = g_themed_icon_new (gtk_image_definition_get_icon_name (self->def));
       paintable = ensure_paintable_for_gicon (self,
                                               gtk_css_node_get_style (self->node),
-                                              gtk_widget_get_scale_factor (self->owner),
+                                              scale_factor,
                                               gtk_widget_get_direction (self->owner),
                                               preload,
                                               gicon,
@@ -146,7 +151,7 @@ gtk_icon_helper_load_paintable (GtkIconHelper   *self,
     case GTK_IMAGE_GICON:
       paintable = ensure_paintable_for_gicon (self,
                                               gtk_css_node_get_style (self->node),
-                                              gtk_widget_get_scale_factor (self->owner),
+                                              scale_factor,
                                               gtk_widget_get_direction (self->owner),
                                               preload,
                                               gtk_image_definition_get_gicon (self->def),
@@ -442,7 +447,7 @@ gtk_icon_helper_new (GtkCssNode *css_node,
   self->node = css_node;
   self->owner = owner;
   g_signal_connect_swapped (owner, "direction-changed", G_CALLBACK (gtk_icon_helper_invalidate), self);
-  g_signal_connect_swapped (owner, "notify::scale-factor", G_CALLBACK (gtk_icon_helper_invalidate), self);
+  g_signal_connect_swapped (owner, "notify::scale", G_CALLBACK (gtk_icon_helper_invalidate), self);
 
   return self;
 }

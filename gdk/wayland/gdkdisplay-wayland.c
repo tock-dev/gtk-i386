@@ -2434,7 +2434,11 @@ apply_monitor_change (GdkWaylandMonitor *monitor)
 
   if (needs_scaling)
     {
-      int scale_factor = gdk_monitor_get_scale_factor (GDK_MONITOR (monitor));
+      int scale_factor;
+
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+      scale_factor = gdk_monitor_get_scale_factor (GDK_MONITOR (monitor));
+G_GNUC_END_IGNORE_DEPRECATIONS
 
       logical_geometry.y /= scale_factor;
       logical_geometry.x /= scale_factor;
@@ -2747,19 +2751,6 @@ gdk_wayland_display_get_output_refresh_rate (GdkWaylandDisplay *display_wayland,
   monitor = get_monitor_for_output (display_wayland, output);
   if (monitor != NULL)
     return gdk_monitor_get_refresh_rate (GDK_MONITOR (monitor));
-
-  return 0;
-}
-
-guint32
-gdk_wayland_display_get_output_scale (GdkWaylandDisplay *display_wayland,
-				      struct wl_output  *output)
-{
-  GdkWaylandMonitor *monitor;
-
-  monitor = get_monitor_for_output (display_wayland, output);
-  if (monitor != NULL)
-    return gdk_monitor_get_scale_factor (GDK_MONITOR (monitor));
 
   return 0;
 }

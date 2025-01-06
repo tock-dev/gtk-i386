@@ -204,5 +204,15 @@ gboolean  gtk_builder_extend_with_template  (GtkBuilder    *builder,
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(GtkBuilder, g_object_unref)
 
+typedef enum
+{
+  GTK_BUILDER_STRV_SERIALIZATION_LINES,
+  GTK_BUILDER_STRV_SERIALIZATION_WORDS,
+} GtkBuilderStrvSerialization;
+
+GDK_AVAILABLE_IN_4_18
+void gtk_builder_set_strv_serialization (GParamSpec                  *pspec,
+                                         GtkBuilderStrvSerialization  serialization);
+
 G_END_DECLS
 

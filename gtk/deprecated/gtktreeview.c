@@ -15,6 +15,24 @@
  * License along with this library. If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*
+ *
+ *  __FIX_0000__: GtkTreeView::cursor-changed signal is emitted BEFORE focus column is set
+ *
+ *  The focus column still had its old value in the cursor-changed signal handler. gtk_tree_view_set_cursor() had to be called twice to get the focus column right for that reason.
+ *
+ *  __FIX_0001__: GtkTreeView::cursor-changed signal is emitted BEFORE has_focus is set
+ *
+ *  Focus was grabbed after the cursor-changed signal was emitted. Setting the has_focus timely is essential when using gtk_widget_has_focus() to implement master-slave systems.
+ *
+ *  __FIX_0002__: Starting from C02 and clicking A02 followed by two right cursors, C02 is skipped. 
+ *
+ *  More than one cell had a renderer assigned after pressing left mouse button.
+ */
+
+#define __FIX_0000__
+#define __FIX_0001__
+#define __FIX_0002__
 
 #include "config.h"
 
@@ -2915,6 +2933,12 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
 
           /* FIXME: get the right flags */
           guint flags = 0;
+          
+#ifdef __FIX_0002__
+          /* clear all other cell renderers */
+          for (list = priv->columns; list; list = list->next)
+            gtk_cell_area_set_focus_cell(gtk_cell_layout_get_area (GTK_CELL_LAYOUT (list->data)), NULL);
+#endif
 
           if (_gtk_tree_view_column_cell_event (column,
                                                 (GdkEvent *)event,
@@ -2960,10 +2984,12 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
       if (focus_cell)
         gtk_tree_view_column_focus_cell (column, focus_cell);
         
+#ifdef  __FIX_0001__
       priv->button_pressed_node = priv->prelight_node;
       priv->button_pressed_tree = priv->prelight_tree;
 
       grab_focus_and_unset_draw_keyfocus (tree_view);
+#endif
 
       if (modify)
         {
@@ -2989,6 +3015,18 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
       gtk_tree_view_row_activated (tree_view, path, column);
       gtk_gesture_set_state (GTK_GESTURE (gesture), GTK_EVENT_SEQUENCE_CLAIMED);
     }
+#ifndef __FIX_0001__
+  else
+    {
+      if (n_press == 1)
+        {
+          priv->button_pressed_node = priv->prelight_node;
+          priv->button_pressed_tree = priv->prelight_tree;
+        }
+
+      grab_focus_and_unset_draw_keyfocus (tree_view);
+    }
+#endif
 
   gtk_tree_path_free (path);
 
@@ -12102,6 +12140,10 @@ gtk_tree_view_set_cursor_on_cell (GtkTreeView       *tree_view,
       gtk_cell_area_get_edit_widget
       (gtk_cell_layout_get_area (GTK_CELL_LAYOUT (priv->edited_column))))
     gtk_tree_view_stop_editing (tree_view, TRUE);
+    
+#ifndef __FIX_0000__
+  gtk_tree_view_real_set_cursor (tree_view, path, CLEAR_AND_SELECT | CLAMP_NODE);
+#endif
 
   if (focus_column &&
       gtk_tree_view_column_get_visible (focus_column))
@@ -12125,7 +12167,9 @@ gtk_tree_view_set_cursor_on_cell (GtkTreeView       *tree_view,
 	gtk_tree_view_start_editing (tree_view, path, TRUE);
     }
 
+#ifdef  __FIX_0000__
   gtk_tree_view_real_set_cursor (tree_view, path, CLEAR_AND_SELECT | CLAMP_NODE);
+#endif
 }
 
 /**

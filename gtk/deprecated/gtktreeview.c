@@ -2766,6 +2766,9 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
   GList *list;
   gboolean rtl;
   GtkWidget *target;
+#ifdef __FIX_0002__
+  GtkTreeViewColumn* last_focus_column = priv->focus_column;
+#endif
 
   gtk_tree_view_convert_widget_to_bin_window_coords (tree_view, x, y,
                                                      &bin_x, &bin_y);
@@ -2935,9 +2938,8 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
           guint flags = 0;
           
 #ifdef __FIX_0002__
-          /* clear all other cell renderers */
-          for (list = priv->columns; list; list = list->next)
-            gtk_cell_area_set_focus_cell(gtk_cell_layout_get_area (GTK_CELL_LAYOUT (list->data)), NULL);
+          /* clear cell renderer of last focus column */
+          gtk_cell_area_set_focus_cell(gtk_cell_layout_get_area(GTK_CELL_LAYOUT (last_focus_column)), NULL);
 #endif
 
           if (_gtk_tree_view_column_cell_event (column,

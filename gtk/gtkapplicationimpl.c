@@ -35,9 +35,75 @@
 
 G_DEFINE_TYPE (GtkApplicationImpl, gtk_application_impl, G_TYPE_OBJECT)
 
+enum
+{
+  PROP_APPLICATION = 1,
+  PROP_DISPLAY,
+  N_PROPERTIES
+};
+
+static GParamSpec *obj_properties[N_PROPERTIES] = { 0, };
+
 static void
 gtk_application_impl_init (GtkApplicationImpl *impl)
 {
+}
+
+static void
+gtk_application_impl_finalize (GObject *object)
+{
+  GtkApplicationImpl *self = (GtkApplicationImpl *)object;
+  g_clear_weak_pointer (&self->application);
+  g_clear_weak_pointer (&self->display);
+  G_OBJECT_CLASS (gtk_application_impl_parent_class)->finalize (object);
+}
+
+static void
+gtk_application_impl_get_property (GObject *object,
+                                   guint prop_id,
+                                   GValue *value,
+                                   GParamSpec *pspec)
+{
+  GtkApplicationImpl *self = (GtkApplicationImpl *)object;
+  switch (prop_id)
+    {
+    case PROP_APPLICATION:
+      g_value_set_object (value, self->application);
+      break;
+    case PROP_DISPLAY:
+      g_value_set_object (value, self->display);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+    }
+}
+
+static void
+gtk_application_impl_set_property (GObject *object,
+                                   guint prop_id,
+                                   const GValue *value,
+                                   GParamSpec *pspec)
+{
+  GtkApplicationImpl *self = (GtkApplicationImpl *)object;
+  switch (prop_id)
+    {
+    case PROP_APPLICATION:
+      g_clear_weak_pointer (&self->application);
+      self->application = g_value_get_object (value);
+      if (self->application)
+        g_object_add_weak_pointer ((GObject*)self->application,
+                                   (gpointer*)&self->application);
+      break;
+    case PROP_DISPLAY:
+      g_clear_weak_pointer (&self->display);
+      self->display = g_value_get_object (value);
+      if (self->display)
+        g_object_add_weak_pointer ((GObject*)self->display,
+                                   (gpointer*)&self->display);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+    }
 }
 
 static guint do_nothing (void) { return 0; }
@@ -46,6 +112,11 @@ static gboolean return_false (void) { return FALSE; }
 static void
 gtk_application_impl_class_init (GtkApplicationImplClass *class)
 {
+  GObjectClass *object_class = G_OBJECT_CLASS(class);
+  object_class->finalize = gtk_application_impl_finalize;
+  object_class->get_property = gtk_application_impl_get_property;
+  object_class->set_property = gtk_application_impl_set_property;
+
   /* NB: can only 'do_nothing' for functions with integer or void return */
   class->startup = (gpointer) do_nothing;
   class->shutdown = (gpointer) do_nothing;
@@ -60,6 +131,16 @@ gtk_application_impl_class_init (GtkApplicationImplClass *class)
   class->inhibit = (gpointer) do_nothing;
   class->uninhibit = (gpointer) do_nothing;
   class->prefers_app_menu = (gpointer) return_false;
+
+  obj_properties[PROP_APPLICATION] =
+      g_param_spec_object ("application", NULL, NULL,
+                           GTK_TYPE_APPLICATION,
+                           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
+  obj_properties[PROP_DISPLAY] =
+      g_param_spec_object ("display", NULL, NULL,
+                           GDK_TYPE_DISPLAY,
+                           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_properties (object_class, N_PROPERTIES, obj_properties);
 }
 
 void
@@ -177,9 +258,7 @@ gtk_application_impl_new (GtkApplication *application,
     impl_type = gtk_application_impl_quartz_get_type ();
 #endif
 
-  impl = g_object_new (impl_type, NULL);
-  impl->application = application;
-  impl->display = display;
+  impl = g_object_new (impl_type, "application", application, "display", display, NULL);
 
   return impl;
 }

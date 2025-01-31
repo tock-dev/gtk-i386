@@ -19,7 +19,7 @@
 
 #include "config.h"
 
-#include "gtkapplicationwindow.h"
+#include "gtkapplicationwindowprivate.h"
 
 #include "gtkapplicationprivate.h"
 #include "gtkwidgetprivate.h"
@@ -28,6 +28,7 @@
 #include "gtksettings.h"
 #include "deprecated/gtkshortcutswindowprivate.h"
 #include "gtktooltipprivate.h"
+#include "gtkprivate.h"
 
 #include <glib/gi18n-lib.h>
 
@@ -192,6 +193,8 @@ struct _GtkApplicationWindowPrivate
   gboolean show_menubar;
   guint id;
   GMenu *menubar_section;
+
+  char *session_id;
 
   GtkShortcutsWindow *help_overlay;
 };
@@ -399,9 +402,17 @@ gtk_application_window_map_iface_init (GActionMapInterface *iface)
 enum {
   PROP_0,
   PROP_SHOW_MENUBAR,
+  PROP_SESSION_ID,
   N_PROPS
 };
 static GParamSpec *gtk_application_window_properties[N_PROPS];
+
+enum {
+  SAVE_STATE,
+  RESTORE_STATE,
+  LAST_SIGNAL
+};
+static guint gtk_application_window_signals[LAST_SIGNAL] = { 0 };
 
 static void
 gtk_application_window_measure (GtkWidget      *widget,
@@ -576,6 +587,10 @@ gtk_application_window_get_property (GObject    *object,
       g_value_set_boolean (value, priv->show_menubar);
       break;
 
+    case PROP_SESSION_ID:
+      g_value_set_string (value, gtk_application_window_get_session_id (window));
+      break;
+
     default:
       g_assert_not_reached ();
     }
@@ -593,6 +608,10 @@ gtk_application_window_set_property (GObject      *object,
     {
     case PROP_SHOW_MENUBAR:
       gtk_application_window_set_show_menubar (window, g_value_get_boolean (value));
+      break;
+
+    case PROP_SESSION_ID:
+      gtk_application_window_set_session_id (window, g_value_get_string (value));
       break;
 
     default:
@@ -619,6 +638,8 @@ gtk_application_window_dispose (GObject *object)
       gtk_window_destroy (GTK_WINDOW (priv->help_overlay));
       g_clear_object (&priv->help_overlay);
     }
+
+  g_clear_pointer (&priv->session_id, g_free);
 
   G_OBJECT_CLASS (gtk_application_window_parent_class)->dispose (object);
 
@@ -702,7 +723,74 @@ gtk_application_window_class_init (GtkApplicationWindowClass *class)
   gtk_application_window_properties[PROP_SHOW_MENUBAR] =
     g_param_spec_boolean ("show-menubar", NULL, NULL,
                           FALSE, G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
+
+  /**
+   * GtkApplicationWindow:session-id:
+   *
+   * The identifier of this toplevel in the session.
+   *
+   * In windowing environments that allow it, this identifier will be
+   * used to identify windows in a persistent manner across runs, and
+   * restore window state (e.g. position, size) for them.
+   *
+   * Currently, this is only implemented for the Wayland backend.
+   *
+   * Since: 4.20
+   */
+  gtk_application_window_properties[PROP_SESSION_ID] =
+      g_param_spec_string ("session-id", NULL, NULL,
+                           NULL,
+                           GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
+
   g_object_class_install_properties (object_class, N_PROPS, gtk_application_window_properties);
+
+  /**
+   * GtkApplicationWindow:save-state:
+   * @window: the window on which the signal is emitted
+   * @dict: a `GVariantDict`
+   *
+   * The handler for this signal should persist any state of @window
+   * into @dict.
+   *
+   * See [signal@Gtk.ApplicationWindow:restore-state].
+   *
+   * Returns: true to stop stop further handlers from running
+   *
+   * Since: 4.20
+   */
+  gtk_application_window_signals[SAVE_STATE] =
+    g_signal_new (I_("save-state"),
+                  G_TYPE_FROM_CLASS (class),
+                  G_SIGNAL_RUN_LAST,
+                  G_STRUCT_OFFSET (GtkApplicationWindowClass, save_state),
+                  _gtk_boolean_handled_accumulator, NULL,
+                  NULL,
+                  G_TYPE_BOOLEAN, 1,
+                  G_TYPE_VARIANT_DICT);
+
+  /**
+   * GtkApplicationWindow:restore-state:
+   * @window: the window on which the signal is emitted
+   * @state: an "a{sv}" `GVariant` with state to restore
+   *
+   * The handler for this signal should do the opposite of what the
+   * corresponding handler for [signal@Gtk.ApplicationWindow:save-state]
+   * does.
+   *
+   * Returns: true to stop stop further handlers from running
+   *
+   * Since: 4.20
+   */
+  gtk_application_window_signals[RESTORE_STATE] =
+    g_signal_new (I_("restore-state"),
+                  G_TYPE_FROM_CLASS (class),
+                  G_SIGNAL_RUN_LAST,
+                  G_STRUCT_OFFSET (GtkApplicationWindowClass, restore_state),
+                  _gtk_boolean_handled_accumulator, NULL,
+                  NULL,
+                  G_TYPE_BOOLEAN, 1,
+                  G_TYPE_VARIANT);
+
 }
 
 /**
@@ -873,4 +961,124 @@ gtk_application_window_get_help_overlay (GtkApplicationWindow *window)
   g_return_val_if_fail (GTK_IS_APPLICATION_WINDOW (window), NULL);
 
   return priv->help_overlay;
+}
+
+/**
+ * gtk_application_window_set_session_id:
+ * @window: a `GtkApplicationWindow`
+ * @session_id: (nullable): A persistent, non-empty identifier for this window
+ *
+ * Sets the identifier to be used for session management purposes.
+ *
+ * State of this window may be restored from prior executions, by using this
+ * identifier to match the related state. This identifier should be constant,
+ * or at least stable between executions, and unique among the windows of the
+ * application.
+ *
+ * Different backends may have different requirements for this string, therefore
+ * it is best to be conservative and keep the string relatively short and stick
+ * to ASCII without leading or trailing whitespace.
+ *
+ * Since: 4.20
+ */
+void
+gtk_application_window_set_session_id (GtkApplicationWindow *window,
+                                       const char           *session_id)
+{
+  GtkApplicationWindowPrivate *priv = gtk_application_window_get_instance_private (window);
+
+  g_return_if_fail (session_id && session_id[0]);
+
+  if (g_set_str (&priv->session_id, session_id))
+    g_object_notify_by_pspec (G_OBJECT (window), gtk_application_window_properties[PROP_SESSION_ID]);
+}
+
+/**
+ * gtk_application_window_get_session_id:
+ * @window: a `GtkApplicationWindow`
+ *
+ * Gets the window identifier to be used for session management purposes.
+ *
+ * See [method@Gtk.Window.set_session_id] for more details about window
+ * identifiers for session management.
+ *
+ * Returns: (nullable): the session identifier
+ *
+ * Since: 4.20
+ */
+const char *
+gtk_application_window_get_session_id (GtkApplicationWindow *window)
+{
+  GtkApplicationWindowPrivate *priv = gtk_application_window_get_instance_private (window);
+
+  return priv->session_id;
+}
+
+/*< private >
+ * gtk_application_window_save:
+ * @window: a `GtkApplicationWindow`
+ *
+ * Save the state of @window and its children to a `GVariant`.
+ *
+ * In order for a windows state to be saved by this, a
+ * [property@Gtk.ApplicationWindow:session-id] must be set on it.
+ *
+ * See [signal@Gtk.ApplicationWindow::save-state] for how to override
+ * what state is saved.
+ *
+ * This function is used by `GtkApplication` to implement automatic
+ * state saving. It is recommended that you use that functionality.
+ *
+ * Returns: (transfer full) (nullable): A `GVariant` with the saved state
+ */
+GVariant *
+gtk_application_window_save (GtkApplicationWindow *window)
+{
+  GtkApplicationWindowPrivate *priv = gtk_application_window_get_instance_private (window);
+  GVariantDict *dict;
+  gboolean ret;
+  GVariant *v;
+
+  if (!priv->session_id)
+    return NULL;
+
+  dict = g_variant_dict_new (NULL);
+
+  g_signal_emit (window, gtk_application_window_signals[SAVE_STATE], 0, dict, &ret);
+
+  v = g_variant_dict_end (dict);
+
+  g_variant_dict_unref (dict);
+
+  if (g_variant_n_children (v) == 0)
+    {
+      g_variant_unref (v);
+      v = NULL;
+    }
+
+  return v;
+}
+
+/*< private >
+ * gtk_application_window_restore:
+ * @window: a `GtkApplicationWindow`
+ * @state: an "a{sv}" `GVariant` as returned by gtk_application_window_save()
+ *
+ * Restores state of @window and its children.
+ *
+ * See [method@Gtk.ApplicationWindow.save_state] for how to save state.
+ *
+ * This function is used by `GtkApplication` to implement automatic
+ * state restoration. It is recommended that you use that functionality.
+ */
+void
+gtk_application_window_restore (GtkApplicationWindow *window,
+                                GVariant             *state)
+{
+  GtkApplicationWindowPrivate *priv = gtk_application_window_get_instance_private (window);
+
+  if (!priv->session_id)
+    return;
+
+  g_signal_emit (window, gtk_application_window_signals[RESTORE_STATE], 0, state);
 }

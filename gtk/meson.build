@@ -142,9 +142,11 @@ gtk_private_sources = files([
   'gtksecurememory.c',
   'gtksizerequestcache.c',
   'gtksortkeys.c',
+  'gtkstringpair.c',
   'gtkstyleanimation.c',
   'gtkstylecascade.c',
   'gtkstyleproperty.c',
+  'gtktextencoding.c',
   'gtktexthistory.c',
   'gtktextviewchild.c',
   'timsort/gtktimsort.c',
@@ -346,12 +348,7 @@ gtk_public_sources = files([
   'gtkshortcut.c',
   'gtkshortcutaction.c',
   'gtkshortcutcontroller.c',
-  'gtkshortcutlabel.c',
   'gtkshortcutmanager.c',
-  'gtkshortcutsgroup.c',
-  'gtkshortcutssection.c',
-  'gtkshortcutsshortcut.c',
-  'gtkshortcutswindow.c',
   'gtkshortcuttrigger.c',
   'gtksidebarrow.c',
   'gtksignallistitemfactory.c',
@@ -582,12 +579,7 @@ gtk_public_headers = files([
   'gtkshortcut.h',
   'gtkshortcutaction.h',
   'gtkshortcutcontroller.h',
-  'gtkshortcutlabel.h',
   'gtkshortcutmanager.h',
-  'gtkshortcutsgroup.h',
-  'gtkshortcutssection.h',
-  'gtkshortcutsshortcut.h',
-  'gtkshortcutswindow.h',
   'gtkshortcuttrigger.h',
   'gtksignallistitemfactory.h',
   'gtksingleselection.h',
@@ -700,6 +692,14 @@ if macos_enabled
   ])
 
   gtk_cargs += ['-xobjective-c']  # FIXME? maybe add_languages() instead?
+endif
+
+if android_enabled
+  gtk_sources += files([
+    'gtkapplication-android.c',
+    'gtkfilechoosernativeandroid.c',
+    'gtkimcontextandroid.c',
+  ])
 endif
 
 if not (x11_enabled or win32_enabled)
@@ -1011,6 +1011,7 @@ gtk_deps = [
   epoxy_dep,
   libm,
   graphene_dep,
+  accesskit_dep,
   profile_conf_h,
 ]
 
@@ -1157,7 +1158,7 @@ if build_gir
     install: true,
     dependencies: libgdk_dep,
     extra_args: gir_args,
-    fatal_warnings: get_option('werror'),
+    fatal_warnings: false,
   )
   gtk_dep_sources += gdk_gir
 
@@ -1215,6 +1216,25 @@ if build_gir
     gtk_dep_sources += gdk_win32_gir
   endif
 
+# This doesn't build
+  if false and macos_enabled
+    gdk_macos_gir = gnome.generate_gir(libgtk,
+      sources: gdk_macos_public_headers + gdk_macos_sources,
+      namespace: 'GdkMacos',
+      nsversion: gtk_api_version,
+      identifier_prefix: 'Gdk',
+      symbol_prefix: 'gdk',
+      export_packages: 'gtk4-macos',
+      includes: [ gdk_gir[0], ],
+      install: true,
+      dependencies: libgdk_dep,
+      header: 'gdk/macos/gdkmacos.h',
+      extra_args: gir_args,
+      fatal_warnings: get_option('werror'),
+    )
+    gtk_dep_sources += gdk_macos_gir
+  endif
+
   gsk_gir_inc = [ gdk_gir[0], 'Graphene-1.0' ]
 
   gsk_gir = gnome.generate_gir(libgtk,
@@ -1229,7 +1249,7 @@ if build_gir
     install: true,
     dependencies: libgsk_dep,
     extra_args: gir_args,
-    fatal_warnings: get_option('werror'),
+    fatal_warnings: false,
   )
   gtk_dep_sources += gsk_gir
 
@@ -1266,7 +1286,7 @@ if build_gir
     install: true,
     dependencies: [gtk_deps, libgsk_dep],
     extra_args: gir_args,
-    fatal_warnings: get_option('werror'),
+    fatal_warnings: false,
   )
   gtk_dep_sources += gtk_gir
 endif

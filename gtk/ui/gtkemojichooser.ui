@@ -4,7 +4,7 @@
     <style>
       <class name="emoji-picker"/>
     </style>
-    <child>
+    <property name="child">
       <object class="GtkBox" id="box">
         <property name="orientation">1</property>
         <child>
@@ -38,7 +38,7 @@
                         <style>
                           <class name="view"/>
                         </style>
-                        <child>
+                        <property name="child">
                           <object class="GtkBox" id="emoji_box">
                             <property name="orientation">1</property>
                             <property name="margin-start">6</property>
@@ -214,7 +214,7 @@
                               </object>
                             </child>
                           </object>
-                        </child>
+                        </property>
                       </object>
                     </child>
                     <child>
@@ -326,6 +326,8 @@
                 <property name="name">empty</property>
                 <property name="child">
                   <object class="GtkGrid">
+                    <property name="margin-top">18</property>
+                    <property name="margin-bottom">18</property>
                     <property name="row-spacing">12</property>
                     <property name="halign">3</property>
                     <property name="valign">3</property>
@@ -348,10 +350,7 @@
                     <child>
                       <object class="GtkLabel">
                         <property name="label" translatable="yes">No Results Found</property>
-                        <attributes>
-                          <attribute name="weight" value="bold"></attribute>
-                          <attribute name="scale" value="1.44"></attribute>
-                        </attributes>
+                        <property name="attributes">0 -1 weight bold, 0 -1 scale 1.44</property>
                         <layout>
                           <property name="column">0</property>
                           <property name="row">1</property>
@@ -377,6 +376,6 @@
           </object>
         </child>
       </object>
-    </child>
+    </property>
   </template>
 </interface>

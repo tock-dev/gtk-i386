@@ -251,10 +251,10 @@ create_texture (GdkMemoryFormat  format,
     case TEXTURE_METHOD_PNG:
       {
         GBytes *bytes = gdk_texture_save_to_png_bytes (texture);
-        g_assert (bytes);
+        g_assert_nonnull (bytes);
         g_object_unref (texture);
         texture = gdk_texture_new_from_bytes (bytes, NULL);
-        g_assert (texture);
+        g_assert_nonnull (texture);
         g_bytes_unref (bytes);
       }
       break;
@@ -266,14 +266,14 @@ create_texture (GdkMemoryFormat  format,
         GBytes *bytes;
 
         bytes = gdk_texture_save_to_png_bytes (texture);
-        g_assert (bytes);
+        g_assert_nonnull (bytes);
         g_object_unref (texture);
         stream = g_memory_input_stream_new_from_bytes (bytes);
         pixbuf = gdk_pixbuf_new_from_stream (stream, NULL, NULL);
         g_object_unref (stream);
-        g_assert (pixbuf);
+        g_assert_nonnull (pixbuf);
         texture = gdk_texture_new_for_pixbuf (pixbuf);
-        g_assert (texture);
+        g_assert_nonnull (texture);
         g_object_unref (pixbuf);
         g_bytes_unref (bytes);
       }
@@ -282,10 +282,10 @@ create_texture (GdkMemoryFormat  format,
     case TEXTURE_METHOD_TIFF:
       {
         GBytes *bytes = gdk_texture_save_to_tiff_bytes (texture);
-        g_assert (bytes);
+        g_assert_nonnull (bytes);
         g_object_unref (texture);
         texture = gdk_texture_new_from_bytes (bytes, NULL);
-        g_assert (texture);
+        g_assert_nonnull (texture);
         g_bytes_unref (bytes);
       }
       break;
@@ -297,14 +297,14 @@ create_texture (GdkMemoryFormat  format,
         GBytes *bytes;
 
         bytes = gdk_texture_save_to_tiff_bytes (texture);
-        g_assert (bytes);
+        g_assert_nonnull (bytes);
         g_object_unref (texture);
         stream = g_memory_input_stream_new_from_bytes (bytes);
         pixbuf = gdk_pixbuf_new_from_stream (stream, NULL, NULL);
         g_object_unref (stream);
-        g_assert (pixbuf);
+        g_assert_nonnull (pixbuf);
         texture = gdk_texture_new_for_pixbuf (pixbuf);
-        g_assert (texture);
+        g_assert_nonnull (texture);
         g_object_unref (pixbuf);
         g_bytes_unref (bytes);
       }
@@ -685,7 +685,7 @@ main (int argc, char *argv[])
       g_clear_object (&gl_context);
     }
 
-  gl_renderer = gsk_ngl_renderer_new ();
+  gl_renderer = gsk_gl_renderer_new ();
   if (!gsk_renderer_realize_for_display (gl_renderer, display, NULL))
     {
       g_clear_object (&gl_renderer);

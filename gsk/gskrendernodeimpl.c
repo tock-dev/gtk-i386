@@ -24,7 +24,6 @@
 #include "gskcairorenderer.h"
 #include "gskdebugprivate.h"
 #include "gskdiffprivate.h"
-#include "gl/gskglrenderer.h"
 #include "gskpathprivate.h"
 #include "gskrectprivate.h"
 #include "gskrendererprivate.h"
@@ -32,6 +31,7 @@
 #include "gskstrokeprivate.h"
 #include "gsktransformprivate.h"
 #include "gskprivate.h"
+#include "gpu/gskglrenderer.h"
 
 #include "gdk/gdkcairoprivate.h"
 #include "gdk/gdkcolorstateprivate.h"
@@ -4604,6 +4604,7 @@ gsk_container_node_new (GskRenderNode **children,
         }
 
       node->offscreen_for_opacity = node->offscreen_for_opacity || !self->disjoint;
+      node->fully_opaque = have_opaque && graphene_rect_equal (&node->bounds, &self->opaque);
       node->is_hdr = is_hdr;
    }
 
@@ -7906,7 +7907,7 @@ apply_luminance_to_pattern (cairo_pattern_t *pattern,
   cairo_surface_t *surface, *image_surface;
   guchar *data;
   gsize x, y, width, height, stride;
-  int red, green, blue, alpha, luminance;
+  guint red, green, blue, alpha, luminance;
   guint32* pixel_data;
 
   cairo_pattern_get_surface (pattern, &surface);
@@ -9009,7 +9010,7 @@ gsk_render_node_png_serializer (GdkContentSerializer *serializer)
 
   node = gsk_value_get_render_node (gdk_content_serializer_get_value (serializer));
 
-  renderer = gsk_ngl_renderer_new ();
+  renderer = gsk_gl_renderer_new ();
   if (!gsk_renderer_realize (renderer, NULL, NULL))
     {
       g_object_unref (renderer);

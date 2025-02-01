@@ -1594,7 +1594,10 @@ typedef enum {
  *    by an element.
  * @GTK_ACCESSIBLE_PROPERTY_KEY_SHORTCUTS: Indicates keyboard shortcuts that an
  *    author has implemented to activate or give focus to an element. Value type:
- *    string
+ *    string. The format of the value is a space-separated list of shortcuts, with
+ *    each shortcut consisting of one or more modifiers (`Control`, `Alt` or `Shift`),
+ *    followed by a non-modifier key, all separated by `+`.
+ *    Examples: `F2`, `Alt-F`, `Control+Shift+N`
  * @GTK_ACCESSIBLE_PROPERTY_LABEL: Defines a string value that labels the current
  *    element. Value type: string
  * @GTK_ACCESSIBLE_PROPERTY_LEVEL: Defines the hierarchical level of an element
@@ -1715,6 +1718,69 @@ typedef enum {
  * Accessible relations can be references to other widgets,
  * integers or strings.
  */
+
+/**
+ * GTK_ACCESSIBLE_RELATION_LABEL_FOR:
+ * 
+ * Identifies the element (or elements) that are labeled by the
+ * current element. Value type: reference
+ * 
+ * This relation is managed by GTK and should not be set from application code.
+ * 
+ * Since: 4.18
+ */
+/**
+ * GTK_ACCESSIBLE_RELATION_DESCRIPTION_FOR:
+ * 
+ * Identifies the element (or elements) that are described by
+ * the current element. Value type: reference
+ * 
+ * This relation is managed by GTK and should not be set from application code.
+ * 
+ * Since: 4.18
+ */
+/**
+ * GTK_ACCESSIBLE_RELATION_CONTROLLED_BY:
+ * 
+ * Identifies the element (or elements) that the current
+ * element is controlled by. Value type: reference
+ * 
+ * This relation is managed by GTK and should not be set from application code.
+ * 
+ * Since: 4.18
+ */
+/**
+ * GTK_ACCESSIBLE_RELATION_DETAILS_FOR:
+ * 
+ * Identifies the element (or elements) for which the current
+ * element provides additional information. Value type: reference
+ * 
+ * This relation is managed by GTK and should not be set from application code.
+ * 
+ * Since: 4.18
+ */
+/**
+ * GTK_ACCESSIBLE_RELATION_ERROR_MESSAGE_FOR:
+ * 
+ * Identifies the element (or elements) for which the current
+ * element provides an error message. Value type: reference
+ * 
+ * This relation is managed by GTK and should not be set from application code.
+ * 
+ * Since: 4.18
+ */
+/**
+ * GTK_ACCESSIBLE_RELATION_FLOW_FROM:
+ * 
+ * Identifies the previous element (or elements) in an alternate
+ * reading order of content which, at the user's discretion, allows
+ * assistive technology to override the general default of reading in
+ * document source order. Value type: reference
+ *
+ * This relation is managed by GTK and should not be set from application code.
+ *
+ * Since: 4.18
+ */
 typedef enum {
   GTK_ACCESSIBLE_RELATION_ACTIVE_DESCENDANT,
   GTK_ACCESSIBLE_RELATION_COL_COUNT,
@@ -1733,7 +1799,13 @@ typedef enum {
   GTK_ACCESSIBLE_RELATION_ROW_INDEX,
   GTK_ACCESSIBLE_RELATION_ROW_INDEX_TEXT,
   GTK_ACCESSIBLE_RELATION_ROW_SPAN,
-  GTK_ACCESSIBLE_RELATION_SET_SIZE
+  GTK_ACCESSIBLE_RELATION_SET_SIZE,
+  GTK_ACCESSIBLE_RELATION_LABEL_FOR,
+  GTK_ACCESSIBLE_RELATION_DESCRIPTION_FOR,
+  GTK_ACCESSIBLE_RELATION_CONTROLLED_BY,
+  GTK_ACCESSIBLE_RELATION_DETAILS_FOR,
+  GTK_ACCESSIBLE_RELATION_ERROR_MESSAGE_FOR,
+  GTK_ACCESSIBLE_RELATION_FLOW_FROM
 } GtkAccessibleRelation;
 
 /**

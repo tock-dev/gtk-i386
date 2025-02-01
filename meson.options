@@ -29,6 +29,11 @@ option('macos-backend',
        value: true,
        description : 'Enable the macOS gdk backend (only when building on macOS)')
 
+option('android-backend',
+       type: 'boolean',
+       value: true,
+       description : 'Enable the Android gdk backend (only when building on Android)')
+
 # Media backends
 # For distros: GTK guarantees support for WebM video (VP8 and VP9), so a supported build
 # should provide that.
@@ -81,6 +86,11 @@ option('f16c',
        type: 'feature',
        value: 'enabled',
        description: 'Enable F16C fast paths (requires F16C)')
+
+option('accesskit',
+       type: 'feature',
+       value: 'disabled',
+       description: 'Enable the AccessKit backend for accessibility')
 
 # Introspection
 

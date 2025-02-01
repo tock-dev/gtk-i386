@@ -126,7 +126,7 @@ struct _GdkDisplay
   GdkDmabufFormats *vk_dmabuf_formats;
   GdkVulkanFeatures vulkan_features;
 
-  guint vulkan_refcount;
+  GError *vulkan_error;
 #endif /* GDK_RENDERING_VULKAN */
 
   /* egl info */
@@ -239,6 +239,8 @@ void                _gdk_display_unpause_events       (GdkDisplay       *display
 
 void                gdk_display_init_dmabuf           (GdkDisplay       *self);
 
+gboolean            gdk_display_prepare_vulkan        (GdkDisplay       *self,
+                                                       GError          **error);
 gboolean            gdk_display_has_vulkan_feature    (GdkDisplay       *self,
                                                        GdkVulkanFeatures feature);
 GdkVulkanContext *  gdk_display_create_vulkan_context (GdkDisplay       *self,
@@ -296,6 +298,8 @@ void gdk_display_set_double_click_distance (GdkDisplay   *display,
 void gdk_display_set_cursor_theme          (GdkDisplay   *display,
                                             const char   *name,
                                             int           size);
+
+int gdk_display_guess_scale_factor         (GdkDisplay   *display);
 
 G_END_DECLS
 

@@ -44,6 +44,26 @@
 
 @implementation GdkMacosWindow
 
+static Class _contentViewClass = nil;
+
++(void)setContentViewClass:(Class)newViewClass
+{
+    GDK_DEBUG (MISC, "Setting new content view class to %s", [[newViewClass description] UTF8String]);
+
+    if (newViewClass == nil  || [newViewClass isSubclassOfClass:[GdkMacosView class]])
+      _contentViewClass = newViewClass;
+    else
+      g_critical ("Assigned content view class %s is not a subclass of GdkMacosView", [[newViewClass description] UTF8String]);
+}
+
++(Class)contentViewClass
+{
+    if (_contentViewClass != nil)
+      return _contentViewClass;
+
+    return [GdkMacosView class];
+}
+
 -(BOOL)windowShouldClose:(id)sender
 {
   GdkDisplay *display;
@@ -135,14 +155,12 @@
   switch ((int)event_type)
     {
     case NSEventTypeLeftMouseUp: {
-      GdkDisplay *display = gdk_surface_get_display (GDK_SURFACE (gdk_surface));
-      double time = ((double)[event timestamp]) * 1000.0;
+      if (inManualMove || inManualResize || inMove)
+        _gdk_macos_display_send_event ([self gdkDisplay], event);
 
       inManualMove = NO;
       inManualResize = NO;
       inMove = NO;
-
-      _gdk_macos_display_break_all_grabs (GDK_MACOS_DISPLAY (display), time);
 
       /* Reset gravity */
       [[[self contentView] layer] setContentsGravity:kCAGravityBottomLeft];
@@ -221,7 +239,7 @@
   [self setReleasedWhenClosed:YES];
   [self setPreservesContentDuringLiveResize:NO];
 
-  view = [[GdkMacosView alloc] initWithFrame:contentRect];
+  view = [[[GdkMacosWindow contentViewClass] alloc] initWithFrame:contentRect];
   [self setContentView:view];
   [view release];
 

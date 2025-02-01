@@ -52,6 +52,7 @@
 #include "gtktextview.h"
 #include "gtktypebuiltins.h"
 #include "gtkwindow.h"
+#include "gtklabel.h"
 
 #include <gio/gio.h>
 
@@ -335,11 +336,18 @@ collect_relations (GtkAtSpiContext *self,
     AtspiRelationType s;
   } map[] = {
     { GTK_ACCESSIBLE_RELATION_LABELLED_BY, ATSPI_RELATION_LABELLED_BY },
+    { GTK_ACCESSIBLE_RELATION_LABEL_FOR, ATSPI_RELATION_LABEL_FOR },
     { GTK_ACCESSIBLE_RELATION_CONTROLS, ATSPI_RELATION_CONTROLLER_FOR },
+    { GTK_ACCESSIBLE_RELATION_CONTROLLED_BY, ATSPI_RELATION_CONTROLLED_BY },
     { GTK_ACCESSIBLE_RELATION_DESCRIBED_BY, ATSPI_RELATION_DESCRIBED_BY },
+    { GTK_ACCESSIBLE_RELATION_DESCRIPTION_FOR, ATSPI_RELATION_DESCRIPTION_FOR },
     { GTK_ACCESSIBLE_RELATION_DETAILS, ATSPI_RELATION_DETAILS },
+    { GTK_ACCESSIBLE_RELATION_DETAILS, ATSPI_RELATION_DETAILS },
+    { GTK_ACCESSIBLE_RELATION_DETAILS_FOR, ATSPI_RELATION_DETAILS_FOR },
     { GTK_ACCESSIBLE_RELATION_ERROR_MESSAGE, ATSPI_RELATION_ERROR_MESSAGE},
+    { GTK_ACCESSIBLE_RELATION_ERROR_MESSAGE_FOR, ATSPI_RELATION_ERROR_FOR},
     { GTK_ACCESSIBLE_RELATION_FLOW_TO, ATSPI_RELATION_FLOWS_TO},
+    { GTK_ACCESSIBLE_RELATION_FLOW_FROM, ATSPI_RELATION_FLOWS_FROM},
   };
   GtkAccessibleValue *value;
   GList *list, *l;
@@ -562,6 +570,45 @@ handle_accessible_method (GDBusConnection       *connection,
 
           g_variant_builder_add (&builder, "{ss}",
                                  "rowindextext", gtk_string_accessible_value_get (value));
+        }
+
+      if (gtk_at_context_has_accessible_property (GTK_AT_CONTEXT (self), GTK_ACCESSIBLE_PROPERTY_KEY_SHORTCUTS) ||
+          gtk_at_context_has_accessible_relation (GTK_AT_CONTEXT (self), GTK_ACCESSIBLE_RELATION_LABELLED_BY))
+        {
+          GtkAccessibleValue *value;
+          GString *s;
+
+          s = g_string_new ("");
+
+          if (gtk_at_context_has_accessible_property (GTK_AT_CONTEXT (self), GTK_ACCESSIBLE_PROPERTY_KEY_SHORTCUTS))
+            {
+              value = gtk_at_context_get_accessible_property (GTK_AT_CONTEXT (self), GTK_ACCESSIBLE_PROPERTY_KEY_SHORTCUTS);
+              g_string_append (s, gtk_string_accessible_value_get (value));
+            }
+
+          if (gtk_at_context_has_accessible_relation (GTK_AT_CONTEXT (self), GTK_ACCESSIBLE_RELATION_LABELLED_BY))
+            {
+              value = gtk_at_context_get_accessible_relation (GTK_AT_CONTEXT (self), GTK_ACCESSIBLE_RELATION_LABELLED_BY);
+
+              for (GList *l = gtk_reference_list_accessible_value_get (value); l; l = l->next)
+                {
+                  GtkAccessible *accessible = l->data;
+                  if (GTK_IS_LABEL (accessible))
+                    {
+                      guint keyval = gtk_label_get_mnemonic_keyval (GTK_LABEL (accessible));
+                      if (keyval != GDK_KEY_VoidSymbol)
+                        {
+                          if (s->len > 0)
+                            g_string_append_c (s, ' ');
+                          g_string_append (s, "Alt+");
+                          g_string_append (s, gdk_keyval_name (gdk_keyval_to_lower (keyval)));
+                        }
+                    }
+                }
+            }
+
+          g_variant_builder_add (&builder, "{ss}", "keyshortcuts", s->str);
+          g_string_free (s, TRUE);
         }
 
       g_variant_builder_close (&builder);
@@ -902,15 +949,13 @@ emit_children_changed (GtkAtSpiContext         *self,
       !gtk_at_spi_root_has_event_listeners (self->root))
     return;
 
-  GVariant *context_ref = gtk_at_spi_context_to_ref (self);
   GVariant *child_ref = gtk_at_spi_context_to_ref (child_context);
 
   gtk_at_spi_emit_children_changed (self->connection,
                                     self->context_path,
                                     state,
                                     idx,
-                                    child_ref,
-                                    context_ref);
+                                    child_ref);
 }
 
 static void
@@ -1041,10 +1086,10 @@ gtk_at_spi_context_state_change (GtkATContext                *ctx,
         case GTK_ACCESSIBLE_INVALID_TRUE:
         case GTK_ACCESSIBLE_INVALID_GRAMMAR:
         case GTK_ACCESSIBLE_INVALID_SPELLING:
-          emit_state_changed (self, "invalid", TRUE);
+          emit_state_changed (self, "invalid_entry", TRUE);
           break;
         case GTK_ACCESSIBLE_INVALID_FALSE:
-          emit_state_changed (self, "invalid", FALSE);
+          emit_state_changed (self, "invalid_entry", FALSE);
           break;
         default:
           break;
@@ -1211,7 +1256,7 @@ gtk_at_spi_context_platform_change (GtkATContext                *ctx,
       /* Orca tracks the window:activate and window:deactivate events on top
        * levels to decide whether to track other AT-SPI events
        */
-      if (gtk_accessible_get_accessible_role (accessible) == GTK_ACCESSIBLE_ROLE_APPLICATION)
+      if (gtk_accessible_get_accessible_role (accessible) == GTK_ACCESSIBLE_ROLE_WINDOW)
         {
           if (state)
             emit_window_event (self, "activate");
@@ -1712,6 +1757,9 @@ gtk_at_spi_context_init (GtkAtSpiContext *self)
 /* }}} */
 /* {{{ Bus address discovery */
 #ifdef GDK_WINDOWING_X11
+
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+
 static char *
 get_bus_address_x11 (GdkDisplay *display)
 {
@@ -1740,6 +1788,9 @@ get_bus_address_x11 (GdkDisplay *display)
 
   return address;
 }
+
+G_GNUC_END_IGNORE_DEPRECATIONS
+
 #endif
 
 #if defined(GDK_WINDOWING_WAYLAND) || defined(GDK_WINDOWING_X11)

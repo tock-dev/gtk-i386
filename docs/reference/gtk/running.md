@@ -14,7 +14,9 @@ GDK backends use some additional environment variables.
 
 Note that environment variables are generally used for debugging
 purposes. They are not guaranteed to be API stable, and should not
-be used for end-user configuration and customization.
+be used for end-user configuration and customization. If you feel the
+need to set one of them programmatically, you should probably ask for
+an API to do what you want, instead.
 
 ### `GTK_DEBUG`
 
@@ -25,10 +27,16 @@ print out different types of debugging information.
 : Actions and menu models
 
 `builder`
-: GtkBuilder support
+: Deprecated GtkBuilder features
+
+`builder-trace`
+: Trace GtkBuilder operation
 
 `builder-objects`
 : Unused GtkBuilder objects
+
+`css`
+: Deprecated CSS features
 
 `geometry`
 : Size allocation
@@ -230,9 +238,6 @@ A number of options affect behavior instead of logging:
 `gl-prefer-gl`
 : Prefer OpenGL over OpenGL ES. This was the default behavior before GTK 4.14.
 
-`vulkan-validate`
-: Load the Vulkan validation layer, if available
-
 `default-settings`
 : Force default values for xsettings
 
@@ -361,6 +366,9 @@ disable certain features.
 `aerosnap`
 : Disable Aerosnap support on Windows
 
+`threads`
+: Disabled the use of threads where possible
+
 ### `GDK_GL_DISABLE`
 
 This variable can be set to a list of values, which cause GDK to
@@ -426,8 +434,14 @@ using and the GDK backend supports them:
 `cairo`
 : Selects the fallback Cairo renderer
 
+`opengl`
+: Selects the OpenGL renderer
+
 `ngl`
 : Selects the OpenGL renderer
+
+`gl`:
+: Selects the OpenGL renderer.
 
 `vulkan`
 : Selects the Vulkan renderer
@@ -520,6 +534,9 @@ library you are using:
 
 `atspi`
 : Selects the AT-SPI accessibility backend
+
+`accesskit`
+: Selects the AccessKit accessibility backend
 
 `test`
 : Selects the test backend

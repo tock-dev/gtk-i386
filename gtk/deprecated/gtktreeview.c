@@ -1,5 +1,6 @@
 /* gtktreeview.c
  * Copyright (C) 2000  Red Hat, Inc.,  Jonathan Blandford <jrb@redhat.com>
+ * Copyright (C) 2025  Long 4 Core, Michael J. Baars <mjbaars1977@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,14 +26,21 @@
  *
  *  Focus was grabbed after the cursor-changed signal was emitted. Setting the has_focus timely is essential when using gtk_widget_has_focus() to implement master-slave systems.
  *
- *  __FIX_0002__: Starting from C02 and clicking A02 followed by two right cursors, C02 is skipped. 
+ *  __FIX_0002__: GtkCellRendererText::editable: false. Starting from C02 and        clicking A02 followed by            two right cursors, C02 is skipped. 
+ *  __FIX_0002__: GtkCellRendererText::editable: true.  Starting from C02 and double clicking A02 followed by escape and two right cursors, C02 is skipped.
  *
- *  More than one cell had a renderer assigned after pressing left mouse button.
+ *  More than one cell had a renderer assigned after pressing left mouse button or after pressing the left-right cursors.
+ *
+ *  __FIX_0003__: When pressing Ctrl(-F) and when editing of a cell starts, a warning is issued in 
+ *
+ *  Widgetless "header" GtkCssNode is placed in between "treeview" and "button" css nodes, the GtkCssNode tree and the GtkWidget tree do not correspond. Temporary solution: inserting the widget in first position instead of in last does not issue the warning.
+ *
  */
 
 #define __FIX_0000__
 #define __FIX_0001__
 #define __FIX_0002__
+#define __FIX_0003__
 
 #include "config.h"
 
@@ -2766,9 +2774,6 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
   GList *list;
   gboolean rtl;
   GtkWidget *target;
-#ifdef __FIX_0002__
-  GtkTreeViewColumn* last_focus_column = priv->focus_column;
-#endif
 
   gtk_tree_view_convert_widget_to_bin_window_coords (tree_view, x, y,
                                                      &bin_x, &bin_y);
@@ -2905,6 +2910,9 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
       return;
     }
 
+#ifdef __FIX_0002__
+  GtkTreeViewColumn* last_focus_column = priv->focus_column;
+#endif
   _gtk_tree_view_set_focus_column (tree_view, column);
 
   event = gtk_gesture_get_last_event (GTK_GESTURE (gesture), sequence);
@@ -2938,10 +2946,11 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
           guint flags = 0;
           
 #ifdef __FIX_0002__
-          /* clear cell renderer of last focus column */
-          gtk_cell_area_set_focus_cell(gtk_cell_layout_get_area(GTK_CELL_LAYOUT (last_focus_column)), NULL);
+          if  (last_focus_column)
+            {
+              gtk_cell_area_set_focus_cell (gtk_cell_layout_get_area (GTK_CELL_LAYOUT (last_focus_column)), NULL);
+            }
 #endif
-
           if (_gtk_tree_view_column_cell_event (column,
                                                 (GdkEvent *)event,
                                                 &cell_area, flags))
@@ -2984,7 +2993,15 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
                                                           x, y);
 
       if (focus_cell)
-        gtk_tree_view_column_focus_cell (column, focus_cell);
+        {
+#ifdef __FIX_0002__
+          if  (last_focus_column)
+            {
+              gtk_cell_area_set_focus_cell (gtk_cell_layout_get_area (GTK_CELL_LAYOUT (last_focus_column)), NULL);
+            }
+#endif
+          gtk_tree_view_column_focus_cell (column, focus_cell);
+        }
         
 #ifdef  __FIX_0001__
       priv->button_pressed_node = priv->prelight_node;
@@ -8028,10 +8045,14 @@ gtk_tree_view_put (GtkTreeView       *tree_view,
 
   priv->children = g_list_append (priv->children, child);
 
+#ifndef __FIX_0003__
   gtk_css_node_insert_after (gtk_widget_get_css_node (GTK_WIDGET (tree_view)),
                              gtk_widget_get_css_node (child_widget),
                              priv->header_node);
   gtk_widget_set_parent (child_widget, GTK_WIDGET (tree_view));
+#else
+  gtk_widget_insert_after (child_widget, GTK_WIDGET (tree_view), NULL);
+#endif
 }
 
 /* TreeModel Callbacks
@@ -9666,6 +9687,10 @@ gtk_tree_view_move_cursor_left_right (GtkTreeView *tree_view,
 
   direction = count > 0 ? GTK_DIR_RIGHT : GTK_DIR_LEFT;
 
+#ifdef  __FIX_0002__
+  GtkTreeViewColumn *last_focus_column = priv->focus_column;
+#endif
+
   while (list)
     {
       column = list->data;
@@ -9705,7 +9730,15 @@ gtk_tree_view_move_cursor_left_right (GtkTreeView *tree_view,
       gtk_widget_error_bell (GTK_WIDGET (tree_view));
 
       if (last_focus_area)
-	gtk_cell_area_set_focus_cell (last_focus_area, last_focus_cell);
+        {
+#ifdef  __FIX_0002__
+          if  (last_focus_column)
+            {
+              gtk_cell_area_set_focus_cell (gtk_cell_layout_get_area (GTK_CELL_LAYOUT (last_focus_column)), NULL);
+            }
+#endif
+	        gtk_cell_area_set_focus_cell (last_focus_area, last_focus_cell);
+        }
     }
 
   gtk_tree_view_clamp_column_visible (tree_view,
@@ -10034,10 +10067,16 @@ gtk_tree_view_ensure_interactive_directory (GtkTreeView *tree_view)
     return;
 
   priv->search_popover = gtk_popover_new ();
+
+#ifndef __FIX_0003__
   gtk_css_node_insert_after (gtk_widget_get_css_node (GTK_WIDGET (tree_view)),
                              gtk_widget_get_css_node (priv->search_popover),
                              priv->header_node);
   gtk_widget_set_parent (priv->search_popover, GTK_WIDGET (tree_view));
+#else
+  gtk_widget_insert_after (priv->search_popover, GTK_WIDGET (tree_view), NULL);
+#endif
+
   gtk_popover_set_autohide (GTK_POPOVER (priv->search_popover), FALSE);
 
   controller = gtk_event_controller_key_new ();
@@ -12162,9 +12201,22 @@ gtk_tree_view_set_cursor_on_cell (GtkTreeView       *tree_view,
 	  }
       g_return_if_fail (column_in_tree);
 #endif
+
+#ifdef  __FIX_0002__
+      GtkTreeViewColumn *last_focus_column = priv->focus_column;
+#endif
       _gtk_tree_view_set_focus_column (tree_view, focus_column);
+      
       if (focus_cell)
-	gtk_tree_view_column_focus_cell (focus_column, focus_cell);
+        {
+#ifdef  __FIX_0002__
+          if  (last_focus_column)
+            {
+              gtk_cell_area_set_focus_cell (gtk_cell_layout_get_area (GTK_CELL_LAYOUT (last_focus_column)), NULL);
+            }
+#endif
+        	gtk_tree_view_column_focus_cell (focus_column, focus_cell);
+        }
       if (start_editing)
 	gtk_tree_view_start_editing (tree_view, path, TRUE);
     }

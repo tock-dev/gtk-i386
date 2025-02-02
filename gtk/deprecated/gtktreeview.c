@@ -18,11 +18,11 @@
 
 /*
  *
- *  __FIX_0000__: GtkTreeView::cursor-changed signal is emitted BEFORE focus column is set
+ *  __FIX_0000__: GtkTreeView::cursor-changed signal is emitted BEFORE focus column is set.
  *
  *  The focus column still had its old value in the cursor-changed signal handler. gtk_tree_view_set_cursor() had to be called twice to get the focus column right for that reason.
  *
- *  __FIX_0001__: GtkTreeView::cursor-changed signal is emitted BEFORE has_focus is set
+ *  __FIX_0001__: GtkTreeView::cursor-changed signal is emitted BEFORE has_focus is set.
  *
  *  Focus was grabbed after the cursor-changed signal was emitted. Setting the has_focus timely is essential when using gtk_widget_has_focus() to implement master-slave systems.
  *

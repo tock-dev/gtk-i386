@@ -31,7 +31,7 @@
  *
  *  More than one cell had a renderer assigned after pressing left mouse button or after pressing the left-right cursors.
  *
- *  __FIX_0003__: When pressing Ctrl(-F) and when editing of a cell starts, a warning is issued in 
+ *  __FIX_0003__: When pressing Ctrl(-F) and when editing of a cell starts, a warning is issued.
  *
  *  Widgetless "header" GtkCssNode is placed in between "treeview" and "button" css nodes, the GtkCssNode tree and the GtkWidget tree do not correspond. Temporary solution: inserting the widget in first position instead of in last does not issue the warning.
  *

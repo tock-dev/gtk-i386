@@ -26,6 +26,11 @@
 #include "gdkdmabufprivate.h"
 #include "gdkdebugprivate.h"
 
+#include <epoxy/gl.h>
+#ifdef HAVE_EGL
+#include <epoxy/egl.h>
+#endif
+
 G_BEGIN_DECLS
 
 typedef enum {
@@ -95,6 +100,11 @@ struct _GdkGLContextClass
                                                                  GdkGLContext          *other);
 
   guint                 (* get_default_framebuffer)             (GdkGLContext          *self);
+
+#ifdef HAVE_EGL
+  GdkMemoryDepth        (* ensure_egl_surface)                  (GdkGLContext          *self, GdkMemoryDepth depth);
+  EGLSurface            (* get_egl_surface)                     (GdkGLContext          *self);
+#endif
 };
 
 typedef struct {

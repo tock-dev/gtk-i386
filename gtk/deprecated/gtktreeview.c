@@ -4490,7 +4490,9 @@ gtk_tree_view_bin_snapshot (GtkWidget   *widget,
       
 #ifdef  __FIX_0004__      
       state = gtk_style_context_get_state (context);
-      state &= ~(GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_PRELIGHT);
+
+      state &= ~(GTK_STATE_FLAG_FOCUSED  | GTK_STATE_FLAG_PRELIGHT | GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_DROP_ACTIVE);
+
       gtk_style_context_set_state (context, state);
 #endif
 

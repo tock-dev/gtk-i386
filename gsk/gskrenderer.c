@@ -37,7 +37,6 @@
 
 #include "gskcairorenderer.h"
 #include "gskdebugprivate.h"
-#include "gskprofilerprivate.h"
 #include "gskrendernodeprivate.h"
 #include "gskoffloadprivate.h"
 
@@ -66,8 +65,6 @@ typedef struct
 
   GdkSurface *surface;
   GskRenderNode *prev_node;
-
-  GskProfiler *profiler;
 
   GskDebugFlags debug_flags;
 
@@ -126,13 +123,11 @@ static void
 gsk_renderer_dispose (GObject *gobject)
 {
   GskRenderer *self = GSK_RENDERER (gobject);
-  GskRendererPrivate *priv = gsk_renderer_get_instance_private (self);
+  G_GNUC_UNUSED GskRendererPrivate *priv = gsk_renderer_get_instance_private (self);
 
   /* We can't just unrealize here because superclasses have already run dispose.
    * So we insist that unrealize must be called before unreffing. */
   g_assert (!priv->is_realized);
-
-  g_clear_object (&priv->profiler);
 
   G_OBJECT_CLASS (gsk_renderer_parent_class)->dispose (gobject);
 }
@@ -203,7 +198,6 @@ gsk_renderer_init (GskRenderer *self)
 {
   GskRendererPrivate *priv = gsk_renderer_get_instance_private (self);
 
-  priv->profiler = gsk_profiler_new ();
   priv->debug_flags = gsk_get_debug_flags ();
 }
 
@@ -485,24 +479,6 @@ gsk_renderer_render (GskRenderer          *renderer,
   priv->prev_node = gsk_render_node_ref (root);
 }
 
-/*< private >
- * gsk_renderer_get_profiler:
- * @renderer: a renderer
- *
- * Retrieves a pointer to the `GskProfiler` instance of the renderer.
- *
- * Returns: (transfer none): the profiler
- */
-GskProfiler *
-gsk_renderer_get_profiler (GskRenderer *renderer)
-{
-  GskRendererPrivate *priv = gsk_renderer_get_instance_private (renderer);
-
-  g_return_val_if_fail (GSK_IS_RENDERER (renderer), NULL);
-
-  return priv->profiler;
-}
-
 static GType
 get_renderer_for_name (const char *renderer_name)
 {
@@ -598,7 +574,6 @@ get_renderer_for_backend (GdkSurface *surface)
 
 static gboolean
 gl_supported_platform (GdkSurface *surface,
-                       GType       renderer_type,
                        gboolean    as_fallback)
 {
   GdkDisplay *display = gdk_surface_get_display (surface);
@@ -622,8 +597,7 @@ gl_supported_platform (GdkSurface *surface,
 
   if (strstr ((const char *) glGetString (GL_RENDERER), "llvmpipe") != NULL)
     {
-      GSK_DEBUG (RENDERER, "Not using '%s': renderer is llvmpipe",
-                 g_type_name (renderer_type));
+      GSK_DEBUG (RENDERER, "Not using GL: renderer is llvmpipe");
       return FALSE;
     }
 
@@ -633,7 +607,7 @@ gl_supported_platform (GdkSurface *surface,
 static GType
 get_renderer_for_gl (GdkSurface *surface)
 {
-  if (!gl_supported_platform (surface, GSK_TYPE_GL_RENDERER, FALSE))
+  if (!gl_supported_platform (surface, FALSE))
     return G_TYPE_INVALID;
 
   return GSK_TYPE_GL_RENDERER;
@@ -642,7 +616,7 @@ get_renderer_for_gl (GdkSurface *surface)
 static GType
 get_renderer_for_gl_fallback (GdkSurface *surface)
 {
-  if (!gl_supported_platform (surface, GSK_TYPE_GL_RENDERER, TRUE))
+  if (!gl_supported_platform (surface, TRUE))
     return G_TYPE_INVALID;
 
   return GSK_TYPE_GL_RENDERER;
@@ -651,7 +625,6 @@ get_renderer_for_gl_fallback (GdkSurface *surface)
 #ifdef GDK_RENDERING_VULKAN
 static gboolean
 vulkan_supported_platform (GdkSurface *surface,
-                           GType       renderer_type,
                            gboolean    as_fallback)
 {
   GdkDisplay *display = gdk_surface_get_display (surface);
@@ -661,8 +634,7 @@ vulkan_supported_platform (GdkSurface *surface,
 #ifdef GDK_WINDOWING_WAYLAND
   if (!GDK_IS_WAYLAND_DISPLAY (gdk_surface_get_display (surface)) && !as_fallback)
     {
-      GSK_DEBUG (RENDERER, "Not using '%s': platform is not Wayland",
-                 g_type_name (renderer_type));
+      GSK_DEBUG (RENDERER, "Not using Vulkan: platform is not Wayland");
       return FALSE;
     }
 #endif
@@ -683,8 +655,7 @@ vulkan_supported_platform (GdkSurface *surface,
 
   if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU)
     {
-      GSK_DEBUG (RENDERER, "Not using '%s': device is CPU",
-                 g_type_name (renderer_type));
+      GSK_DEBUG (RENDERER, "Not using Vulkan: device is CPU");
       return FALSE;
     }
 
@@ -693,8 +664,7 @@ vulkan_supported_platform (GdkSurface *surface,
   if (!display->vk_dmabuf_formats ||
       gdk_dmabuf_formats_get_n_formats (display->vk_dmabuf_formats) == 0)
     {
-      GSK_DEBUG (RENDERER, "Not using '%s': no dmabuf support",
-                 g_type_name (renderer_type));
+      GSK_DEBUG (RENDERER, "Not using Vulkan: no dmabuf support");
       return FALSE;
     }
 #endif
@@ -705,7 +675,7 @@ vulkan_supported_platform (GdkSurface *surface,
 static GType
 get_renderer_for_vulkan (GdkSurface *surface)
 {
-  if (!vulkan_supported_platform (surface, GSK_TYPE_VULKAN_RENDERER, FALSE))
+  if (!vulkan_supported_platform (surface, FALSE))
     return G_TYPE_INVALID;
 
   return GSK_TYPE_VULKAN_RENDERER;
@@ -714,7 +684,7 @@ get_renderer_for_vulkan (GdkSurface *surface)
 static GType
 get_renderer_for_vulkan_fallback (GdkSurface *surface)
 {
-  if (!vulkan_supported_platform (surface, GSK_TYPE_VULKAN_RENDERER, TRUE))
+  if (!vulkan_supported_platform (surface, TRUE))
     return G_TYPE_INVALID;
 
   return GSK_TYPE_VULKAN_RENDERER;

@@ -139,7 +139,6 @@ static const GdkDebugKey gdk_debug_keys[] = {
   { "portals",         GDK_DEBUG_PORTALS, "Force use of portals" },
   { "no-portals",      GDK_DEBUG_NO_PORTALS, "Disable use of portals" },
   { "force-offload",   GDK_DEBUG_FORCE_OFFLOAD, "Force graphics offload for all textures" },
-  { "gl-no-fractional", GDK_DEBUG_GL_NO_FRACTIONAL, "Disable fractional scaling for OpenGL" },
   { "gl-debug",        GDK_DEBUG_GL_DEBUG, "Insert debugging information in OpenGL" },
   { "gl-prefer-gl",    GDK_DEBUG_GL_PREFER_GL, "Prefer GL over GLES API" },
   { "default-settings",GDK_DEBUG_DEFAULT_SETTINGS, "Force default values for xsettings" },
@@ -446,6 +445,9 @@ gdk_display_should_use_portal (GdkDisplay *display,
   if (gdk_running_in_sandbox ())
     return TRUE;
 
+  if (portal_interface == NULL)
+    return TRUE;
+
   bus = g_bus_get_sync (G_BUS_TYPE_SESSION, NULL, NULL);
   if (bus == NULL)
     goto done;
@@ -466,15 +468,18 @@ gdk_display_should_use_portal (GdkDisplay *display,
   if (owner == NULL)
     goto done;
 
+  if (min_version == 0)
+    {
+      result = TRUE;
+      goto done;
+    }
+
   ret = g_dbus_proxy_get_cached_property (proxy, "version");
 
   if (!ret)
     goto done;
 
-  if (min_version == 0)
-    result = TRUE;
-  else
-    result = g_variant_get_uint32 (ret) >= min_version;
+  result = g_variant_get_uint32 (ret) >= min_version;
 
 done:
   g_clear_object (&bus);

@@ -689,6 +689,7 @@ if macos_enabled
     'gtkfilechoosernativequartz.c',
     'gtkimcontextquartz.c',
     'gtkquartz.c',
+    'gtkwindowbuttonsquartz.c',
   ])
 
   gtk_cargs += ['-xobjective-c']  # FIXME? maybe add_languages() instead?
@@ -1216,10 +1217,9 @@ if build_gir
     gtk_dep_sources += gdk_win32_gir
   endif
 
-# This doesn't build
-  if false and macos_enabled
+  if macos_enabled
     gdk_macos_gir = gnome.generate_gir(libgtk,
-      sources: gdk_macos_public_headers + gdk_macos_sources,
+      sources: gdk_macos_public_headers + gdk_macos_public_sources,
       namespace: 'GdkMacos',
       nsversion: gtk_api_version,
       identifier_prefix: 'Gdk',

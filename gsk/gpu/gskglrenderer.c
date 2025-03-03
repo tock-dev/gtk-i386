@@ -116,35 +116,27 @@ gsk_gl_renderer_get_backbuffer (GskGpuRenderer *renderer)
   GskGLRenderer *self = GSK_GL_RENDERER (renderer);
   GdkDrawContext *context;
   GdkSurface *surface;
-  double scale;
+  guint width, height;
 
   context = gsk_gpu_renderer_get_context (renderer);
   surface = gdk_draw_context_get_surface (context);
-  scale = gsk_gpu_renderer_get_scale (renderer);
+  gdk_draw_context_get_buffer_size (context, &width, &height);
 
   if (self->backbuffer == NULL ||
       !!(gsk_gpu_image_get_flags (self->backbuffer) & GSK_GPU_IMAGE_SRGB) != gdk_surface_get_gl_is_srgb (surface) ||
-      gsk_gpu_image_get_width (self->backbuffer) != ceil (gdk_surface_get_width (surface) * scale) ||
-      gsk_gpu_image_get_height (self->backbuffer) != ceil (gdk_surface_get_height (surface) * scale))
+      gsk_gpu_image_get_width (self->backbuffer) != width ||
+      gsk_gpu_image_get_height (self->backbuffer) != height)
     {
       gsk_gl_renderer_free_backbuffer (self);
       self->backbuffer = gsk_gl_image_new_backbuffer (GSK_GL_DEVICE (gsk_gpu_renderer_get_device (renderer)),
                                                       GDK_GL_CONTEXT (context),
                                                       GDK_MEMORY_DEFAULT /* FIXME */,
                                                       gdk_surface_get_gl_is_srgb (surface),
-                                                      ceil (gdk_surface_get_width (surface) * scale),
-                                                      ceil (gdk_surface_get_height (surface) * scale));
+                                                      width,
+                                                      height);
     }
 
   return self->backbuffer;
-}
-
-static double
-gsk_gl_renderer_get_scale (GskGpuRenderer *self)
-{
-  GdkDrawContext *context = gsk_gpu_renderer_get_context (self);
-
-  return gdk_gl_context_get_scale (GDK_GL_CONTEXT (context));
 }
 
 static void
@@ -173,7 +165,6 @@ gsk_gl_renderer_class_init (GskGLRendererClass *klass)
   gpu_renderer_class->save_current = gsk_gl_renderer_save_current;
   gpu_renderer_class->restore_current = gsk_gl_renderer_restore_current;
   gpu_renderer_class->get_backbuffer = gsk_gl_renderer_get_backbuffer;
-  gpu_renderer_class->get_scale = gsk_gl_renderer_get_scale;
 
   renderer_class->unrealize = gsk_gl_renderer_unrealize;
 }

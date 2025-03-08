@@ -47,57 +47,12 @@ gtk_paned_handle_snapshot (GtkWidget   *widget,
     gtk_css_style_snapshot_icon (style, snapshot, width, height);
 }
 
-#define HANDLE_EXTRA_SIZE 6
-
-static gboolean
-gtk_paned_handle_contains (GtkWidget *widget,
-                           double     x,
-                           double     y)
-{
-  GtkWidget *paned;
-  GtkCssBoxes boxes;
-  graphene_rect_t area;
-
-  gtk_css_boxes_init (&boxes, widget);
-
-  graphene_rect_init_from_rect (&area, gtk_css_boxes_get_border_rect (&boxes));
-
-  paned = gtk_widget_get_parent (widget);
-  if (!gtk_paned_get_wide_handle (GTK_PANED (paned)))
-    graphene_rect_inset (&area, - HANDLE_EXTRA_SIZE, - HANDLE_EXTRA_SIZE);
-
-  return graphene_rect_contains_point (&area, &GRAPHENE_POINT_INIT (x, y));
-}
-
-static void
-gtk_paned_handle_finalize (GObject *object)
-{
-  GtkPanedHandle *self = GTK_PANED_HANDLE (object);
-  GtkWidget *widget;
-
-  widget = _gtk_widget_get_first_child (GTK_WIDGET (self));
-  while (widget != NULL)
-    {
-      GtkWidget *next = _gtk_widget_get_next_sibling (widget);
-
-      gtk_widget_unparent (widget);
-
-      widget = next;
-    }
-
-  G_OBJECT_CLASS (gtk_paned_handle_parent_class)->finalize (object);
-}
-
 static void
 gtk_paned_handle_class_init (GtkPanedHandleClass *klass)
 {
-  GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
 
-  object_class->finalize = gtk_paned_handle_finalize;
-
   widget_class->snapshot = gtk_paned_handle_snapshot;
-  widget_class->contains = gtk_paned_handle_contains;
 
   gtk_widget_class_set_css_name (widget_class, I_("separator"));
 }

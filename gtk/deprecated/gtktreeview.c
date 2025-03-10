@@ -35,17 +35,12 @@
  *
  *  Widgetless "header" GtkCssNode is placed in between "treeview" and "button" css nodes, the GtkCssNode tree and the GtkWidget tree do not correspond. Temporary solution: inserting the widget in first position instead of in last does not issue the warning.
  *
- *  __FIX_0004__: https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/8191
- *
- *  SELECTED and PRELIGHT states are only relevant for real cells, clear them when rendering the empty bottom area. This prevents the bottom area from incorrectly applying the :hover pseudoclass when pointing on some other row.
- *
  */
 
 #define __FIX_0000__
 #define __FIX_0001__
 #define __FIX_0002__
 #define __FIX_0003__
-#define __FIX_0004__
 
 #include "config.h"
 
@@ -4486,21 +4481,9 @@ gtk_tree_view_bin_snapshot (GtkWidget   *widget,
 
   if (gtk_tree_view_get_height (tree_view) < bin_window_height)
     {
-#ifdef  __FIX_0004__
-      GtkStateFlags state;
-#endif
-
       gtk_style_context_save (context);
       gtk_style_context_add_class (context, "cell");
       
-#ifdef  __FIX_0004__      
-      state = gtk_style_context_get_state (context);
-
-      state &= ~(GTK_STATE_FLAG_FOCUSED  | GTK_STATE_FLAG_PRELIGHT | GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_DROP_ACTIVE);
-
-      gtk_style_context_set_state (context, state);
-#endif
-
       gtk_snapshot_render_background (snapshot, context,
                                       0, gtk_tree_view_get_height (tree_view),
                                       bin_window_width,

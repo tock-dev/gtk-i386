@@ -2927,6 +2927,7 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
             {
               gtk_cell_area_set_focus_cell (gtk_cell_layout_get_area (GTK_CELL_LAYOUT (last_focus_column)), NULL);
             }
+            
           if (_gtk_tree_view_column_cell_event (column,
                                                 (GdkEvent *)event,
                                                 &cell_area, flags))

@@ -540,7 +540,7 @@ gdk_registry_handle_global (void               *data,
                           MIN (version, 1));
     }
   else if (strcmp (interface, wp_color_manager_v1_interface.name) == 0 &&
-           gdk_has_feature (GDK_FEATURE_COLOR_MANAGEMENT))
+           GDK_DISPLAY_DEBUG_CHECK (GDK_DISPLAY (display_wayland), COLOR_MANAGEMENT))
     {
       display_wayland->color = gdk_wayland_color_new (display_wayland, registry, id, version);
     }
@@ -1426,27 +1426,23 @@ gdk_wayland_cairo_surface_destroy (void *p)
 }
 
 cairo_surface_t *
-gdk_wayland_display_create_shm_surface (GdkWaylandDisplay        *display,
-                                        int                       width,
-                                        int                       height,
-                                        const GdkFractionalScale *scale)
+gdk_wayland_display_create_shm_surface (GdkWaylandDisplay *display,
+                                        guint              width,
+                                        guint              height)
 {
   GdkWaylandCairoSurfaceData *data;
   cairo_surface_t *surface = NULL;
   cairo_status_t status;
-  int scaled_width, scaled_height;
   int stride;
 
   data = g_new (GdkWaylandCairoSurfaceData, 1);
   data->display = display;
   data->buffer = NULL;
 
-  scaled_width = gdk_fractional_scale_scale (scale, width);
-  scaled_height = gdk_fractional_scale_scale (scale, height);
-  stride = cairo_format_stride_for_width (CAIRO_FORMAT_ARGB32, scaled_width);
+  stride = cairo_format_stride_for_width (CAIRO_FORMAT_ARGB32, width);
 
   data->pool = create_shm_pool (display->shm,
-                                scaled_height * stride,
+                                height * stride,
                                 &data->buf_length,
                                 &data->buf);
   if (G_UNLIKELY (data->pool == NULL))
@@ -1454,20 +1450,16 @@ gdk_wayland_display_create_shm_surface (GdkWaylandDisplay        *display,
 
   surface = cairo_image_surface_create_for_data (data->buf,
                                                  CAIRO_FORMAT_ARGB32,
-                                                 scaled_width,
-                                                 scaled_height,
+                                                 width,
+                                                 height,
                                                  stride);
 
   data->buffer = wl_shm_pool_create_buffer (data->pool, 0,
-                                            scaled_width, scaled_height,
+                                            width, height,
                                             stride, WL_SHM_FORMAT_ARGB8888);
 
   cairo_surface_set_user_data (surface, &gdk_wayland_shm_surface_cairo_key,
                                data, gdk_wayland_cairo_surface_destroy);
-
-  cairo_surface_set_device_scale (surface,
-                                  gdk_fractional_scale_to_double (scale),
-                                  gdk_fractional_scale_to_double (scale));
 
   status = cairo_surface_status (surface);
   if (status != CAIRO_STATUS_SUCCESS)

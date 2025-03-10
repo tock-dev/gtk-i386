@@ -272,7 +272,7 @@ pressed_cb (GtkGestureClick* self,
  GtkAlertDialog *dialog;
  GtkWindow *parent = NULL;
  /* Get column index at current mouse position */
- column_index = gtk_column_view_get_column_index_at_position (view, x, y);
+ column_index = gtk_column_view_get_column_at_pointer (view, x, y);
  g_return_if_fail (column_index != -1);
  /* Update status text based on column index */
  switch (column_index)

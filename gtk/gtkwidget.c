@@ -21,6 +21,7 @@
  * files for a list of changes.  These files are distributed with
  * GTK+ at ftp://ftp.gtk.org/pub/gtk/.
  */
+#include <gio/gio.h>
 
 #include "config.h"
 
@@ -6802,6 +6803,13 @@ gtk_widget_create_pango_context (GtkWidget *widget)
   context = pango_font_map_create_context (pango_cairo_font_map_get_default ());
   gtk_widget_update_pango_context (widget, context, _gtk_widget_get_direction (widget));
   pango_context_set_language (context, gtk_get_default_language ());
+
+  GSettings *settings = g_settings_new("org.gtk.Settings.Pango");
+  const gchar *fallback = g_settings_get_string(settings, "fallback-language-order");
+  if (fallback && *fallback != '\0') {
+      pango_context_set_language_fallback(context, fallback);
+  }
+  g_object_unref(settings);
 
   return context;
 }

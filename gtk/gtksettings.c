@@ -2006,3 +2006,18 @@ gtk_settings_get_font_size_is_absolute (GtkSettings *settings)
 
   return settings->font_size_absolute;
 }
+
+void
+_gtk_settings_init_fallback_language (GtkSettings *settings)
+{
+    GSettings *gsettings = g_settings_new("org.gtk.Settings.Pango");
+    const gchar *fallback = g_settings_get_string(gsettings, "fallback-language-order");
+
+    if (fallback && *fallback != '\0') {
+        PangoContext *context = gtk_widget_get_pango_context(widget);
+        pango_context_set_language_fallback(context, fallback);
+    }
+
+    g_object_unref(gsettings);
+}
+

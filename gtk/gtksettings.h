@@ -43,6 +43,8 @@ GtkSettings*    gtk_settings_get_for_display         (GdkDisplay *display);
 GDK_AVAILABLE_IN_ALL
 void     gtk_settings_reset_property       (GtkSettings            *settings,
                                             const char             *name);
+GDK_AVAILABLE_IN_ALL
+void _gtk_settings_init_fallback_language (GtkSettings *settings, GtkWidget *widget);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(GtkSettings, g_object_unref)
 

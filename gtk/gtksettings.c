@@ -2008,8 +2008,10 @@ gtk_settings_get_font_size_is_absolute (GtkSettings *settings)
 }
 
 void
-_gtk_settings_init_fallback_language (GtkSettings *settings)
+_gtk_settings_init_fallback_language (GtkSettings *settings, GtkWidget *widget)
 {
+    g_return_if_fail(GTK_IS_WIDGET(widget));
+
     GSettings *gsettings = g_settings_new("org.gtk.Settings.Pango");
     const gchar *fallback = g_settings_get_string(gsettings, "fallback-language-order");
 
@@ -2020,4 +2022,3 @@ _gtk_settings_init_fallback_language (GtkSettings *settings)
 
     g_object_unref(gsettings);
 }
-

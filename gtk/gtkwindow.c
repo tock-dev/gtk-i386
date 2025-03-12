@@ -5262,7 +5262,7 @@ _gtk_window_unset_focus_and_default (GtkWindow *window,
   if (child && (child == widget || gtk_widget_is_ancestor (child, widget)))
     {
       priv->move_focus = TRUE;
-      priv->move_focus_widget = g_object_ref (_gtk_widget_get_parent (widget));
+      g_set_object (&priv->move_focus_widget, _gtk_widget_get_parent (widget));
     }
 
   child = priv->default_widget;

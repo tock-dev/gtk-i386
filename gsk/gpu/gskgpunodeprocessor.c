@@ -3119,7 +3119,7 @@ gsk_gpu_node_processor_add_glyph_node (GskGpuNodeProcessor *self,
 
   scale = MAX (graphene_vec2_get_x (&self->scale), graphene_vec2_get_y (&self->scale));
 
-  resolution = 4;
+  resolution = gsk_get_subpixel_resolution ();
   mask = resolution - 1;
 
   align_scale = scale * resolution;

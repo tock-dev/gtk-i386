@@ -107,6 +107,9 @@ gsk_reload_font (PangoFont            *font,
   cairo_font_options_set_hint_style (options, hint_style);
   cairo_font_options_set_antialias (options, antialias);
   cairo_font_options_set_subpixel_order (options, CAIRO_SUBPIXEL_ORDER_DEFAULT);
+#ifdef HAVE_CAIRO_FONT_OPTIONS_SET_SUBPIXEL_POSITIONS
+  cairo_font_options_set_subpixel_positions (options, CAIRO_SUBPIXEL_POSITIONS_FINE);
+#endif
 
   if (G_UNLIKELY (context == NULL))
     context = pango_context_new ();
@@ -170,4 +173,21 @@ gsk_font_get_hint_style (PangoFont *font)
   style = cairo_font_options_get_hint_style (options);
 
   return style;
+}
+
+/*< private >
+ * gsk_get_subpixel_resolution:
+ *
+ * Temporary until we can depend on a cairo with fine subpixel grid support.
+ *
+ * Returns: the subpixel resolution
+ */
+unsigned int
+gsk_get_subpixel_resolution (void)
+{
+#ifdef HAVE_CAIRO_FONT_OPTIONS_SET_SUBPIXEL_POSITIONS
+  return 16;
+#else
+  return 4;
+#endif
 }

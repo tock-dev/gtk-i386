@@ -490,6 +490,14 @@ if not os_win32
   endif
 endif
 
+func = 'cairo_font_options_set_subpixel_positions'
+if cc.has_function(func,
+                   args: '-D_GNU_SOURCE',
+                   prefix: '#include <cairo.h>',
+                   dependencies: cairo_dep)
+  cdata.set('HAVE_' + func.underscorify().to_upper(), 1)
+endif
+
 cairo_backends = []
 foreach backend: [ ['cairo-xlib', cairo_req, x11_enabled],
                    ['cairo-win32', cairo_req, win32_enabled],

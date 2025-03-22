@@ -89,15 +89,7 @@ void                    gsk_gpu_cache_cache_tile                        (GskGpuC
                                                                          GskGpuImage            *image,
                                                                          GdkColorState          *color_state);
 
-typedef enum
-{
-  GSK_GPU_GLYPH_X_OFFSET_1 = 0x1,
-  GSK_GPU_GLYPH_X_OFFSET_2 = 0x2,
-  GSK_GPU_GLYPH_X_OFFSET_3 = 0x3,
-  GSK_GPU_GLYPH_Y_OFFSET_1 = 0x4,
-  GSK_GPU_GLYPH_Y_OFFSET_2 = 0x8,
-  GSK_GPU_GLYPH_Y_OFFSET_3 = 0xC
-} GskGpuGlyphLookupFlags;
+typedef guint32 GskGpuGlyphLookupFlags;
 
 GskGpuImage *           gsk_gpu_cache_lookup_glyph_image                (GskGpuCache            *self,
                                                                          GskGpuFrame            *frame,

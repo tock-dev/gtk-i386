@@ -1081,6 +1081,7 @@ gsk_gpu_cache_lookup_glyph_image (GskGpuCache            *self,
   gsize atlas_x, atlas_y, padding;
   float subpixel_x, subpixel_y;
   PangoFont *scaled_font;
+  unsigned int resolution, mask;
 
   cache = g_hash_table_lookup (self->glyph_cache, &lookup);
   if (cache)
@@ -1094,8 +1095,10 @@ gsk_gpu_cache_lookup_glyph_image (GskGpuCache            *self,
 
   scaled_font = gsk_reload_font (font, scale, CAIRO_HINT_METRICS_DEFAULT, CAIRO_HINT_STYLE_DEFAULT, CAIRO_ANTIALIAS_DEFAULT);
 
-  subpixel_x = (flags & 3) / 4.f;
-  subpixel_y = ((flags >> 2) & 3) / 4.f;
+  resolution = flags >> 16;
+  mask = resolution - 1;
+  subpixel_x = (flags & mask) / (float) resolution;
+  subpixel_y = ((flags >> 4) & mask) / (float) resolution;
   pango_font_get_glyph_extents (scaled_font, glyph, &ink_rect, NULL);
   origin.x = floor (ink_rect.x * 1.0 / PANGO_SCALE + subpixel_x);
   origin.y = floor (ink_rect.y * 1.0 / PANGO_SCALE + subpixel_y);

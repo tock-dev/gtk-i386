@@ -47,6 +47,7 @@ int      gtk_settings_get_dnd_drag_threshold (GtkSettings *settings);
 const char *gtk_settings_get_font_family    (GtkSettings *settings);
 int          gtk_settings_get_font_size      (GtkSettings *settings);
 gboolean     gtk_settings_get_font_size_is_absolute (GtkSettings *settings);
-
+void         gtk_settings_init_fallback_language    (GtkSettings *settings,
+                                                     GtkWidget   *widget);
 G_END_DECLS
 

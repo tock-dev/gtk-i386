@@ -6804,12 +6804,7 @@ gtk_widget_create_pango_context (GtkWidget *widget)
   gtk_widget_update_pango_context (widget, context, _gtk_widget_get_direction (widget));
   pango_context_set_language (context, gtk_get_default_language ());
 
-  GSettings *settings = g_settings_new("org.gtk.Settings.Pango");
-  const gchar *fallback = g_settings_get_string(settings, "fallback-language-order");
-  if (fallback && *fallback != '\0') {
-      pango_context_set_language_fallback(context, fallback);
-  }
-  g_object_unref(settings);
+  gtk_settings_init_fallback_language (gtk_widget_get_settings (widget), widget);
 
   return context;
 }

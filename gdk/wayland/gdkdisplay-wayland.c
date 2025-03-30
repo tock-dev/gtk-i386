@@ -53,7 +53,6 @@
 #include <wayland/pointer-gestures-unstable-v1-client-protocol.h>
 #include "tablet-unstable-v2-client-protocol.h"
 #include <wayland/xdg-shell-unstable-v6-client-protocol.h>
-#include <wayland/xdg-foreign-unstable-v1-client-protocol.h>
 #include <wayland/xdg-foreign-unstable-v2-client-protocol.h>
 #include <wayland/server-decoration-client-protocol.h>
 #include "linux-dmabuf-unstable-v1-client-protocol.h"
@@ -535,27 +534,15 @@ gdk_registry_handle_global (void               *data,
         wl_registry_bind(display_wayland->wl_registry, id,
                          &zwp_tablet_manager_v2_interface, 1);
     }
-  else if (match_global (display_wayland, interface, version, zxdg_exporter_v1_interface.name, 0))
+  else if (match_global (display_wayland, interface, version, zxdg_exporter_v2_interface.name, 0))
     {
       display_wayland->xdg_exporter =
         wl_registry_bind (display_wayland->wl_registry, id,
-                          &zxdg_exporter_v1_interface, 1);
-    }
-  else if (match_global (display_wayland, interface, version, zxdg_exporter_v2_interface.name, 0))
-    {
-      display_wayland->xdg_exporter_v2 =
-        wl_registry_bind (display_wayland->wl_registry, id,
                           &zxdg_exporter_v2_interface, 1);
-    }
-  else if (match_global (display_wayland, interface, version, zxdg_importer_v1_interface.name, 0))
-    {
-      display_wayland->xdg_importer =
-        wl_registry_bind (display_wayland->wl_registry, id,
-                          &zxdg_importer_v1_interface, 1);
     }
   else if (match_global (display_wayland, interface, version, zxdg_importer_v2_interface.name, 0))
     {
-      display_wayland->xdg_importer_v2 =
+      display_wayland->xdg_importer =
         wl_registry_bind (display_wayland->wl_registry, id,
                           &zxdg_importer_v2_interface, 1);
     }
@@ -817,10 +804,8 @@ gdk_wayland_display_dispose (GObject *object)
   g_clear_pointer (&display_wayland->pointer_gestures, zwp_pointer_gestures_v1_destroy);
   g_clear_pointer (&display_wayland->primary_selection_manager, zwp_primary_selection_device_manager_v1_destroy);
   g_clear_pointer (&display_wayland->tablet_manager, zwp_tablet_manager_v2_destroy);
-  g_clear_pointer (&display_wayland->xdg_exporter, zxdg_exporter_v1_destroy);
-  g_clear_pointer (&display_wayland->xdg_exporter_v2, zxdg_exporter_v2_destroy);
-  g_clear_pointer (&display_wayland->xdg_importer, zxdg_importer_v1_destroy);
-  g_clear_pointer (&display_wayland->xdg_importer_v2, zxdg_importer_v2_destroy);
+  g_clear_pointer (&display_wayland->xdg_exporter, zxdg_exporter_v2_destroy);
+  g_clear_pointer (&display_wayland->xdg_importer, zxdg_importer_v2_destroy);
   g_clear_pointer (&display_wayland->keyboard_shortcuts_inhibit, zwp_keyboard_shortcuts_inhibit_manager_v1_destroy);
   g_clear_pointer (&display_wayland->server_decoration_manager, org_kde_kwin_server_decoration_manager_destroy);
   g_clear_pointer (&display_wayland->xdg_output_manager, zxdg_output_manager_v1_destroy);

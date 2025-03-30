@@ -85,11 +85,6 @@ proto_sources = [
   {
     'name': 'xdg-foreign',
     'stability': 'unstable',
-    'version': 1,
-  },
-  {
-    'name': 'xdg-foreign',
-    'stability': 'unstable',
     'version': 2,
   },
   {

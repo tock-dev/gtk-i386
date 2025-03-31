@@ -63,8 +63,7 @@ static gboolean gdk_wayland_toplevel_supports_titlebar_gestures (GdkWaylandTople
 /* {{{ GdkWaylandToplevel definition */
 
 typedef struct {
-  struct zxdg_exported_v1 *xdg_exported;
-  struct zxdg_exported_v2 *xdg_exported_v2;
+  struct zxdg_exported_v2 *xdg_exported;
   char *handle;
 } GdkWaylandExported;
 
@@ -151,8 +150,7 @@ struct _GdkWaylandToplevel
   GdkSurfaceHints geometry_mask;
   GdkGeometry last_sent_geometry_hints;
 
-  struct zxdg_imported_v1 *imported_transient_for;
-  struct zxdg_imported_v2 *imported_transient_for_v2;
+  struct zxdg_imported_v2 *imported_transient_for;
   GHashTable *shortcuts_inhibitors;
 };
 
@@ -347,10 +345,7 @@ gdk_wayland_toplevel_sync_parent_of_imported (GdkWaylandToplevel *toplevel)
     return;
 
   if (toplevel->imported_transient_for)
-    zxdg_imported_v1_set_parent_of (toplevel->imported_transient_for,
-                                    impl->display_server.wl_surface);
-  else if (toplevel->imported_transient_for_v2)
-    zxdg_imported_v2_set_parent_of (toplevel->imported_transient_for_v2,
+    zxdg_imported_v2_set_parent_of (toplevel->imported_transient_for,
                                     impl->display_server.wl_surface);
 }
 
@@ -1929,37 +1924,20 @@ gdk_wayland_toplevel_restore_system_shortcuts (GdkToplevel *toplevel)
 }
 
 static void
-xdg_exported_handle_v1 (void                    *data,
-                        struct zxdg_exported_v1 *zxdg_exported_v1,
-                        const char              *handle)
+xdg_exported_handle (void                    *data,
+                     struct zxdg_exported_v2 *zxdg_exported,
+                     const char              *handle)
 {
   GTask *task = G_TASK (data);
-  GdkWaylandExported *exported = (GdkWaylandExported *)g_task_get_task_data (task);
+  GdkWaylandExported *exported = (GdkWaylandExported *) g_task_get_task_data (task);
 
   exported->handle = g_strdup (handle);
   g_task_return_pointer (task, g_strdup (handle), g_free);
   g_object_unref (task);
 }
 
-static const struct zxdg_exported_v1_listener xdg_exported_listener_v1 = {
-  xdg_exported_handle_v1
-};
-
-static void
-xdg_exported_handle_v2 (void                    *data,
-                        struct zxdg_exported_v2 *zxdg_exported_v2,
-                        const char              *handle)
-{
-  GTask *task = G_TASK (data);
-  GdkWaylandExported *exported = (GdkWaylandExported *)g_task_get_task_data (task);
-
-  exported->handle = g_strdup (handle);
-  g_task_return_pointer (task, g_strdup (handle), g_free);
-  g_object_unref (task);
-}
-
-static const struct zxdg_exported_v2_listener xdg_exported_listener_v2 = {
-  xdg_exported_handle_v2
+static const struct zxdg_exported_v2_listener xdg_exported_listener = {
+  xdg_exported_handle
 };
 
 static void
@@ -1976,26 +1954,14 @@ gdk_wayland_toplevel_real_export_handle (GdkToplevel          *toplevel,
 
   task = g_task_new (toplevel, cancellable, callback, user_data);
 
-  if (display_wayland->xdg_exporter_v2)
-    {
-      GdkWaylandExported *exported = g_new0 (GdkWaylandExported, 1);
-      exported->xdg_exported_v2 =
-        zxdg_exporter_v2_export_toplevel (display_wayland->xdg_exporter_v2,
-                                          gdk_wayland_surface_get_wl_surface (surface));
-      zxdg_exported_v2_add_listener (exported->xdg_exported_v2,
-                                     &xdg_exported_listener_v2, task);
-
-      wayland_toplevel->exported = g_list_prepend (wayland_toplevel->exported, exported);
-      g_task_set_task_data (task, exported, NULL);
-    }
-  else if (display_wayland->xdg_exporter)
+  if (display_wayland->xdg_exporter)
     {
       GdkWaylandExported *exported = g_new0 (GdkWaylandExported, 1);
       exported->xdg_exported =
-        zxdg_exporter_v1_export (display_wayland->xdg_exporter,
-                                 gdk_wayland_surface_get_wl_surface (surface));
-      zxdg_exported_v1_add_listener (exported->xdg_exported,
-                                     &xdg_exported_listener_v1, task);
+        zxdg_exporter_v2_export_toplevel (display_wayland->xdg_exporter,
+                                          gdk_wayland_surface_get_wl_surface (surface));
+      zxdg_exported_v2_add_listener (exported->xdg_exported,
+                                     &xdg_exported_listener, task);
 
       wayland_toplevel->exported = g_list_prepend (wayland_toplevel->exported, exported);
       g_task_set_task_data (task, exported, NULL);
@@ -2020,8 +1986,7 @@ static void
 destroy_exported (GdkWaylandExported *exported)
 {
   g_clear_pointer (&exported->handle, g_free);
-  g_clear_pointer (&exported->xdg_exported_v2, zxdg_exported_v2_destroy);
-  g_clear_pointer (&exported->xdg_exported, zxdg_exported_v1_destroy);
+  g_clear_pointer (&exported->xdg_exported, zxdg_exported_v2_destroy);
   g_free (exported);
 }
 
@@ -2495,10 +2460,7 @@ gdk_wayland_toplevel_destroy (GdkToplevel *toplevel)
         {
           GTask *task;
 
-          if (exported->xdg_exported_v2)
-            task = G_TASK (wl_proxy_get_user_data ((struct wl_proxy *) exported->xdg_exported_v2));
-          else
-            task = G_TASK (wl_proxy_get_user_data ((struct wl_proxy *) exported->xdg_exported));
+          task = G_TASK (wl_proxy_get_user_data ((struct wl_proxy *) exported->xdg_exported));
 
           g_task_return_new_error (task, G_IO_ERROR, G_IO_ERROR_FAILED, "Surface was destroyed");
           g_object_unref (task);
@@ -2766,29 +2728,17 @@ gdk_wayland_toplevel_drop_exported_handle (GdkToplevel *toplevel,
 static void
 unset_transient_for_exported (GdkWaylandToplevel *toplevel)
 {
-  g_clear_pointer (&toplevel->imported_transient_for, zxdg_imported_v1_destroy);
-  g_clear_pointer (&toplevel->imported_transient_for_v2, zxdg_imported_v2_destroy);
+  g_clear_pointer (&toplevel->imported_transient_for, zxdg_imported_v2_destroy);
 }
-
-static void
-xdg_imported_destroyed (void                    *data,
-                        struct zxdg_imported_v1 *zxdg_imported_v1)
-{
-  unset_transient_for_exported (GDK_WAYLAND_TOPLEVEL (data));
-}
-
-static const struct zxdg_imported_v1_listener xdg_imported_listener = {
-  xdg_imported_destroyed,
-};
 
 static void
 xdg_imported_v2_destroyed (void                    *data,
-                           struct zxdg_imported_v2 *zxdg_imported_v1)
+                           struct zxdg_imported_v2 *zxdg_imported)
 {
   unset_transient_for_exported (GDK_WAYLAND_TOPLEVEL (data));
 }
 
-static const struct zxdg_imported_v2_listener xdg_imported_listener_v2 = {
+static const struct zxdg_imported_v2_listener xdg_imported_listener = {
   xdg_imported_v2_destroyed,
 };
 
@@ -2821,7 +2771,7 @@ gdk_wayland_toplevel_set_transient_for_exported (GdkToplevel *toplevel,
   g_return_val_if_fail (GDK_IS_WAYLAND_TOPLEVEL (toplevel), FALSE);
   g_return_val_if_fail (GDK_IS_WAYLAND_DISPLAY (display), FALSE);
 
-  if (!display_wayland->xdg_importer && !display_wayland->xdg_importer_v2)
+  if (!display_wayland->xdg_importer)
     {
       g_warning ("Server is missing xdg_foreign support");
       return FALSE;
@@ -2832,17 +2782,9 @@ gdk_wayland_toplevel_set_transient_for_exported (GdkToplevel *toplevel,
   if (display_wayland->xdg_importer)
     {
       wayland_toplevel->imported_transient_for =
-        zxdg_importer_v1_import (display_wayland->xdg_importer, parent_handle_str);
-      zxdg_imported_v1_add_listener (wayland_toplevel->imported_transient_for,
+        zxdg_importer_v2_import_toplevel (display_wayland->xdg_importer, parent_handle_str);
+      zxdg_imported_v2_add_listener (wayland_toplevel->imported_transient_for,
                                      &xdg_imported_listener,
-                                     toplevel);
-    }
-  else
-    {
-      wayland_toplevel->imported_transient_for_v2 =
-        zxdg_importer_v2_import_toplevel (display_wayland->xdg_importer_v2, parent_handle_str);
-      zxdg_imported_v2_add_listener (wayland_toplevel->imported_transient_for_v2,
-                                     &xdg_imported_listener_v2,
                                      toplevel);
     }
 

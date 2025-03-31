@@ -1282,9 +1282,7 @@ add_wayland_protocols (GdkDisplay          *display,
       append_wayland_protocol_row (gen, (struct wl_proxy *)d->primary_selection_manager);
       append_wayland_protocol_row (gen, (struct wl_proxy *)d->tablet_manager);
       append_wayland_protocol_row (gen, (struct wl_proxy *)d->xdg_exporter);
-      append_wayland_protocol_row (gen, (struct wl_proxy *)d->xdg_exporter_v2);
       append_wayland_protocol_row (gen, (struct wl_proxy *)d->xdg_importer);
-      append_wayland_protocol_row (gen, (struct wl_proxy *)d->xdg_importer_v2);
       append_wayland_protocol_row (gen, (struct wl_proxy *)d->keyboard_shortcuts_inhibit);
       append_wayland_protocol_row (gen, (struct wl_proxy *)d->server_decoration_manager);
       append_wayland_protocol_row (gen, (struct wl_proxy *)d->xdg_output_manager);
@@ -1324,9 +1322,7 @@ dump_wayland_protocols (GdkDisplay *display,
       append_wayland_protocol (ext, (struct wl_proxy *)d->primary_selection_manager, &count);
       append_wayland_protocol (ext, (struct wl_proxy *)d->tablet_manager, &count);
       append_wayland_protocol (ext, (struct wl_proxy *)d->xdg_exporter, &count);
-      append_wayland_protocol (ext, (struct wl_proxy *)d->xdg_exporter_v2, &count);
       append_wayland_protocol (ext, (struct wl_proxy *)d->xdg_importer, &count);
-      append_wayland_protocol (ext, (struct wl_proxy *)d->xdg_importer_v2, &count);
       append_wayland_protocol (ext, (struct wl_proxy *)d->keyboard_shortcuts_inhibit, &count);
       append_wayland_protocol (ext, (struct wl_proxy *)d->server_decoration_manager, &count);
       append_wayland_protocol (ext, (struct wl_proxy *)d->xdg_output_manager, &count);

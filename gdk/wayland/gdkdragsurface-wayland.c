@@ -35,7 +35,6 @@
 #include "gdkdevice-wayland-private.h"
 #include "gdkdragsurfacesizeprivate.h"
 
-#include <wayland/xdg-shell-unstable-v6-client-protocol.h>
 #include <wayland/xdg-foreign-unstable-v2-client-protocol.h>
 
 #include <stdlib.h>

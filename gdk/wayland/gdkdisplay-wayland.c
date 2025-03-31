@@ -52,7 +52,6 @@
 #include "gdkwaylandcolor-private.h"
 #include <wayland/pointer-gestures-unstable-v1-client-protocol.h>
 #include "tablet-unstable-v2-client-protocol.h"
-#include <wayland/xdg-shell-unstable-v6-client-protocol.h>
 #include <wayland/xdg-foreign-unstable-v1-client-protocol.h>
 #include <wayland/xdg-foreign-unstable-v2-client-protocol.h>
 #include <wayland/server-decoration-client-protocol.h>
@@ -251,21 +250,6 @@ xdg_wm_base_ping (void               *data,
 
 static const struct xdg_wm_base_listener xdg_wm_base_listener = {
   xdg_wm_base_ping,
-};
-
-static void
-zxdg_shell_v6_ping (void                 *data,
-                    struct zxdg_shell_v6 *xdg_shell,
-                    uint32_t              serial)
-{
-  GDK_DISPLAY_DEBUG (GDK_DISPLAY (data), EVENTS,
-                     "ping, shell %p, serial %u", xdg_shell, serial);
-
-  zxdg_shell_v6_pong (xdg_shell, serial);
-}
-
-static const struct zxdg_shell_v6_listener zxdg_shell_v6_listener = {
-  zxdg_shell_v6_ping,
 };
 
 static gboolean
@@ -476,12 +460,11 @@ gdk_registry_handle_global (void               *data,
     }
   else if (match_global (display_wayland, interface, version, xdg_wm_base_interface.name, 0))
     {
-      display_wayland->xdg_wm_base_id = id;
-      display_wayland->xdg_wm_base_version = version;
-    }
-  else if (match_global (display_wayland, interface, version, zxdg_shell_v6_interface.name, 0))
-    {
-      display_wayland->zxdg_shell_v6_id = id;
+      display_wayland->xdg_wm_base =
+        wl_registry_bind (display_wayland->wl_registry, id,
+                          &xdg_wm_base_interface,
+                          MIN (version, XDG_WM_BASE_VERSION));
+      xdg_wm_base_add_listener (display_wayland->xdg_wm_base, &xdg_wm_base_listener, display_wayland);
     }
   else if (match_global (display_wayland, interface, version, xdg_wm_dialog_v1_interface.name, 0))
     {
@@ -745,42 +728,10 @@ _gdk_wayland_display_open (const char *display_name)
   /* Check that we got all the required globals */
   if (display_wayland->compositor == NULL ||
       display_wayland->shm == NULL ||
-      display_wayland->data_device_manager == NULL)
+      display_wayland->data_device_manager == NULL ||
+      display_wayland->xdg_wm_base == NULL)
     {
       g_warning ("The Wayland compositor does not provide one or more of the required interfaces, "
-                 "not using Wayland display");
-      g_object_unref (display);
-
-      return NULL;
-    }
-
-  if (display_wayland->xdg_wm_base_id)
-    {
-      display_wayland->shell_variant = GDK_WAYLAND_SHELL_VARIANT_XDG_SHELL;
-      display_wayland->xdg_wm_base =
-        wl_registry_bind (display_wayland->wl_registry,
-                          display_wayland->xdg_wm_base_id,
-                          &xdg_wm_base_interface,
-                          MIN (display_wayland->xdg_wm_base_version,
-                               XDG_WM_BASE_VERSION));
-      xdg_wm_base_add_listener (display_wayland->xdg_wm_base,
-                                &xdg_wm_base_listener,
-                                display_wayland);
-    }
-  else if (display_wayland->zxdg_shell_v6_id)
-    {
-      display_wayland->shell_variant = GDK_WAYLAND_SHELL_VARIANT_ZXDG_SHELL_V6;
-      display_wayland->zxdg_shell_v6 =
-        wl_registry_bind (display_wayland->wl_registry,
-                          display_wayland->zxdg_shell_v6_id,
-                          &zxdg_shell_v6_interface, 1);
-      zxdg_shell_v6_add_listener (display_wayland->zxdg_shell_v6,
-                                  &zxdg_shell_v6_listener,
-                                  display_wayland);
-    }
-  else
-    {
-      g_warning ("The Wayland compositor does not provide any supported shell interface, "
                  "not using Wayland display");
       g_object_unref (display);
 
@@ -828,7 +779,6 @@ gdk_wayland_display_dispose (GObject *object)
   g_clear_pointer (&display_wayland->cursor_theme, wl_cursor_theme_destroy);
   g_clear_pointer (&display_wayland->compositor, wl_compositor_destroy);
   g_clear_pointer (&display_wayland->xdg_wm_base, xdg_wm_base_destroy);
-  g_clear_pointer (&display_wayland->zxdg_shell_v6, zxdg_shell_v6_destroy);
   g_clear_pointer (&display_wayland->gtk_shell, gtk_shell1_destroy);
   g_clear_pointer (&display_wayland->data_device_manager, wl_data_device_manager_destroy);
   g_clear_pointer (&display_wayland->subcompositor, wl_subcompositor_destroy);

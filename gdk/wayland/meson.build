@@ -75,11 +75,6 @@ proto_sources = [
   },
   {
     'name': 'xdg-shell',
-    'stability': 'unstable',
-    'version': 6,
-  },
-  {
-    'name': 'xdg-shell',
     'stability': 'stable',
   },
   {

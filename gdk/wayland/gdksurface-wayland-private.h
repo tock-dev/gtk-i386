@@ -36,7 +36,6 @@ struct _GdkWaylandSurface
     GSList *outputs;
     struct wl_surface *wl_surface;
     struct xdg_surface *xdg_surface;
-    struct zxdg_surface_v6 *zxdg_surface_v6;
     struct wl_egl_window *egl_window;
     struct wp_fractional_scale_v1 *fractional_scale;
     struct wp_viewport *viewport;

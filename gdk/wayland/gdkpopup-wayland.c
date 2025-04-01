@@ -34,7 +34,6 @@
 #include "gdktoplevelprivate.h"
 #include "gdkdevice-wayland-private.h"
 
-#include <wayland/xdg-shell-unstable-v6-client-protocol.h>
 #include <wayland/xdg-foreign-unstable-v2-client-protocol.h>
 
 #include <stdlib.h>
@@ -59,8 +58,7 @@ static void update_popup_layout_state (GdkWaylandPopup *wayland_popup,
 static gboolean
 is_realized_shell_surface (GdkWaylandSurface *impl)
 {
-  return (impl->display_server.xdg_surface ||
-          impl->display_server.zxdg_surface_v6);
+  return impl->display_server.xdg_surface != NULL;
 }
 
 static enum xdg_positioner_anchor
@@ -121,79 +119,6 @@ surface_anchor_to_gravity (GdkGravity rect_anchor)
     }
 }
 
-static enum zxdg_positioner_v6_anchor
-rect_anchor_to_anchor_legacy (GdkGravity rect_anchor)
-{
-  switch (rect_anchor)
-    {
-    case GDK_GRAVITY_NORTH_WEST:
-    case GDK_GRAVITY_STATIC:
-      return (ZXDG_POSITIONER_V6_ANCHOR_TOP |
-              ZXDG_POSITIONER_V6_ANCHOR_LEFT);
-    case GDK_GRAVITY_NORTH:
-      return ZXDG_POSITIONER_V6_ANCHOR_TOP;
-    case GDK_GRAVITY_NORTH_EAST:
-      return (ZXDG_POSITIONER_V6_ANCHOR_TOP |
-              ZXDG_POSITIONER_V6_ANCHOR_RIGHT);
-    case GDK_GRAVITY_WEST:
-      return ZXDG_POSITIONER_V6_ANCHOR_LEFT;
-    case GDK_GRAVITY_CENTER:
-      return ZXDG_POSITIONER_V6_ANCHOR_NONE;
-    case GDK_GRAVITY_EAST:
-      return ZXDG_POSITIONER_V6_ANCHOR_RIGHT;
-    case GDK_GRAVITY_SOUTH_WEST:
-      return (ZXDG_POSITIONER_V6_ANCHOR_BOTTOM |
-              ZXDG_POSITIONER_V6_ANCHOR_LEFT);
-    case GDK_GRAVITY_SOUTH:
-      return ZXDG_POSITIONER_V6_ANCHOR_BOTTOM;
-    case GDK_GRAVITY_SOUTH_EAST:
-      return (ZXDG_POSITIONER_V6_ANCHOR_BOTTOM |
-              ZXDG_POSITIONER_V6_ANCHOR_RIGHT);
-    default:
-      g_assert_not_reached ();
-    }
-
-  return (ZXDG_POSITIONER_V6_ANCHOR_TOP |
-          ZXDG_POSITIONER_V6_ANCHOR_LEFT);
-}
-
-static enum zxdg_positioner_v6_gravity
-surface_anchor_to_gravity_legacy (GdkGravity rect_anchor)
-{
-  switch (rect_anchor)
-    {
-    case GDK_GRAVITY_NORTH_WEST:
-    case GDK_GRAVITY_STATIC:
-      return (ZXDG_POSITIONER_V6_GRAVITY_BOTTOM |
-              ZXDG_POSITIONER_V6_GRAVITY_RIGHT);
-    case GDK_GRAVITY_NORTH:
-      return ZXDG_POSITIONER_V6_GRAVITY_BOTTOM;
-    case GDK_GRAVITY_NORTH_EAST:
-      return (ZXDG_POSITIONER_V6_GRAVITY_BOTTOM |
-              ZXDG_POSITIONER_V6_GRAVITY_LEFT);
-    case GDK_GRAVITY_WEST:
-      return ZXDG_POSITIONER_V6_GRAVITY_RIGHT;
-    case GDK_GRAVITY_CENTER:
-      return ZXDG_POSITIONER_V6_GRAVITY_NONE;
-    case GDK_GRAVITY_EAST:
-      return ZXDG_POSITIONER_V6_GRAVITY_LEFT;
-    case GDK_GRAVITY_SOUTH_WEST:
-      return (ZXDG_POSITIONER_V6_GRAVITY_TOP |
-              ZXDG_POSITIONER_V6_GRAVITY_RIGHT);
-    case GDK_GRAVITY_SOUTH:
-      return ZXDG_POSITIONER_V6_GRAVITY_TOP;
-    case GDK_GRAVITY_SOUTH_EAST:
-      return (ZXDG_POSITIONER_V6_GRAVITY_TOP |
-              ZXDG_POSITIONER_V6_GRAVITY_LEFT);
-    default:
-      g_assert_not_reached ();
-    }
-
-  return (ZXDG_POSITIONER_V6_GRAVITY_BOTTOM |
-          ZXDG_POSITIONER_V6_GRAVITY_RIGHT);
-}
-
-
 /* }}} */
 /* {{{ GdkWaylandPopup definition */
 
@@ -209,7 +134,6 @@ struct _GdkWaylandPopup
 
   struct {
     struct xdg_popup *xdg_popup;
-    struct zxdg_popup_v6 *zxdg_popup_v6;
   } display_server;
 
   PopupState state;
@@ -288,7 +212,6 @@ gdk_wayland_popup_hide_surface (GdkWaylandSurface *wayland_surface)
   GdkWaylandDisplay *display_wayland = GDK_WAYLAND_DISPLAY (display);
 
   g_clear_pointer (&popup->display_server.xdg_popup, xdg_popup_destroy);
-  g_clear_pointer (&popup->display_server.zxdg_popup_v6, zxdg_popup_v6_destroy);
   display_wayland->current_popups =
       g_list_remove (display_wayland->current_popups, surface);
   display_wayland->current_grabbing_popups =
@@ -327,8 +250,7 @@ is_realized_popup (GdkWaylandSurface *impl)
 
   popup = GDK_WAYLAND_POPUP (impl);
 
-  return (popup->display_server.xdg_popup ||
-          popup->display_server.zxdg_popup_v6);
+  return popup->display_server.xdg_popup != NULL;
 }
 
 static void
@@ -384,18 +306,8 @@ gdk_wayland_popup_handle_configure (GdkWaylandSurface *wayland_surface)
   GdkRectangle parent_geometry;
   int x, y, width, height;
 
-  if (wayland_popup->display_server.xdg_popup)
-    {
-      xdg_surface_ack_configure (wayland_surface->display_server.xdg_surface,
-                                 wayland_surface->pending.serial);
-    }
-  else if (wayland_popup->display_server.zxdg_popup_v6)
-    {
-      zxdg_surface_v6_ack_configure (wayland_surface->display_server.zxdg_surface_v6,
-                                     wayland_surface->pending.serial);
-    }
-  else
-    g_warn_if_reached ();
+  xdg_surface_ack_configure (wayland_surface->display_server.xdg_surface,
+                             wayland_surface->pending.serial);
 
   if (wayland_popup->pending.has_repositioned_token)
     {
@@ -506,36 +418,6 @@ static const struct xdg_popup_listener xdg_popup_listener = {
   xdg_popup_configure,
   xdg_popup_done,
   xdg_popup_repositioned,
-};
-
-static void
-zxdg_popup_v6_configure (void                 *data,
-                         struct zxdg_popup_v6 *xdg_popup,
-                         int32_t               x,
-                         int32_t               y,
-                         int32_t               width,
-                         int32_t               height)
-{
-  GdkWaylandPopup *wayland_popup = GDK_WAYLAND_POPUP (data);
-
-  gdk_wayland_surface_handle_configure_popup (wayland_popup, x, y, width, height);
-}
-
-static void
-zxdg_popup_v6_done (void                 *data,
-                    struct zxdg_popup_v6 *xdg_popup)
-{
-  GdkWaylandPopup *wayland_popup = GDK_WAYLAND_POPUP (data);
-  GdkSurface *surface = GDK_SURFACE (wayland_popup);
-
-  GDK_DEBUG (EVENTS, "done %p", surface);
-
-  gdk_surface_hide (surface);
-}
-
-static const struct zxdg_popup_v6_listener zxdg_popup_v6_listener = {
-  zxdg_popup_v6_configure,
-  zxdg_popup_v6_done,
 };
 
 static void
@@ -746,7 +628,7 @@ create_dynamic_positioner (GdkWaylandPopup *wayland_popup,
   GdkWaylandDisplay *display =
     GDK_WAYLAND_DISPLAY (gdk_surface_get_display (surface));
   GdkRectangle geometry;
-  uint32_t constraint_adjustment = ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_NONE;
+  uint32_t constraint_adjustment = XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_NONE;
   GdkRectangle anchor_rect;
   int rect_anchor_dx;
   int rect_anchor_dy;
@@ -758,6 +640,9 @@ create_dynamic_positioner (GdkWaylandPopup *wayland_popup,
   int shadow_right;
   int shadow_top;
   int shadow_bottom;
+  struct xdg_positioner *positioner;
+  enum xdg_positioner_anchor anchor;
+  enum xdg_positioner_gravity gravity;
 
   gdk_popup_layout_get_shadow_width (layout,
                                      &shadow_left,
@@ -799,108 +684,53 @@ create_dynamic_positioner (GdkWaylandPopup *wayland_popup,
 
   anchor_hints = gdk_popup_layout_get_anchor_hints (layout);
 
-  switch (display->shell_variant)
+  positioner = xdg_wm_base_create_positioner (display->xdg_wm_base);
+
+  xdg_positioner_set_size (positioner, geometry.width, geometry.height);
+  xdg_positioner_set_anchor_rect (positioner,
+                                  anchor_rect.x,
+                                  anchor_rect.y,
+                                  anchor_rect.width,
+                                  anchor_rect.height);
+  xdg_positioner_set_offset (positioner, rect_anchor_dx, rect_anchor_dy);
+
+  anchor = rect_anchor_to_anchor (rect_anchor);
+  xdg_positioner_set_anchor (positioner, anchor);
+
+  gravity = surface_anchor_to_gravity (surface_anchor);
+  xdg_positioner_set_gravity (positioner, gravity);
+
+  if (anchor_hints & GDK_ANCHOR_FLIP_X)
+    constraint_adjustment |= XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_X;
+  if (anchor_hints & GDK_ANCHOR_FLIP_Y)
+    constraint_adjustment |= XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y;
+  if (anchor_hints & GDK_ANCHOR_SLIDE_X)
+    constraint_adjustment |= XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_X;
+  if (anchor_hints & GDK_ANCHOR_SLIDE_Y)
+    constraint_adjustment |= XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_Y;
+  if (anchor_hints & GDK_ANCHOR_RESIZE_X)
+    constraint_adjustment |= XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_RESIZE_X;
+  if (anchor_hints & GDK_ANCHOR_RESIZE_Y)
+    constraint_adjustment |= XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_RESIZE_Y;
+  xdg_positioner_set_constraint_adjustment (positioner,
+                                            constraint_adjustment);
+
+  if (xdg_positioner_get_version (positioner) >=
+      XDG_POSITIONER_SET_REACTIVE_SINCE_VERSION)
+    xdg_positioner_set_reactive (positioner);
+
+  if (ack_parent_configure &&
+      xdg_positioner_get_version (positioner) >=
+      XDG_POSITIONER_SET_PARENT_CONFIGURE_SINCE_VERSION)
     {
-    case GDK_WAYLAND_SHELL_VARIANT_XDG_SHELL:
-      {
-        struct xdg_positioner *positioner;
-        enum xdg_positioner_anchor anchor;
-        enum xdg_positioner_gravity gravity;
-
-        positioner = xdg_wm_base_create_positioner (display->xdg_wm_base);
-
-        xdg_positioner_set_size (positioner, geometry.width, geometry.height);
-        xdg_positioner_set_anchor_rect (positioner,
-                                        anchor_rect.x,
-                                        anchor_rect.y,
-                                        anchor_rect.width,
-                                        anchor_rect.height);
-        xdg_positioner_set_offset (positioner, rect_anchor_dx, rect_anchor_dy);
-
-        anchor = rect_anchor_to_anchor (rect_anchor);
-        xdg_positioner_set_anchor (positioner, anchor);
-
-        gravity = surface_anchor_to_gravity (surface_anchor);
-        xdg_positioner_set_gravity (positioner, gravity);
-
-        if (anchor_hints & GDK_ANCHOR_FLIP_X)
-          constraint_adjustment |= XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_X;
-        if (anchor_hints & GDK_ANCHOR_FLIP_Y)
-          constraint_adjustment |= XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y;
-        if (anchor_hints & GDK_ANCHOR_SLIDE_X)
-          constraint_adjustment |= XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_X;
-        if (anchor_hints & GDK_ANCHOR_SLIDE_Y)
-          constraint_adjustment |= XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_Y;
-        if (anchor_hints & GDK_ANCHOR_RESIZE_X)
-          constraint_adjustment |= XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_RESIZE_X;
-        if (anchor_hints & GDK_ANCHOR_RESIZE_Y)
-          constraint_adjustment |= XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_RESIZE_Y;
-        xdg_positioner_set_constraint_adjustment (positioner,
-                                                  constraint_adjustment);
-
-        if (xdg_positioner_get_version (positioner) >=
-            XDG_POSITIONER_SET_REACTIVE_SINCE_VERSION)
-          xdg_positioner_set_reactive (positioner);
-
-        if (ack_parent_configure &&
-            xdg_positioner_get_version (positioner) >=
-            XDG_POSITIONER_SET_PARENT_CONFIGURE_SINCE_VERSION)
-          {
-            xdg_positioner_set_parent_size (positioner,
-                                            parent_geometry.width,
-                                            parent_geometry.height);
-            xdg_positioner_set_parent_configure (positioner,
-                                                 parent_impl->last_configure_serial);
-          }
-
-        return positioner;
-      }
-    case GDK_WAYLAND_SHELL_VARIANT_ZXDG_SHELL_V6:
-      {
-        struct zxdg_positioner_v6 *positioner;
-        enum zxdg_positioner_v6_anchor anchor;
-        enum zxdg_positioner_v6_gravity gravity;
-
-        positioner = zxdg_shell_v6_create_positioner (display->zxdg_shell_v6);
-
-        zxdg_positioner_v6_set_size (positioner, geometry.width, geometry.height);
-        zxdg_positioner_v6_set_anchor_rect (positioner,
-                                            anchor_rect.x,
-                                            anchor_rect.y,
-                                            anchor_rect.width,
-                                            anchor_rect.height);
-        zxdg_positioner_v6_set_offset (positioner,
-                                       rect_anchor_dx,
-                                       rect_anchor_dy);
-
-        anchor = rect_anchor_to_anchor_legacy (rect_anchor);
-        zxdg_positioner_v6_set_anchor (positioner, anchor);
-
-        gravity = surface_anchor_to_gravity_legacy (surface_anchor);
-        zxdg_positioner_v6_set_gravity (positioner, gravity);
-
-        if (anchor_hints & GDK_ANCHOR_FLIP_X)
-          constraint_adjustment |= ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_FLIP_X;
-        if (anchor_hints & GDK_ANCHOR_FLIP_Y)
-          constraint_adjustment |= ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_FLIP_Y;
-        if (anchor_hints & GDK_ANCHOR_SLIDE_X)
-          constraint_adjustment |= ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_SLIDE_X;
-        if (anchor_hints & GDK_ANCHOR_SLIDE_Y)
-          constraint_adjustment |= ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_SLIDE_Y;
-        if (anchor_hints & GDK_ANCHOR_RESIZE_X)
-          constraint_adjustment |= ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_RESIZE_X;
-        if (anchor_hints & GDK_ANCHOR_RESIZE_Y)
-          constraint_adjustment |= ZXDG_POSITIONER_V6_CONSTRAINT_ADJUSTMENT_RESIZE_Y;
-        zxdg_positioner_v6_set_constraint_adjustment (positioner,
-                                                      constraint_adjustment);
-
-        return positioner;
-      }
-    default:
-      g_assert_not_reached ();
+      xdg_positioner_set_parent_size (positioner,
+                                      parent_geometry.width,
+                                      parent_geometry.height);
+      xdg_positioner_set_parent_configure (positioner,
+                                           parent_impl->last_configure_serial);
     }
 
-  g_assert_not_reached ();
+  return positioner;
 }
 
 static gboolean
@@ -956,31 +786,14 @@ gdk_wayland_surface_create_xdg_popup (GdkWaylandPopup *wayland_popup,
   positioner = create_dynamic_positioner (wayland_popup, width, height, layout, FALSE);
   gdk_wayland_surface_create_xdg_surface_resources (surface);
 
-  switch (display->shell_variant)
-    {
-    case GDK_WAYLAND_SHELL_VARIANT_XDG_SHELL:
-      wayland_popup->display_server.xdg_popup =
-        xdg_surface_get_popup (impl->display_server.xdg_surface,
-                               parent_impl->display_server.xdg_surface,
-                               positioner);
-      xdg_popup_add_listener (wayland_popup->display_server.xdg_popup,
-                              &xdg_popup_listener,
-                              wayland_popup);
-      xdg_positioner_destroy (positioner);
-      break;
-    case GDK_WAYLAND_SHELL_VARIANT_ZXDG_SHELL_V6:
-      wayland_popup->display_server.zxdg_popup_v6 =
-        zxdg_surface_v6_get_popup (impl->display_server.zxdg_surface_v6,
-                                   parent_impl->display_server.zxdg_surface_v6,
-                                   positioner);
-      zxdg_popup_v6_add_listener (wayland_popup->display_server.zxdg_popup_v6,
-                                  &zxdg_popup_v6_listener,
-                                  wayland_popup);
-      zxdg_positioner_v6_destroy (positioner);
-      break;
-    default:
-      g_assert_not_reached ();
-    }
+  wayland_popup->display_server.xdg_popup =
+    xdg_surface_get_popup (impl->display_server.xdg_surface,
+                           parent_impl->display_server.xdg_surface,
+                           positioner);
+  xdg_popup_add_listener (wayland_popup->display_server.xdg_popup,
+                          &xdg_popup_listener,
+                          wayland_popup);
+  xdg_positioner_destroy (positioner);
 
   wayland_popup->received_reposition_token = 0;
   wayland_popup->reposition_token = 0;
@@ -999,17 +812,7 @@ gdk_wayland_surface_create_xdg_popup (GdkWaylandPopup *wayland_popup,
       seat = gdk_wayland_seat_get_wl_seat (GDK_SEAT (grab_input_seat));
       serial = _gdk_wayland_seat_get_last_implicit_grab_serial (grab_input_seat, NULL);
 
-      switch (display->shell_variant)
-        {
-        case GDK_WAYLAND_SHELL_VARIANT_XDG_SHELL:
-          xdg_popup_grab (wayland_popup->display_server.xdg_popup, seat, serial);
-          break;
-        case GDK_WAYLAND_SHELL_VARIANT_ZXDG_SHELL_V6:
-          zxdg_popup_v6_grab (wayland_popup->display_server.zxdg_popup_v6, seat, serial);
-          break;
-        default:
-          g_assert_not_reached ();
-        }
+      xdg_popup_grab (wayland_popup->display_server.xdg_popup, seat, serial);
     }
 
   gdk_profiler_add_mark (GDK_PROFILER_CURRENT_TIME, 0, "Wayland surface commit", NULL);

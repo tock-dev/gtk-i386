@@ -31,6 +31,7 @@
 #include <gdk/gdktypes.h>
 #include <gdk/gdkdevice.h>
 #include <gdk/gdkevents.h>
+#include <gdk/gdktoplevel.h>
 
 G_BEGIN_DECLS
 
@@ -96,6 +97,12 @@ GdkContentProvider *
 
 GDK_AVAILABLE_IN_ALL
 GdkSurface *    gdk_drag_get_surface (GdkDrag *drag);
+
+GDK_AVAILABLE_IN_4_20
+gboolean        gdk_drag_attach_toplevel (GdkDrag     *drag,
+                                          GdkToplevel *toplevel,
+                                          int          x,
+                                          int          y);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(GdkDrag, g_object_unref)
 

@@ -48,6 +48,11 @@ struct _GdkDragClass {
 
   gboolean    (*handle_event)   (GdkDrag  *drag,
                                  GdkEvent  *event);
+
+  gboolean    (*attach_toplevel) (GdkDrag     *drag,
+                                  GdkToplevel *toplevel,
+                                  int          x,
+                                  int          y);
 };
 
 struct _GdkDrag {

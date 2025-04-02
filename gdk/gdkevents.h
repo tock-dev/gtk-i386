@@ -31,7 +31,7 @@
 #include <gdk/gdktypes.h>
 #include <gdk/gdkdevice.h>
 #include <gdk/gdkdevicetool.h>
-#include <gdk/gdkdrag.h>
+//#include <gdk/gdkdrag.h>
 
 G_BEGIN_DECLS
 

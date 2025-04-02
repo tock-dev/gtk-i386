@@ -2427,6 +2427,12 @@ gdk_wayland_toplevel_get_gtk_surface (GdkWaylandToplevel *wayland_toplevel)
   return wayland_toplevel->display_server.gtk_surface;
 }
 
+struct xdg_toplevel *
+gdk_wayland_toplevel_get_xdg_toplevel (GdkWaylandToplevel *wayland_toplevel)
+{
+  return wayland_toplevel->display_server.xdg_toplevel;
+}
+
 static void
 maybe_set_gtk_surface_dbus_properties (GdkWaylandToplevel *wayland_toplevel)
 {

@@ -78,6 +78,7 @@ struct _GdkDragPrivate {
   GdkDevice *device;
   GdkContentFormats *formats;
   GdkContentProvider *content;
+  GdkToplevel *attached;
 
   GdkDragAction actions;
   GdkDragAction selected_action;
@@ -817,4 +818,39 @@ gboolean
 gdk_drag_action_is_unique (GdkDragAction action)
 {
   return (action & (action - 1)) == 0;
+}
+
+/**
+ * gdk_drag_attach_toplevel:
+ * @drag: the drag object
+ * @toplevel: the toplevel to attach
+ * @x: X offset
+ * @y: Y offset
+ *
+ * Attaches a `GdkToplevel` to an ongoing drag operation.
+ *
+ * The toplevel will be placed with its @x, @y offset
+ * at the pointer position, and will henceforth be moved
+ * along with the pointer, until either the drag operation
+ * ends, or the toplevel is unmapped.
+ *
+ * Only one toplevel at a time can be attached to a drag operation.
+ *
+ * Returns: true if the toplevel has been successfully attached.
+ *
+ * Since: 4.20
+ */
+gboolean
+gdk_drag_attach_toplevel (GdkDrag     *drag,
+                          GdkToplevel *toplevel,
+                          int          x,
+                          int          y)
+{
+  g_return_val_if_fail (GDK_IS_DRAG (drag), FALSE);
+  g_return_val_if_fail (GDK_IS_TOPLEVEL (toplevel), FALSE);
+
+  if (GDK_DRAG_GET_CLASS (drag)->attach_toplevel)
+    return GDK_DRAG_GET_CLASS (drag)->attach_toplevel (drag, toplevel, x, y);
+
+  return FALSE;
 }

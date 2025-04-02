@@ -23,6 +23,7 @@
 #error "Only <gdk/gdk.h> can be included directly."
 #endif
 
+#include <gdk/gdkevents.h>
 #include <gdk/gdkseat.h>
 #include <gdk/gdksurface.h>
 #include <gdk/gdktoplevellayout.h>

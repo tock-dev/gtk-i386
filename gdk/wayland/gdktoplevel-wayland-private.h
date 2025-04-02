@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "gdkwaylandtoplevel.h"
 #include "gdksurfaceprivate.h"
 
 void gdk_wayland_toplevel_set_geometry_hints      (GdkWaylandToplevel *toplevel,
@@ -25,6 +26,9 @@ void gdk_wayland_toplevel_set_geometry_hints      (GdkWaylandToplevel *toplevel,
 
 struct gtk_surface1 *
      gdk_wayland_toplevel_get_gtk_surface         (GdkWaylandToplevel *wayland_toplevel);
+
+struct xdg_toplevel *
+     gdk_wayland_toplevel_get_xdg_toplevel        (GdkWaylandToplevel *wayland_toplevel);
 
 void gdk_wayland_toplevel_set_dbus_properties     (GdkToplevel *toplevel,
                                                    const char  *application_id,

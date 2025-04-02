@@ -123,6 +123,7 @@
 #define CURSOR_SHAPE_VERSION            1
 #define GTK_SHELL1_VERSION              6
 #define XDG_WM_DIALOG_VERSION           1
+#define XDG_TOPLEVEL_DRAG_VERSION       1
 
 #ifdef HAVE_TOPLEVEL_STATE_SUSPENDED
 #define XDG_WM_BASE_VERSION             6
@@ -680,6 +681,12 @@ gdk_registry_handle_global (void               *data,
         wl_registry_bind (display_wayland->wl_registry, id,
                           &wp_cursor_shape_manager_v1_interface, CURSOR_SHAPE_VERSION);
     }
+  else if (match_global (display_wayland, interface, version, xdg_toplevel_drag_manager_v1_interface.name, 0))
+    {
+      display_wayland->toplevel_drag =
+        wl_registry_bind (display_wayland->wl_registry, id,
+                          &xdg_toplevel_drag_manager_v1_interface, XDG_TOPLEVEL_DRAG_VERSION);
+    }
 
   g_hash_table_insert (display_wayland->known_globals,
                        GUINT_TO_POINTER (id), g_strdup (interface));
@@ -866,6 +873,7 @@ gdk_wayland_display_dispose (GObject *object)
   g_clear_pointer (&display_wayland->dmabuf_formats_info, dmabuf_formats_info_free);
   g_clear_pointer (&display_wayland->color, gdk_wayland_color_free);
   g_clear_pointer (&display_wayland->system_bell, xdg_system_bell_v1_destroy);
+  g_clear_pointer (&display_wayland->toplevel_drag, xdg_toplevel_drag_manager_v1_destroy);
 
   g_clear_pointer (&display_wayland->shm, wl_shm_destroy);
   g_clear_pointer (&display_wayland->wl_registry, wl_registry_destroy);

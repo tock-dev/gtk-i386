@@ -27,6 +27,7 @@
 #include "gdkdragsurface-wayland.h"
 #include "gdksurface-wayland-private.h"
 #include "gdkdevice-wayland-private.h"
+#include "gdktoplevel-wayland-private.h"
 
 #include "gdkdeviceprivate.h"
 
@@ -54,6 +55,7 @@ struct _GdkWaylandDrag
   GdkSurface *dnd_surface;
   struct wl_data_source *data_source;
   struct wl_data_offer *offer;
+  struct xdg_toplevel_drag_v1 *toplevel_drag;
   uint32_t serial;
   int hot_x;
   int hot_y;
@@ -83,6 +85,7 @@ gdk_wayland_drag_finalize (GObject *object)
 
   g_clear_pointer (&wayland_drag->data_source, wl_data_source_destroy);
   g_clear_pointer (&wayland_drag->offer, wl_data_offer_destroy);
+  g_clear_pointer (&wayland_drag->toplevel_drag, xdg_toplevel_drag_v1_destroy);
 
   dnd_surface = wayland_drag->dnd_surface;
 
@@ -197,6 +200,26 @@ gdk_wayland_drag_drop_done (GdkDrag  *drag,
     }
 }
 
+static gboolean
+gdk_wayland_drag_attach_toplevel (GdkDrag     *drag,
+                                  GdkToplevel *toplevel,
+                                  int          x,
+                                  int          y)
+{
+  GdkWaylandDrag *drag_wayland = GDK_WAYLAND_DRAG (drag);
+  GdkWaylandToplevel *toplevel_wayland = GDK_WAYLAND_TOPLEVEL (toplevel);
+  struct xdg_toplevel *xdg_toplevel;
+
+  xdg_toplevel = gdk_wayland_toplevel_get_xdg_toplevel (toplevel_wayland);
+
+  if (drag_wayland->toplevel_drag == NULL || xdg_toplevel == NULL)
+    return FALSE;
+
+  xdg_toplevel_drag_v1_attach (drag_wayland->toplevel_drag, xdg_toplevel, x, y);
+
+  return TRUE;
+}
+
 static void
 gdk_wayland_drag_class_init (GdkWaylandDragClass *klass)
 {
@@ -211,6 +234,7 @@ gdk_wayland_drag_class_init (GdkWaylandDragClass *klass)
   drag_class->update_cursor = gdk_wayland_drag_update_cursor;
   drag_class->drop_performed = gdk_wayland_drag_drop_performed;
   drag_class->cancel = gdk_wayland_drag_cancel;
+  drag_class->attach_toplevel = gdk_wayland_drag_attach_toplevel;
 }
 
 static inline GdkDragAction
@@ -387,8 +411,10 @@ _gdk_wayland_surface_drag_begin (GdkSurface         *surface,
   GdkDrag *drag;
   GdkSeat *seat;
   GdkDisplay *display;
+  GdkWaylandDisplay *display_wayland;
 
   display = gdk_device_get_display (device);
+  display_wayland = GDK_WAYLAND_DISPLAY (display);
   seat = gdk_device_get_seat (device);
 
   drag_wayland = g_object_new (GDK_TYPE_WAYLAND_DRAG,
@@ -406,8 +432,11 @@ _gdk_wayland_surface_drag_begin (GdkSurface         *surface,
 
   gdk_wayland_drag_create_data_source (drag);
 
-  if (wl_data_device_manager_get_version (GDK_WAYLAND_DISPLAY (display)->data_device_manager) >= WL_DATA_SOURCE_SET_ACTIONS_SINCE_VERSION)
+  if (wl_data_device_manager_get_version (display_wayland->data_device_manager) >= WL_DATA_SOURCE_SET_ACTIONS_SINCE_VERSION)
     wl_data_source_set_actions (drag_wayland->data_source, gdk_to_wl_actions (actions));
+
+  if (display_wayland->toplevel_drag)
+    drag_wayland->toplevel_drag = xdg_toplevel_drag_manager_v1_get_xdg_toplevel_drag (display_wayland->toplevel_drag, drag_wayland->data_source);
 
   gdk_wayland_seat_set_drag (seat, drag);
 

@@ -1219,7 +1219,8 @@ calendar_select_and_focus_day (GtkCalendar *calendar,
                                     day,
                                     0, 0, 0);
 
-  calendar_select_day_internal (calendar, new_date, TRUE);
+  calendar_select_day_internal (calendar, new_date, FALSE);
+  g_signal_emit (calendar, gtk_calendar_signals[DAY_SELECTED_SIGNAL], 0);
   g_date_time_unref (new_date);
 }
 

@@ -19,6 +19,7 @@ void       gsk_get_glyph_string_extents (PangoGlyphString *glyphs,
                                          PangoRectangle   *ink_rect);
 
 cairo_hint_style_t gsk_font_get_hint_style (PangoFont *font);
+unsigned int gsk_get_subpixel_resolution (void);
 
 G_END_DECLS
 

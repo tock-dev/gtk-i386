@@ -3096,16 +3096,15 @@ gsk_gpu_node_processor_add_glyph_node (GskGpuNodeProcessor *self,
   graphene_point_t offset;
   guint i, num_glyphs;
   float scale;
-  float align_scale_x, align_scale_y;
-  float inv_align_scale_x, inv_align_scale_y;
-  unsigned int flags_mask;
+  float align_scale;
+  float inv_align_scale;
   const float inv_pango_scale = 1.f / PANGO_SCALE;
-  cairo_hint_style_t hint_style;
   const GdkColor *color;
   GdkColorState *alt;
   GskGpuColorStates color_states;
   GdkColor color2;
   GskGpuShaderClip node_clip;
+  unsigned int resolution, mask;
 
   if (self->opacity < 1.0 &&
       gsk_text_node_has_color_glyphs (node))
@@ -3120,7 +3119,6 @@ gsk_gpu_node_processor_add_glyph_node (GskGpuNodeProcessor *self,
   glyphs = gsk_text_node_get_glyphs (node, NULL);
   font = gsk_text_node_get_font (node);
   offset = *gsk_text_node_get_offset (node);
-  hint_style = gsk_text_node_get_font_hint_style (node);
   color = gsk_text_node_get_color2 (node);
 
   alt = gsk_gpu_color_states_find (self->ccs, color);
@@ -3134,20 +3132,11 @@ gsk_gpu_node_processor_add_glyph_node (GskGpuNodeProcessor *self,
 
   scale = MAX (graphene_vec2_get_x (&self->scale), graphene_vec2_get_y (&self->scale));
 
-  if (hint_style != CAIRO_HINT_STYLE_NONE)
-    {
-      align_scale_x = scale * 4;
-      align_scale_y = scale;
-      flags_mask = 3;
-    }
-  else
-    {
-      align_scale_x = align_scale_y = scale * 4;
-      flags_mask = 15;
-    }
+  resolution = gsk_get_subpixel_resolution ();
+  mask = resolution - 1;
 
-  inv_align_scale_x = 1 / align_scale_x;
-  inv_align_scale_y = 1 / align_scale_y;
+  align_scale = scale * resolution;
+  inv_align_scale = 1 / align_scale;
 
   for (i = 0; i < num_glyphs; i++)
     {
@@ -3160,11 +3149,11 @@ gsk_gpu_node_processor_add_glyph_node (GskGpuNodeProcessor *self,
       glyph_origin = GRAPHENE_POINT_INIT (offset.x + glyphs[i].geometry.x_offset * inv_pango_scale,
                                           offset.y + glyphs[i].geometry.y_offset * inv_pango_scale);
 
-      glyph_origin.x = floorf (glyph_origin.x * align_scale_x + 0.5f);
-      glyph_origin.y = floorf (glyph_origin.y * align_scale_y + 0.5f);
-      flags = (((int) glyph_origin.x & 3) | (((int) glyph_origin.y & 3) << 2)) & flags_mask;
-      glyph_origin.x *= inv_align_scale_x;
-      glyph_origin.y *= inv_align_scale_y;
+      glyph_origin.x = floorf (glyph_origin.x * align_scale + 0.5f);
+      glyph_origin.y = floorf (glyph_origin.y * align_scale + 0.5f);
+      flags = (((int) glyph_origin.x & mask) | (((int) glyph_origin.y & mask) << 4)) | (resolution << 16);
+      glyph_origin.x *= inv_align_scale;
+      glyph_origin.y *= inv_align_scale;
 
       image = gsk_gpu_cache_lookup_glyph_image (cache,
                                                  self->frame,

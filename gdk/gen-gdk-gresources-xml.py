@@ -59,6 +59,8 @@ xml = '''<?xml version='1.0' encoding='UTF-8'?>
     <file alias='cursor/w-resize'>cursors/w_resize_cursor.png</file>
     <file alias='cursor/zoom-in'>cursors/zoom_in_cursor.png</file>
     <file alias='cursor/zoom_out'>cursors/zoom_out_cursor.png</file>
+    <file alias='cursor/red-dot'>cursors/red-dot.png</file>
+    <file alias='cursor/large-red-dot'>cursors/large-red-dot.png</file>
 '''
 
 def get_files(subdir,extension):

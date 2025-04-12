@@ -1853,6 +1853,247 @@ static const struct wl_touch_listener touch_listener = {
 };
 
 /* }}} */
+/* {{{ Emulated touch pointer listener */
+
+static guint emulated_touch_sequence;
+static gboolean emulated_touch_state;
+static double emulated_touch_x;
+static double emulated_touch_y;
+
+static GdkSurface *emulated_touch_surface;
+static GdkCursor *emulated_touch_cursor;
+static GdkCursor *emulated_touch_cursor2;
+
+static GdkCursor *
+get_emulated_touch_cursor (gboolean state)
+{
+  if (emulated_touch_cursor == NULL)
+    {
+      GdkTexture *texture;
+
+      texture = gdk_texture_new_from_resource ("/org/gtk/libgdk/cursor/red-dot");
+      emulated_touch_cursor = gdk_cursor_new_from_texture (texture, 4, 4, NULL);
+      g_object_unref (texture);
+
+      texture = gdk_texture_new_from_resource ("/org/gtk/libgdk/cursor/large-red-dot");
+      emulated_touch_cursor2 = gdk_cursor_new_from_texture (texture, 6, 6, NULL);
+      g_object_unref (texture);
+    }
+
+  return state ? emulated_touch_cursor2 : emulated_touch_cursor;
+}
+
+static void
+emulated_touch_handle_enter (void              *data,
+                             struct wl_pointer *wl_pointer,
+                             uint32_t           serial,
+                             struct wl_surface *surface,
+                             wl_fixed_t         sx,
+                             wl_fixed_t         sy)
+{
+  GdkWaylandSeat *seat = data;
+  GdkWaylandPointerData *pointer;
+
+  if (!surface)
+    return;
+
+  if (!GDK_IS_SURFACE (wl_surface_get_user_data (surface)))
+    return;
+
+  emulated_touch_x = wl_fixed_to_double (sx);
+  emulated_touch_y = wl_fixed_to_double (sy);
+
+  emulated_touch_state = 0;
+
+  pointer = gdk_wayland_device_get_pointer (GDK_WAYLAND_DEVICE (seat->logical_touch));
+  g_set_object (&emulated_touch_surface, wl_surface_get_user_data (surface));;
+
+  g_set_object (&pointer->cursor, get_emulated_touch_cursor (0));
+  pointer->cursor_is_default = FALSE;
+  gdk_wayland_device_update_surface_cursor (seat->logical_touch);
+}
+
+static void
+emulated_touch_handle_leave (void              *data,
+                             struct wl_pointer *pointer,
+                             uint32_t           serial,
+                             struct wl_surface *surface)
+{
+  GdkWaylandSeat *seat = data;
+
+  g_clear_object (&emulated_touch_surface);
+  seat->touch_info.has_cursor_surface = FALSE;
+}
+
+static void
+emulated_touch_handle_motion (void              *data,
+                              struct wl_pointer *wl_pointer,
+                              uint32_t           time,
+                              wl_fixed_t         sx,
+                              wl_fixed_t         sy)
+{
+  GdkWaylandSeat *seat = data;
+  GdkWaylandTouchData *touch;
+  GdkEvent *event;
+
+  emulated_touch_x = wl_fixed_to_double (sx);
+  emulated_touch_y = wl_fixed_to_double (sy);
+
+  touch = gdk_wayland_seat_get_touch (seat, emulated_touch_sequence);
+  if (!touch)
+    return;
+
+  touch->x = emulated_touch_x;
+  touch->y = emulated_touch_x;
+
+  event = gdk_touch_event_new (GDK_TOUCH_UPDATE,
+                               GDK_SLOT_TO_EVENT_SEQUENCE (touch->id),
+                               touch->surface,
+                               seat->logical_touch,
+                               time,
+                               gdk_wayland_device_get_modifiers (seat->logical_touch),
+                               touch->x, touch->y,
+                               NULL,
+                               FALSE);
+
+  _gdk_wayland_display_deliver_event (seat->display, event);
+}
+
+static void
+emulated_touch_handle_button (void              *data,
+                              struct wl_pointer *wl_pointer,
+                              uint32_t           serial,
+                              uint32_t           time,
+                              uint32_t           button,
+                              uint32_t           state)
+{
+  GdkWaylandSeat *seat = data;
+  GdkWaylandPointerData *pointer;
+  GdkWaylandTouchData *touch;
+  GdkEvent *event;
+
+  if (button != BTN_LEFT)
+    return;
+
+  if (state == emulated_touch_state)
+    return;
+
+  emulated_touch_state = state;
+
+  if (state)
+    emulated_touch_sequence++;
+
+  pointer = gdk_wayland_device_get_pointer (GDK_WAYLAND_DEVICE (seat->logical_touch));
+  g_set_object (&pointer->cursor, get_emulated_touch_cursor (state));
+  pointer->cursor_is_default = FALSE;
+  gdk_wayland_device_update_surface_cursor (seat->logical_touch);
+
+  if (state)
+    {
+      struct wl_surface *surface;
+
+      surface = GDK_WAYLAND_SURFACE (emulated_touch_surface)->display_server.wl_surface;
+      touch = gdk_wayland_seat_add_touch (seat, emulated_touch_sequence, surface);
+      touch->x = emulated_touch_x;
+      touch->y = emulated_touch_y;
+      touch->touch_down_serial = serial;
+      seat->latest_touch_down_serial = serial;
+    }
+  else
+    {
+      touch = gdk_wayland_seat_get_touch (seat, emulated_touch_sequence);
+      if (!touch)
+        return;
+    }
+
+  seat->touch_info.time = time;
+  if (state)
+    seat->touch_info.press_serial = serial;
+
+  event = gdk_touch_event_new (emulated_touch_state ? GDK_TOUCH_BEGIN : GDK_TOUCH_END,
+                               GDK_SLOT_TO_EVENT_SEQUENCE (touch->id),
+                               touch->surface,
+                               seat->logical_touch,
+                               time,
+                               gdk_wayland_device_get_modifiers (seat->logical_touch),
+                               touch->x, touch->y,
+                               NULL,
+                               state);
+
+  if (touch->initial_touch)
+    {
+      touch_handle_logical_pointer_crossing (seat, touch, time);
+      gdk_wayland_device_set_emulating_touch (GDK_WAYLAND_DEVICE (seat->logical_touch),
+                                              touch);
+      mimic_pointer_emulating_touch_info (seat->logical_touch, touch);
+    }
+
+  _gdk_wayland_display_deliver_event (seat->display, event);
+
+  if (!state)
+    gdk_wayland_seat_remove_touch (seat, emulated_touch_sequence);
+}
+
+static void
+emulated_touch_handle_axis (void              *data,
+                            struct wl_pointer *pointer,
+                            uint32_t           time,
+                            uint32_t           axis,
+                            wl_fixed_t         value)
+{
+}
+
+static void
+emulated_touch_handle_frame (void              *data,
+                             struct wl_pointer *pointer)
+{
+}
+
+static void
+emulated_touch_handle_axis_source (void                        *data,
+                                   struct wl_pointer           *pointer,
+                                   enum wl_pointer_axis_source  source)
+{
+}
+
+static void
+emulated_touch_handle_axis_stop (void              *data,
+                                 struct wl_pointer *pointer,
+                                 uint32_t           time,
+                                 uint32_t           axis)
+{
+}
+
+static void
+emulated_touch_handle_axis_discrete (void              *data,
+                                     struct wl_pointer *pointer,
+                                     uint32_t           axis,
+                                     int32_t            value)
+{
+}
+
+static void
+emulated_touch_handle_axis_value120 (void              *data,
+                                     struct wl_pointer *pointer,
+                                     uint32_t           axis,
+                                     int32_t            value)
+{
+}
+
+static const struct wl_pointer_listener emulated_touch_listener = {
+  emulated_touch_handle_enter,
+  emulated_touch_handle_leave,
+  emulated_touch_handle_motion,
+  emulated_touch_handle_button,
+  emulated_touch_handle_axis,
+  emulated_touch_handle_frame,
+  emulated_touch_handle_axis_source,
+  emulated_touch_handle_axis_stop,
+  emulated_touch_handle_axis_discrete,
+  emulated_touch_handle_axis_value120,
+};
+
+/* }}} */
 /* {{{ Swipe gesture listener */
 
 static void
@@ -2340,12 +2581,24 @@ seat_handle_capabilities (void                    *data,
 {
   GdkWaylandSeat *seat = data;
   GdkWaylandDisplay *display_wayland = GDK_WAYLAND_DISPLAY (seat->display);
+  gboolean emulating_touch = FALSE;
 
   GDK_SEAT_DEBUG (seat, MISC,
                   "seat %p with %s%s%s", wl_seat,
                   (caps & WL_SEAT_CAPABILITY_POINTER) ? " pointer, " : "",
                   (caps & WL_SEAT_CAPABILITY_KEYBOARD) ? " keyboard, " : "",
                   (caps & WL_SEAT_CAPABILITY_TOUCH) ? " touch" : "");
+
+  if (GDK_DISPLAY_DEBUG_CHECK (seat->display, TOUCH))
+    {
+      if ((caps & (WL_SEAT_CAPABILITY_POINTER|WL_SEAT_CAPABILITY_TOUCH)) == WL_SEAT_CAPABILITY_POINTER)
+        {
+          caps &= ~WL_SEAT_CAPABILITY_POINTER;
+          emulating_touch = TRUE;
+        }
+
+      gdk_debug_message ("%s", emulating_touch ? "emulating touch" : "not emulating touch");
+    }
 
   if ((caps & WL_SEAT_CAPABILITY_POINTER) && !seat->wl_pointer)
     {
@@ -2506,6 +2759,40 @@ seat_handle_capabilities (void                    *data,
 
       g_clear_object (&seat->logical_touch);
       g_clear_object (&seat->touch);
+    }
+
+  if (emulating_touch)
+    {
+      g_assert (seat->pointer == NULL);
+      g_assert (seat->touch == NULL);
+
+      seat->wl_pointer = wl_seat_get_pointer (wl_seat);
+      wl_pointer_set_user_data (seat->wl_pointer, seat);
+      wl_pointer_add_listener (seat->wl_pointer, &emulated_touch_listener, seat);
+
+      seat->logical_touch = g_object_new (GDK_TYPE_WAYLAND_DEVICE,
+                                         "name", "Wayland Emulated Logical Touch",
+                                         "source", GDK_SOURCE_TOUCHSCREEN,
+                                         "has-cursor", TRUE,
+                                         "display", seat->display,
+                                         "seat", seat,
+                                         NULL);
+      init_pointer_data (&seat->touch_info, seat->display, seat->logical_touch);
+
+      gdk_wayland_device_set_pointer (GDK_WAYLAND_DEVICE (seat->logical_touch),
+                                      &seat->touch_info);
+      _gdk_device_set_associated_device (seat->logical_touch, seat->logical_keyboard);
+      gdk_seat_device_added (GDK_SEAT (seat), seat->logical_touch);
+
+      seat->touch = g_object_new (GDK_TYPE_WAYLAND_DEVICE,
+                                  "name", "Wayland Emulated Touch",
+                                  "source", GDK_SOURCE_TOUCHSCREEN,
+                                  "has-cursor", FALSE,
+                                  "display", seat->display,
+                                  "seat", seat,
+                                  NULL);
+      _gdk_device_set_associated_device (seat->touch, seat->logical_touch);
+      gdk_seat_device_added (GDK_SEAT (seat), seat->touch);
     }
 }
 

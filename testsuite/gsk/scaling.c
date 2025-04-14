@@ -1,7 +1,8 @@
+#include "config.h"
+
 #include <gtk/gtk.h>
 
-#define N 10
-
+#include "gdk/gdkmemoryformatprivate.h"
 #include "gsk/gl/fp16private.h"
 #include "testsuite/gdk/gdktestutils.h"
 
@@ -136,11 +137,11 @@ create_random_color_for_format (GdkRGBA *color,
       create_random_color (color);
     }
   while (color->alpha == 0 &&
-         gdk_memory_format_is_premultiplied (format));
+         gdk_memory_format_alpha (format) == GDK_MEMORY_ALPHA_PREMULTIPLIED);
 
   /* If the format can't handle alpha, make things opaque
    */
-  if (!gdk_memory_format_has_alpha (format))
+  if (gdk_memory_format_alpha (format) == GDK_MEMORY_ALPHA_OPAQUE)
     color_make_opaque (color, color);
 
   /* If the format has fewer color channels than the
@@ -188,6 +189,9 @@ create_stipple_texture (GdkMemoryFormat  format,
   TextureBuilder builder;
   GdkTexture *texture;
   int x, y;
+  /* large enough */
+  float data[4 * 4 * 4];
+  GdkMemoryLayout layout;
 
   *average = (GdkRGBA) { 0, 0, 0, 0 };
 
@@ -196,7 +200,7 @@ create_stipple_texture (GdkMemoryFormat  format,
       for (x = 0; x < 2; x++)
         {
           create_random_color_for_format (&colors[x][y], format);
-          if (gdk_memory_format_has_alpha (format))
+          if (gdk_memory_format_alpha (format) != GDK_MEMORY_ALPHA_OPAQUE)
             colors[x][y].alpha *= 16.f/17.f;
           else
             {
@@ -229,12 +233,33 @@ create_stipple_texture (GdkMemoryFormat  format,
       g_assert_cmpfloat (average->blue, ==, 0.0f);
     }
 
-  texture_builder_init (&builder, format, width, height);
-  for (y = 0; y < height; y++)
+  for (y = 0; y < 4; y++)
     {
-      for (x = 0; x < width; x++)
+      for (x = 0; x < 4; x++)
         {
-          texture_builder_set_pixel (&builder, x, y, &colors[x % 2][y % 2]);
+          data[4 * (4 * y + x) + 0] = colors[x % 2][y % 2].red;
+          data[4 * (4 * y + x) + 1] = colors[x % 2][y % 2].green;
+          data[4 * (4 * y + x) + 2] = colors[x % 2][y % 2].blue;
+          data[4 * (4 * y + x) + 3] = colors[x % 2][y % 2].alpha;
+        }
+    }
+  gdk_memory_layout_init (&layout,
+                          GDK_MEMORY_R32G32B32A32_FLOAT,
+                          4,
+                          4,
+                          1);
+  layout.width = MIN (width, layout.width);
+  layout.height = MIN (height, layout.height);
+
+  texture_builder_init (&builder, format, width, height);
+  for (y = 0; y < height; y += layout.height)
+    {
+      for (x = 0; x < width; x += layout.width)
+        {
+          texture_builder_draw_data (&builder,
+                                     x, y,
+                                     (guchar *) data,
+                                     &layout);
         }
     }
   texture = texture_builder_finish (&builder);
@@ -277,6 +302,9 @@ test_linear_filtering (gconstpointer data,
 
   decode_renderer_format (data, &renderer, &format);
 
+  width = MAX (width, gdk_memory_format_get_block_width (format));
+  height = MAX (height, gdk_memory_format_get_block_height (format));
+
   input = create_stipple_texture (format, width, height, colors, &average_color);
   node = gsk_texture_scale_node_new (input, &GRAPHENE_RECT_INIT (0, 0, width / 2, height / 2), GSK_SCALING_FILTER_LINEAR);
   output = gsk_renderer_render_texture (renderer, node, NULL);
@@ -302,10 +330,14 @@ test_mipmaps (gconstpointer data)
   GskRenderNode *node;
   GdkRGBA colors[2][2];
   GdkRGBA average_color;
+  gsize width, height;
 
   decode_renderer_format (data, &renderer, &format);
 
-  input = create_stipple_texture (format, 2, 2, colors, &average_color);
+  width = MAX (2, gdk_memory_format_get_block_width (format));
+  height = MAX (2, gdk_memory_format_get_block_height (format));
+
+  input = create_stipple_texture (format, width, height, colors, &average_color);
   node = gsk_texture_scale_node_new (input, &GRAPHENE_RECT_INIT (0, 0, 1, 1), GSK_SCALING_FILTER_TRILINEAR);
   output = gsk_renderer_render_texture (renderer, node, NULL);
   expected = create_solid_color_texture (gdk_texture_get_format (output), 1, 1, &average_color);

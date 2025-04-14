@@ -1,11 +1,15 @@
+#include "config.h"
+
 #include <gtk/gtk.h>
 
-#include <epoxy/gl.h>
-
+#include "gdk/gdktexturedownloaderprivate.h"
+#include "gdk/gdkmemoryformatprivate.h"
+#include "gdk/gdkmemorytextureprivate.h"
 #include "gsk/gl/fp16private.h"
 #include "testsuite/gdk/gdktestutils.h"
 
-#define N 10
+
+#define N_RUNS 10
 
 static GdkGLContext *gl_context = NULL;
 static GskRenderer *gl_renderer = NULL;
@@ -107,14 +111,8 @@ gl_native_should_skip_format (GdkMemoryFormat format)
 
   gdk_gl_context_get_version (gl_context, &major, &minor);
 
-  if (major < 3)
-    {
-      g_test_skip ("GLES < 3.0 is not supported");
-      return TRUE;
-    }
-
-  if (gdk_memory_format_is_deep (format) &&
-      (major < 3 || (major == 3 && minor < 1)))
+  if (gdk_memory_format_get_depth (format, FALSE) != GDK_MEMORY_U8 &&
+      major == 3 && minor < 1)
     {
       g_test_skip ("GLES < 3.1 can't handle 16bit non-RGBA formats");
       return TRUE;
@@ -351,21 +349,20 @@ ensure_texture_format (GdkTexture      *texture,
   GdkTextureDownloader *downloader;
   GdkTexture *result;
   GBytes *bytes;
-  gsize stride;
+  GdkMemoryLayout layout;
 
   if (gdk_texture_get_format (texture) == format)
     return texture;
 
   downloader = gdk_texture_downloader_new (texture);
   gdk_texture_downloader_set_format (downloader, format);
-  bytes = gdk_texture_downloader_download_bytes (downloader, &stride);
+  bytes = gdk_texture_downloader_download_bytes_layout (downloader, &layout);
   gdk_texture_downloader_free (downloader);
 
-  result = gdk_memory_texture_new (gdk_texture_get_width (texture),
-                                   gdk_texture_get_height (texture),
-                                   format,
-                                   bytes,
-                                   stride);
+  result = gdk_memory_texture_new_from_layout (bytes,
+                                               &layout,
+                                               gdk_texture_get_color_state (texture),
+                                               NULL, NULL);
   g_bytes_unref (bytes);
   g_object_unref (texture);
 
@@ -410,15 +407,15 @@ create_random_color (GdkRGBA *color)
   int r, g, b;
   do
     {
-      r = g_test_rand_int_range (0, 6);
-      g = g_test_rand_int_range (0, 6);
-      b = g_test_rand_int_range (0, 6);
+      r = g_test_rand_int_range (0, 4);
+      g = g_test_rand_int_range (0, 4);
+      b = g_test_rand_int_range (0, 4);
     }
   while ((r + g + b) % 3 != 0);
-  color->red = r / 5.f;
-  color->green = g / 5.f;
-  color->blue = b / 5.f;
-  color->alpha = g_test_rand_int_range (0, 4) / 3.f;
+  color->red = r / 3.f;
+  color->green = g / 3.f;
+  color->blue = b / 3.f;
+  color->alpha = g_test_rand_int_range (0, 6) / 5.f;
 }
 
 static gboolean
@@ -464,6 +461,12 @@ should_skip_download_test (GdkMemoryFormat format,
   }
 }
 
+static inline gsize
+round_up (gsize number, gsize divisor)
+{
+  return (number + divisor - 1) / divisor * divisor;
+}
+
 static void
 test_download (gconstpointer data,
                unsigned int  width,
@@ -480,6 +483,9 @@ test_download (gconstpointer data,
   if (should_skip_download_test (format, method))
     return;
 
+  width = round_up (width, gdk_memory_format_get_block_width (format));
+  height = round_up (height, gdk_memory_format_get_block_height (format));
+
   for (i = 0; i < n_runs; i++)
     {
       GdkRGBA color;
@@ -488,8 +494,7 @@ test_download (gconstpointer data,
 
       /* these methods may premultiply during operation */
       if (color.alpha == 0.f &&
-          !gdk_memory_format_is_premultiplied (format) &&
-          gdk_memory_format_has_alpha (format) &&
+          gdk_memory_format_alpha (format) == GDK_MEMORY_ALPHA_STRAIGHT &&
           (method == TEXTURE_METHOD_GL_NATIVE || method == TEXTURE_METHOD_VULKAN ||
            method == TEXTURE_METHOD_GL || method == TEXTURE_METHOD_GL_RELEASED))
         color = (GdkRGBA) { 0, 0, 0, 0 };
@@ -508,7 +513,7 @@ test_download (gconstpointer data,
 static void
 test_download_1x1 (gconstpointer data)
 {
-  test_download (data, 1, 1, N);
+  test_download (data, 1, 1, N_RUNS);
 }
 
 static void
@@ -538,16 +543,22 @@ test_conversion (gconstpointer data,
   GdkTexture *test1, *test2;
   GdkRGBA color1, color2;
   gboolean accurate;
-  gsize i;
+  gsize i, block_width, block_height;
 
   decode_two_formats (data, &format1, &format2);
 
-  if (gdk_memory_format_get_channel_type (format1) == CHANNEL_FLOAT_16)
+  block_width = MAX (gdk_memory_format_get_block_width (format1),
+                     gdk_memory_format_get_block_width (format2));
+  block_height = MAX (gdk_memory_format_get_block_height (format1),
+                     gdk_memory_format_get_block_height (format2));
+
+  if (gdk_memory_format_get_channel_type (format1) == CHANNEL_FLOAT_16 ||
+      format1 == GDK_MEMORY_G10X6_B10X6R10X6_420)
     accurate = FALSE;
   else
     accurate = TRUE;
 
-  for (i = 0; i < N; i++)
+  for (i = 0; i < N_RUNS; i++)
     {
       /* non-premultiplied can represet GdkRGBA (1, 1, 1, 0)
        * but premultiplied cannot.
@@ -558,15 +569,15 @@ test_conversion (gconstpointer data,
           create_random_color (&color1);
         }
       while (color1.alpha == 0 &&
-             gdk_memory_format_is_premultiplied (format1) !=
-             gdk_memory_format_is_premultiplied (format2));
+             (gdk_memory_format_alpha (format1) == GDK_MEMORY_ALPHA_PREMULTIPLIED) !=
+             (gdk_memory_format_alpha (format2) == GDK_MEMORY_ALPHA_PREMULTIPLIED));
 
       /* If the source can't handle alpha, make sure
        * the target uses with the opaque version of the color.
        */
       color2 = color1;
-      if (!gdk_memory_format_has_alpha (format1) &&
-          gdk_memory_format_has_alpha (format2))
+      if (gdk_memory_format_alpha (format1) == GDK_MEMORY_ALPHA_OPAQUE &&
+          gdk_memory_format_alpha (format2) != GDK_MEMORY_ALPHA_OPAQUE)
         color_make_opaque (&color2, &color2);
 
       /* If the source has fewer color channels than the
@@ -581,8 +592,8 @@ test_conversion (gconstpointer data,
             color_make_white (&color2, &color2);
         }
 
-      test1 = create_texture (format1, TEXTURE_METHOD_LOCAL, 1, 1, &color1);
-      test2 = create_texture (format2, TEXTURE_METHOD_LOCAL, 1, 1, &color2);
+      test1 = create_texture (format1, TEXTURE_METHOD_LOCAL, block_width, block_height, &color1);
+      test2 = create_texture (format2, TEXTURE_METHOD_LOCAL, block_width, block_height, &color2);
 
       /* Convert the first one to the format of the 2nd */
       test1 = ensure_texture_format (test1, format2);
@@ -654,7 +665,7 @@ add_conversion_test (const char    *name,
     {
       for (format2 = 0; format2 < GDK_MEMORY_N_FORMATS; format2++)
         {
-          char *test_name = g_strdup_printf ("%s/%s/%s",
+          char *test_name = g_strdup_printf ("%s/from-%s/to-%s",
                                              name,
                                              g_enum_get_value (enum_class, format1)->value_nick,
                                              g_enum_get_value (enum_class, format2)->value_nick);

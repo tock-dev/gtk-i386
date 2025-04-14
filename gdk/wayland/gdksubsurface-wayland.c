@@ -21,7 +21,6 @@
 
 #include "gdkmemoryformatprivate.h"
 #include "gdkdisplay-wayland.h"
-#include "gdkprivate-wayland.h"
 #include "gdkdmabuftextureprivate.h"
 #include "gdksurface-wayland-private.h"
 #include "gdksubsurfaceprivate.h"
@@ -29,6 +28,7 @@
 #include "gdkglcontextprivate.h"
 #include "gdkgltextureprivate.h"
 #include "gsk/gskrectprivate.h"
+#include "gdkshm.h"
 
 #include "linux-dmabuf-unstable-v1-client-protocol.h"
 
@@ -57,48 +57,6 @@ gdk_wayland_subsurface_finalize (GObject *object)
   g_clear_pointer (&self->idle_inhibitor, zwp_idle_inhibitor_v1_destroy);
 
   G_OBJECT_CLASS (gdk_wayland_subsurface_parent_class)->finalize (object);
-}
-
-static void
-shm_buffer_release (void             *data,
-                    struct wl_buffer *buffer)
-{
-  cairo_surface_t *surface = data;
-
-  /* Note: the wl_buffer is destroyed as cairo user data */
-  cairo_surface_destroy (surface);
-}
-
-static const struct wl_buffer_listener shm_buffer_listener = {
-  shm_buffer_release,
-};
-
-static struct wl_buffer *
-get_shm_wl_buffer (GdkWaylandSubsurface *self,
-                   GdkTexture           *texture)
-{
-  GdkWaylandDisplay *display = GDK_WAYLAND_DISPLAY (gdk_surface_get_display (GDK_SUBSURFACE (self)->parent));
-  int width, height;
-  cairo_surface_t *surface;
-  GdkTextureDownloader *downloader;
-  struct wl_buffer *buffer;
-
-  width = gdk_texture_get_width (texture);
-  height = gdk_texture_get_height (texture);
-  surface = gdk_wayland_display_create_shm_surface (display, width, height);
-
-  downloader = gdk_texture_downloader_new (texture);
-
-  gdk_texture_downloader_download_into (downloader,
-                                        cairo_image_surface_get_data (surface),
-                                        cairo_image_surface_get_stride (surface));
-
-  gdk_texture_downloader_free (downloader);
-
-  buffer = _gdk_wayland_shm_surface_get_wl_buffer (surface);
-  wl_buffer_add_listener (buffer, &shm_buffer_listener, surface);
-
-  return buffer;
 }
 
 static void
@@ -159,6 +117,9 @@ get_dmabuf_wl_buffer (GdkWaylandSubsurface            *self,
   struct wl_buffer *buffer;
   CreateBufferData cd = { NULL, FALSE };
   struct wl_event_queue *event_queue;
+
+  if (display->linux_dmabuf == NULL)
+    return NULL;
 
   params = zwp_linux_dmabuf_v1_create_params (display->linux_dmabuf);
 
@@ -249,7 +210,8 @@ get_gl_texture_wl_buffer (GdkWaylandSubsurface *self,
   GLBufferData gldata;
 
   glcontext = gdk_display_get_gl_context (display);
-  if (!gdk_gl_context_is_shared (glcontext, gdk_gl_texture_get_context (gltexture)))
+  if (glcontext == NULL ||
+      !gdk_gl_context_is_shared (glcontext, gdk_gl_texture_get_context (gltexture)))
     return NULL;
 
   /* Can we avoid this when a right context is current already? */
@@ -285,7 +247,7 @@ get_wl_buffer (GdkWaylandSubsurface *self,
   if (GDK_DISPLAY_DEBUG_CHECK (display, FORCE_OFFLOAD))
     {
       if (!buffer)
-         buffer = get_shm_wl_buffer (self, texture);
+         buffer = _gdk_wayland_shm_texture_get_wl_buffer (GDK_WAYLAND_DISPLAY (display), texture);
     }
 
   return buffer;
@@ -391,6 +353,23 @@ scaled_rect_is_integral (const graphene_rect_t *rect,
          device_int.y == device_rect->origin.y &&
          device_int.width == device_rect->size.width &&
          device_int.height == device_rect->size.height;
+}
+
+static inline gboolean
+texture_has_default_color_state (GdkTexture *texture)
+{
+  GdkMemoryFormat format = gdk_texture_get_format (texture);
+  GdkColorState *color_state = gdk_texture_get_color_state (texture);
+
+  if (GDK_IS_DMABUF_TEXTURE (texture))
+    {
+      const GdkDmabuf *dmabuf = gdk_dmabuf_texture_get_dmabuf (GDK_DMABUF_TEXTURE (texture));
+
+      if (dmabuf->fourcc == gdk_memory_format_get_dmabuf_yuv_fourcc (format))
+        return gdk_color_state_equal (color_state, gdk_color_state_yuv ());
+    }
+  
+  return gdk_color_state_equal (color_state, gdk_color_state_get_srgb ());
 }
 
 static gboolean
@@ -555,6 +534,13 @@ gdk_wayland_subsurface_attach (GdkSubsurface         *sub,
     {
       GDK_DISPLAY_DEBUG (gdk_surface_get_display (sub->parent), OFFLOAD,
                          "[%p] 🗙 Texture colorstate %s not supported",
+                         self,
+                         gdk_color_state_get_name (gdk_texture_get_color_state (texture)));
+    }
+  else if (!self->color && !texture_has_default_color_state (texture))
+    {
+      GDK_DISPLAY_DEBUG (gdk_surface_get_display (sub->parent), OFFLOAD,
+                         "[%p] 🗙 Texture colorstate %s is not default and color manager not supported",
                          self,
                          gdk_color_state_get_name (gdk_texture_get_color_state (texture)));
     }

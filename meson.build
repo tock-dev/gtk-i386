@@ -1,5 +1,5 @@
 project('gtk', 'c',
-        version: '4.19.0',
+        version: '4.19.1',
         default_options: [
           'buildtype=debugoptimized',
           'warning_level=1',
@@ -24,7 +24,7 @@ harfbuzz_req       = '>= 8.4.0'
 fribidi_req        = '>= 1.0.6'
 cairo_req          = '>= 1.18.2'
 gdk_pixbuf_req     = '>= 2.30.0'
-wayland_proto_req  = '>= 1.41'
+wayland_proto_req  = '>= 1.43'
 wayland_req        = '>= 1.23.0'
 graphene_req       = '>= 1.10.0'
 epoxy_req          = '>= 1.4'
@@ -549,10 +549,6 @@ if wayland_enabled
     'xkbcommon @0@'.format(xkbcommon_req),
     'wayland-egl',
   ]
-
-  if wlprotocolsdep.version().version_compare('>=1.32')
-    cdata.set('HAVE_TOPLEVEL_STATE_SUSPENDED', 1)
-  endif
 endif
 
 x11_pkgs = []
@@ -802,6 +798,23 @@ endif
 if os_unix
   cpdb_dep = dependency('cpdb-frontend', version : '>=2.0', required: get_option('print-cpdb'))
   cups_dep = dependency('cups', version : '>=2.0', required: get_option('print-cups'))
+endif
+
+# Shell completion
+bash = find_program('bash', required : false)
+
+if bash.found()
+  bash_comp_dep = dependency('bash-completion', version: '>=2.0', required: false)
+  bash_comp_inst_dir = ''
+  if bash_comp_dep.found()
+    bash_comp_dir_override = bash_comp_dep.version().version_compare('>= 2.10') ? ['datadir', get_option('datadir')] : ['prefix', get_option('prefix')]
+    bash_comp_inst_dir = bash_comp_dep.get_variable('completionsdir', pkgconfig_define: bash_comp_dir_override)
+  endif
+
+  if bash_comp_inst_dir == ''
+    message('Found bash-completion but the .pc file did not set \'completionsdir\', fallback to a predefined path')
+    bash_comp_inst_dir = join_paths(get_option('datadir'), 'bash-completion/completions')
+  endif
 endif
 
 # Introspection

@@ -90,8 +90,6 @@
 #ifdef GDK_WINDOWING_WAYLAND
 #include "wayland/gdkwayland.h"
 #include "wayland/gdkdisplay-wayland.h"
-#include "wayland/gdksurface-wayland.h"
-#include "wayland/gdktoplevel-wayland-private.h"
 #endif
 
 #ifdef GDK_WINDOWING_MACOS
@@ -264,8 +262,10 @@ typedef struct
   guint    client_decorated          : 1; /* Decorations drawn client-side */
   guint    use_client_shadow         : 1; /* Decorations use client-side shadows */
   guint    maximized                 : 1;
+  guint    is_set_maximized          : 1;
   guint    suspended                 : 1;
   guint    fullscreen                : 1;
+  guint    is_set_fullscreen         : 1;
   guint    tiled                     : 1;
 
   guint    hide_on_close             : 1;
@@ -977,7 +977,7 @@ gtk_window_class_init (GtkWindowClass *klass)
   window_props[PROP_MAXIMIZED] =
       g_param_spec_boolean ("maximized", NULL, NULL,
                             FALSE,
-                            GTK_PARAM_READWRITE|G_PARAM_CONSTRUCT|G_PARAM_EXPLICIT_NOTIFY);
+                            GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
    * GtkWindow:fullscreened: (getter is_fullscreen)
@@ -993,7 +993,7 @@ gtk_window_class_init (GtkWindowClass *klass)
   window_props[PROP_FULLSCREENED] =
       g_param_spec_boolean ("fullscreened", NULL, NULL,
                             FALSE,
-                            GTK_PARAM_READWRITE|G_PARAM_CONSTRUCT|G_PARAM_EXPLICIT_NOTIFY);
+                            GTK_PARAM_READWRITE|G_PARAM_EXPLICIT_NOTIFY);
 
   /**
    * GtkWindow:suspended: (getter is_suspended)
@@ -3961,9 +3961,11 @@ gtk_window_present_toplevel (GtkWindow *window)
   GdkToplevelLayout *layout;
 
   layout = gtk_window_compute_base_layout (window);
-  gdk_toplevel_layout_set_maximized (layout, priv->maximized);
-  gdk_toplevel_layout_set_fullscreen (layout, priv->fullscreen,
-                                      priv->initial_fullscreen_monitor);
+  if (priv->is_set_maximized)
+    gdk_toplevel_layout_set_maximized (layout, priv->maximized);
+  if (priv->is_set_fullscreen)
+    gdk_toplevel_layout_set_fullscreen (layout, priv->fullscreen,
+                                        priv->initial_fullscreen_monitor);
   gdk_toplevel_present (GDK_TOPLEVEL (priv->surface), layout);
   gdk_toplevel_layout_unref (layout);
 }
@@ -5528,6 +5530,11 @@ gtk_window_unminimize (GtkWindow *window)
  * in which case the window will be maximized when it appears onscreen
  * initially.
  *
+ * If a window is not explicitly maximized or unmaximized before it is
+ * shown, the initial state is at the window managers discretion. For
+ * example, it might decide to maximize a window that almost fills the
+ * screen.
+ *
  * You can track the result of this operation via the
  * [property@Gdk.Toplevel:state] property, or by listening to
  * notifications on the [property@Gtk.Window:maximized]
@@ -5540,6 +5547,7 @@ gtk_window_maximize (GtkWindow *window)
 
   g_return_if_fail (GTK_IS_WINDOW (window));
 
+  priv->is_set_maximized = TRUE;
   if (_gtk_widget_get_mapped (GTK_WIDGET (window)))
     {
       GdkToplevelLayout *layout;
@@ -5566,6 +5574,11 @@ gtk_window_maximize (GtkWindow *window)
  * maximize it again, and not all window managers honor requests to
  * unmaximize.
  *
+ * If a window is not explicitly maximized or unmaximized before it is
+ * shown, the initial state is at the window managers discretion. For
+ * example, it might decide to maximize a window that almost fills the
+ * screen.
+ *
  * You can track the result of this operation via the
  * [property@Gdk.Toplevel:state] property, or by listening to
  * notifications on the [property@Gtk.Window:maximized] property.
@@ -5577,6 +5590,7 @@ gtk_window_unmaximize (GtkWindow *window)
 
   g_return_if_fail (GTK_IS_WINDOW (window));
 
+  priv->is_set_maximized = TRUE;
   if (_gtk_widget_get_mapped (GTK_WIDGET (window)))
     {
       GdkToplevelLayout *layout;
@@ -5616,6 +5630,9 @@ unset_fullscreen_monitor (GtkWindow *window)
  * unfullscreen it again, and not all window managers honor requests
  * to fullscreen windows.
  *
+ * If a window is not explicitly fullscreened or unfullscreened before
+ * it is shown, the initial state is at the window managers discretion.
+ *
  * You can track the result of this operation via the
  * [property@Gdk.Toplevel:state] property, or by listening to
  * notifications of the [property@Gtk.Window:fullscreened] property.
@@ -5629,6 +5646,7 @@ gtk_window_fullscreen (GtkWindow *window)
 
   unset_fullscreen_monitor (window);
 
+  priv->is_set_fullscreen = TRUE;
   if (_gtk_widget_get_mapped (GTK_WIDGET (window)))
     {
       GdkToplevelLayout *layout;
@@ -5677,6 +5695,7 @@ gtk_window_fullscreen_on_monitor (GtkWindow  *window,
                             G_CALLBACK (unset_fullscreen_monitor), window);
   g_object_ref (priv->initial_fullscreen_monitor);
 
+  priv->is_set_fullscreen = TRUE;
   if (_gtk_widget_get_mapped (GTK_WIDGET (window)))
     {
       GdkToplevelLayout *layout;
@@ -5706,6 +5725,9 @@ gtk_window_fullscreen_on_monitor (GtkWindow  *window,
  * window will end up restored to its normal state. Just don’t
  * write code that crashes if not.
  *
+ * If a window is not explicitly fullscreened or unfullscreened before
+ * it is shown, the initial state is at the window managers discretion.
+ *
  * You can track the result of this operation via the
  * [property@Gdk.Toplevel:state] property, or by listening to
  * notifications of the [property@Gtk.Window:fullscreened] property.
@@ -5719,6 +5741,7 @@ gtk_window_unfullscreen (GtkWindow *window)
 
   unset_fullscreen_monitor (window);
 
+  priv->is_set_fullscreen = TRUE;
   if (_gtk_widget_get_mapped (GTK_WIDGET (window)))
     {
       GdkToplevelLayout *layout;

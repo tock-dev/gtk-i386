@@ -1,8 +1,5 @@
 /*
- * Copyright (C) 2021 Red Hat, Inc
- *
- * Author:
- *      Matthias Clasen <mclasen@redhat.com>
+ * Copyright © 2025 Red Hat, Inc
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -18,18 +15,12 @@
  * License along with this library. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "config.h"
+#pragma once
 
-#include <gtk/gtk.h>
+#include <glib.h>
+#include "gdkdisplay-wayland.h"
 
-
-G_MODULE_EXPORT void
-set_icon_theme_hicolor (void)
-{
-  GtkSettings *settings;
-
-  g_test_message ("Attention: setting icon-theme to hicolor");
-
-  settings = gtk_settings_get_for_display (gdk_display_get_default ());
-  g_object_set (settings, "gtk-icon-theme-name", "hicolor", NULL);
-}
+void gdk_wayland_display_init_settings (GdkDisplay *display);
+gboolean gdk_wayland_display_get_setting (GdkDisplay *display,
+                                          const char *name,
+                                          GValue     *value);

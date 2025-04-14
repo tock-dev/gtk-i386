@@ -1,5 +1,3 @@
-subdir('cursor')
-
 gdk_wayland_sources = files([
   'gdkapplaunchcontext-wayland.c',
   'gdkcairocontext-wayland.c',
@@ -18,6 +16,8 @@ gdk_wayland_sources = files([
   'gdkmonitor-wayland.c',
   'gdkprimary-wayland.c',
   'gdkseat-wayland.c',
+  'gdksettings-wayland.c',
+  'gdkshm.c',
   'gdksurface-wayland.c',
   'gdksubsurface-wayland.c',
   'gdktoplevel-wayland.c',
@@ -161,6 +161,11 @@ proto_sources = [
     'stability': 'private',
     'version': 1,
   },
+  {
+    'name': 'xdg-toplevel-icon',
+    'stability': 'staging',
+    'version': 1,
+  },
 ]
 
 gdk_wayland_gen_headers = []
@@ -200,7 +205,6 @@ libgdk_wayland = static_library('gdk-wayland',
     '-DGTK_COMPILATION',
     '-DG_LOG_DOMAIN="Gdk"',
   ] + common_cflags,
-  link_with: [ libwayland_cursor, ],
   dependencies: [ gdk_deps, gdk_wayland_deps ],
 )
 

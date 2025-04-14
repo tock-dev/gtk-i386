@@ -90,6 +90,7 @@ gsk_gl_image_new_backbuffer (GskGLDevice    *device,
 {
   GskGLImage *self;
   GskGpuImageFlags flags;
+  GskGpuConversion conv;
   GLint swizzle[4];
   GLint gl_internal_format, gl_internal_srgb_format;
 
@@ -113,16 +114,15 @@ gsk_gl_image_new_backbuffer (GskGLDevice    *device,
         self->gl_internal_format = gl_internal_srgb_format;
       else /* FIXME: Happens when the driver uses formats that it does not expose */
         self->gl_internal_format = gl_internal_format;
-      flags |= GSK_GPU_IMAGE_SRGB;
+      conv = GSK_GPU_CONVERSION_SRGB;
     }
   else
     {
       self->gl_internal_format = gl_internal_format;
+      conv = GSK_GPU_CONVERSION_NONE;
     }
-  if (!swizzle_is_identity (swizzle))
-    flags |= GSK_GPU_IMAGE_NO_BLIT;
 
-  gsk_gpu_image_setup (GSK_GPU_IMAGE (self), flags, format, width, height);
+  gsk_gpu_image_setup (GSK_GPU_IMAGE (self), flags, conv, format, width, height);
 
   /* texture_id == 0 means backbuffer */
 
@@ -147,6 +147,7 @@ gsk_gl_image_new (GskGLDevice      *device,
   GskGLImage *self;
   GLint swizzle[4];
   GskGpuImageFlags flags;
+  GskGpuConversion conv;
   GLint gl_internal_format, gl_internal_srgb_format;
   gsize max_size;
 
@@ -170,17 +171,17 @@ gsk_gl_image_new (GskGLDevice      *device,
   if (try_srgb && gl_internal_srgb_format != -1)
     {
       self->gl_internal_format = gl_internal_srgb_format;
-      flags |= GSK_GPU_IMAGE_SRGB;
+      conv = GSK_GPU_CONVERSION_SRGB;
     }
   else
     {
       self->gl_internal_format = gl_internal_format;
+      conv = GSK_GPU_CONVERSION_NONE;
     }
-  if (!swizzle_is_identity (swizzle))
-    flags |= GSK_GPU_IMAGE_NO_BLIT;
 
   gsk_gpu_image_setup (GSK_GPU_IMAGE (self),
                        flags,
+                       conv,
                        format,
                        width, height);
 
@@ -217,7 +218,8 @@ gsk_gl_image_new_for_texture (GskGLDevice      *device,
                               GdkTexture       *owner,
                               GLuint            tex_id,
                               gboolean          take_ownership,
-                              GskGpuImageFlags  extra_flags)
+                              GskGpuImageFlags  extra_flags,
+                              GskGpuConversion  conv)
 {
   GdkMemoryFormat format, real_format;
   GskGpuImageFlags flags;
@@ -243,15 +245,19 @@ gsk_gl_image_new_for_texture (GskGLDevice      *device,
   self->gl_internal_format = gl_internal_format;
 
   if (format != real_format)
-    flags = GSK_GPU_IMAGE_NO_BLIT | 
-            (gdk_memory_format_alpha (format) == GDK_MEMORY_ALPHA_STRAIGHT ? GSK_GPU_IMAGE_STRAIGHT_ALPHA : 0);
+    {
+      flags = (gdk_memory_format_alpha (format) == GDK_MEMORY_ALPHA_STRAIGHT ? GSK_GPU_IMAGE_STRAIGHT_ALPHA : 0);
+    }
   else
-    flags &= ~(GSK_GPU_IMAGE_CAN_MIPMAP | GSK_GPU_IMAGE_MIPMAP);
-  if (!swizzle_is_identity (swizzle))
-    flags |= GSK_GPU_IMAGE_NO_BLIT;
+    {
+      flags &= ~(GSK_GPU_IMAGE_CAN_MIPMAP | GSK_GPU_IMAGE_MIPMAP);
+      if (extra_flags & GSK_GPU_IMAGE_EXTERNAL)
+        flags &= ~(GSK_GPU_IMAGE_BLIT | GSK_GPU_IMAGE_DOWNLOADABLE);
+    }
   
   gsk_gpu_image_setup (GSK_GPU_IMAGE (self),
                        flags | extra_flags,
+                       conv,
                        format,
                        gdk_texture_get_width (owner),
                        gdk_texture_get_height (owner));

@@ -3253,11 +3253,11 @@ gdk_win32_toplevel_get_property (GObject    *object,
       break;
 
     case LAST_PROP + GDK_TOPLEVEL_PROP_CAPABILITIES:
-      g_value_set_boolean (value, GDK_TOPLEVEL_CAPABILITIES_INHIBIT_SHORTCUTS |
-                                  GDK_TOPLEVEL_CAPABILITIES_WINDOW_MENU |
-                                  GDK_TOPLEVEL_CAPABILITIES_MAXIMIZE |
-                                  GDK_TOPLEVEL_CAPABILITIES_FULLSCREEN |
-                                  GDK_TOPLEVEL_CAPABILITIES_MINIMIZE);
+      g_value_set_flags (value, GDK_TOPLEVEL_CAPABILITIES_INHIBIT_SHORTCUTS |
+                                GDK_TOPLEVEL_CAPABILITIES_WINDOW_MENU |
+                                GDK_TOPLEVEL_CAPABILITIES_MAXIMIZE |
+                                GDK_TOPLEVEL_CAPABILITIES_FULLSCREEN |
+                                GDK_TOPLEVEL_CAPABILITIES_MINIMIZE);
       break;
 
     default:
@@ -3311,27 +3311,25 @@ gdk_win32_toplevel_present (GdkToplevel       *toplevel,
   compute_toplevel_size (surface, FALSE, &width, &height);
   gdk_win32_surface_resize (surface, width, height);
 
-  if (gdk_toplevel_layout_get_maximized (layout, &maximize))
+  if (gdk_toplevel_layout_get_maximized (layout, &maximize) && maximize)
     {
-      if (maximize)
-        gdk_win32_surface_maximize (surface);
-      else
-        gdk_win32_surface_unmaximize (surface);
+      gdk_win32_surface_maximize (surface);
+    }
+  else
+    {
+      gdk_win32_surface_unmaximize (surface);
     }
 
-  if (gdk_toplevel_layout_get_fullscreen (layout, &fullscreen))
+  if (gdk_toplevel_layout_get_fullscreen (layout, &fullscreen) && fullscreen)
     {
-      if (fullscreen)
-        {
-          GdkMonitor *monitor;
+      GdkMonitor *monitor;
 
-          monitor = gdk_toplevel_layout_get_fullscreen_monitor (layout);
-          gdk_win32_surface_fullscreen (surface, monitor);
-        }
-      else
-        {
-          gdk_win32_surface_unfullscreen (surface);
-        }
+      monitor = gdk_toplevel_layout_get_fullscreen_monitor (layout);
+      gdk_win32_surface_fullscreen (surface, monitor);
+    }
+  else
+    {
+      gdk_win32_surface_unfullscreen (surface);
     }
 
   gdk_win32_surface_show (surface, FALSE);

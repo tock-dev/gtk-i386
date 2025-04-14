@@ -19,12 +19,14 @@
 
 #include "gdkdragprivate.h"
 
-#include "gdkprivate-wayland.h"
 #include "gdkcontentformats.h"
 #include "gdkdisplay-wayland.h"
+#include "gdkdrop-wayland.h"
 #include <glib/gi18n-lib.h>
 #include "gdkseat-wayland.h"
+#include "gdkdragsurface-wayland.h"
 #include "gdksurface-wayland-private.h"
+#include "gdkdevice-wayland-private.h"
 
 #include "gdkdeviceprivate.h"
 
@@ -32,6 +34,8 @@
 #include <gio/gunixinputstream.h>
 #include <gio/gunixoutputstream.h>
 #include <string.h>
+
+#define WL_DATA_DEVICE_MANAGER_SET_DRAG_CURSOR_SINCE_VERSION 4
 
 #define GDK_TYPE_WAYLAND_DRAG              (gdk_wayland_drag_get_type ())
 #define GDK_WAYLAND_DRAG(object)           (G_TYPE_CHECK_INSTANCE_CAST ((object), GDK_TYPE_WAYLAND_DRAG, GdkWaylandDrag))
@@ -112,8 +116,6 @@ gdk_wayland_drag_init (GdkWaylandDrag *drag_wayland)
 
   drag = GDK_DRAG (drag_wayland);
   drags = g_list_prepend (drags, drag);
-
-  gdk_drag_set_selected_action (drag, GDK_ACTION_COPY);
 }
 
 static GdkSurface *
@@ -147,7 +149,12 @@ static void
 gdk_wayland_drag_set_cursor (GdkDrag   *drag,
                              GdkCursor *cursor)
 {
+  GdkDisplay *display = gdk_drag_get_display (drag);
+  GdkWaylandDisplay *display_wayland = GDK_WAYLAND_DISPLAY (display);
   GdkDevice *device = gdk_drag_get_device (drag);
+
+  if (wl_data_device_manager_get_version (display_wayland->data_device_manager) >= WL_DATA_DEVICE_MANAGER_SET_DRAG_CURSOR_SINCE_VERSION)
+    return;
 
   if (device != NULL)
     gdk_wayland_seat_set_global_cursor (gdk_device_get_seat (device), cursor);

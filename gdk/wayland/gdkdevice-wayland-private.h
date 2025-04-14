@@ -1,8 +1,8 @@
 #pragma once
 
+#include "gdkfractionalscale.h"
 #include "gdkwaylanddevice.h"
 #include "gdkwaylandseat.h"
-#include "gdkprivate-wayland.h"
 
 #include <gdk/gdkdeviceprivate.h>
 #include <gdk/gdkkeysprivate.h>
@@ -69,9 +69,6 @@ struct _GdkWaylandPointerData {
   guint has_cursor_surface : 1;
   guint cursor_shape;
   GdkCursor *cursor;
-  guint cursor_timeout_id;
-  guint cursor_image_index;
-  guint cursor_image_delay;
   guint touchpad_event_sequence;
 
   int32_t cursor_hotspot_x;
@@ -230,9 +227,6 @@ struct _GdkWaylandSeat
 #define GDK_TYPE_WAYLAND_DEVICE_PAD (gdk_wayland_device_pad_get_type ())
 GType gdk_wayland_device_pad_get_type (void);
 
-void gdk_wayland_seat_stop_cursor_animation (GdkWaylandSeat        *seat,
-                                             GdkWaylandPointerData *pointer);
-
 GdkWaylandPointerData * gdk_wayland_device_get_pointer (GdkWaylandDevice *wayland_device);
 
 void gdk_wayland_device_set_pointer (GdkWaylandDevice      *wayland_device,
@@ -270,7 +264,20 @@ void gdk_wayland_device_maybe_emit_grab_crossing (GdkDevice  *device,
 GdkSurface * gdk_wayland_device_maybe_emit_ungrab_crossing (GdkDevice *device,
                                                             guint32    time_);
 
-gboolean gdk_wayland_device_update_surface_cursor (GdkDevice *device);
+void gdk_wayland_device_update_surface_cursor (GdkDevice *device);
 
 GdkModifierType gdk_wayland_device_get_modifiers (GdkDevice *device);
+
+GdkKeymap *_gdk_wayland_device_get_keymap (GdkDevice *device);
+
+GdkSurface * gdk_wayland_device_get_focus (GdkDevice *device);
+
+struct wl_data_device * gdk_wayland_device_get_data_device (GdkDevice *gdk_device);
+void gdk_wayland_device_set_selection (GdkDevice             *gdk_device,
+                                       struct wl_data_source *source);
+
+GdkDrag* gdk_wayland_device_get_drop_context (GdkDevice *gdk_device);
+
+void gdk_wayland_device_unset_touch_grab (GdkDevice        *device,
+                                          GdkEventSequence *sequence);
 

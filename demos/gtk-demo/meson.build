@@ -86,7 +86,6 @@ demos = files([
   'rotated_text.c',
   'scale.c',
   'search_entry.c',
-  'search_entry2.c',
   'shadertoy.c',
   'shortcuts.c',
   'shortcut_triggers.c',
@@ -276,3 +275,11 @@ configure_file(
   configuration: appdata_config,
   install_dir: gtk_appdatadir
 )
+
+if bash.found()
+  install_data([ 'completion' ],
+    rename: [ 'gtk4-demo' ],
+    install_dir: bash_comp_inst_dir,
+    install_tag: 'bin',
+  )
+endif

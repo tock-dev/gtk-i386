@@ -2727,12 +2727,13 @@ gtk_snapshot_add_linear_gradient (GtkSnapshot            *snapshot,
       real_end_point.x = scale_x * end_point->x + dx;
       real_end_point.y = scale_y * end_point->y + dy;
 
-      node = gsk_linear_gradient_node_new2 (&real_bounds,
-                                            &real_start_point,
-                                            &real_end_point,
-                                            interpolation,
-                                            hue_interpolation,
-                                            stops, n_stops);
+      node = gsk_linear_gradient_node_new_snapped (&real_bounds,
+                                                   state->snap,
+                                                   &real_start_point,
+                                                   &real_end_point,
+                                                   interpolation,
+                                                   hue_interpolation,
+                                                   stops, n_stops);
     }
   else
     {
@@ -2855,12 +2856,13 @@ gtk_snapshot_add_repeating_linear_gradient (GtkSnapshot            *snapshot,
       real_end_point.x = scale_x * end_point->x + dx;
       real_end_point.y = scale_y * end_point->y + dy;
 
-      node = gsk_repeating_linear_gradient_node_new2 (&real_bounds,
-                                                      &real_start_point,
-                                                      &real_end_point,
-                                                      interpolation,
-                                                      hue_interpolation,
-                                                      stops, n_stops);
+      node = gsk_repeating_linear_gradient_node_new_snapped (&real_bounds,
+                                                             state->snap,
+                                                             &real_start_point,
+                                                             &real_end_point,
+                                                             interpolation,
+                                                             hue_interpolation,
+                                                             stops, n_stops);
     }
   else
     {
@@ -2977,15 +2979,18 @@ gtk_snapshot_add_conic_gradient (GtkSnapshot            *snapshot,
     }
 
   if (need_gradient)
-    node = gsk_conic_gradient_node_new2 (&real_bounds,
-                                         &GRAPHENE_POINT_INIT(
-                                           center->x + dx,
-                                           center->y + dy
-                                         ),
-                                         rotation,
-                                         interpolation,
-                                         hue_interpolation,
-                                         stops, n_stops);
+    {
+      node = gsk_conic_gradient_node_new_snapped (&real_bounds,
+                                                  state->snap,
+                                                  &GRAPHENE_POINT_INIT(
+                                                    center->x + dx,
+                                                    center->y + dy
+                                                  ),
+                                                  rotation,
+                                                  interpolation,
+                                                  hue_interpolation,
+                                                  stops, n_stops);
+    }
   else
     {
       node = gsk_color_node_new_snapped (first_color, &real_bounds, state->snap);
@@ -3046,7 +3051,7 @@ gtk_snapshot_append_radial_gradient (GtkSnapshot            *snapshot,
   g_free (stops2);
 }
 
-/*< private>
+/*< private >
  * gtk_snapshot_add_radial_gradient:
  * @snapshot: a `GtkSnapshot`
  * @bounds: the rectangle to render the readial gradient into
@@ -3109,14 +3114,15 @@ gtk_snapshot_add_radial_gradient (GtkSnapshot            *snapshot,
       real_center.x = scale_x * center->x + dx;
       real_center.y = scale_y * center->y + dy;
 
-      node = gsk_radial_gradient_node_new2 (&real_bounds,
-                                            &real_center,
-                                            hradius * scale_x,
-                                            vradius * scale_y,
-                                            start, end,
-                                            interpolation,
-                                            hue_interpolation,
-                                            stops, n_stops);
+      node = gsk_radial_gradient_node_new_snapped (&real_bounds,
+                                                   state->snap,
+                                                   &real_center,
+                                                   hradius * scale_x,
+                                                   vradius * scale_y,
+                                                   start, end,
+                                                   interpolation,
+                                                   hue_interpolation,
+                                                   stops, n_stops);
     }
   else
     {
@@ -3240,14 +3246,15 @@ gtk_snapshot_add_repeating_radial_gradient (GtkSnapshot            *snapshot,
 
       real_center.x = scale_x * center->x + dx;
       real_center.y = scale_y * center->y + dy;
-      node = gsk_repeating_radial_gradient_node_new2 (&real_bounds,
-                                                      &real_center,
-                                                      hradius * scale_x,
-                                                      vradius * scale_y,
-                                                      start, end,
-                                                      interpolation,
-                                                      hue_interpolation,
-                                                      stops, n_stops);
+      node = gsk_repeating_radial_gradient_node_new_snapped (&real_bounds,
+                                                             state->snap,
+                                                             &real_center,
+                                                             hradius * scale_x,
+                                                             vradius * scale_y,
+                                                             start, end,
+                                                             interpolation,
+                                                             hue_interpolation,
+                                                             stops, n_stops);
     }
   else
     {

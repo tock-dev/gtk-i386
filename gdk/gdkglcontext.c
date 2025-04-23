@@ -469,6 +469,27 @@ gdk_gl_context_default_realize (GdkGLContext  *context,
 
 #undef N_EGL_ATTRS
 
+#ifdef HAVE_EGL
+static GdkMemoryDepth
+gdk_gl_context_ensure_egl_surface (GdkGLContext *context, GdkMemoryDepth depth)
+{
+  GdkGLContextClass *context_class = GDK_GL_CONTEXT_GET_CLASS (context);
+  if (context_class->ensure_egl_surface)
+    return context_class->ensure_egl_surface (context, depth);
+  GdkSurface *surface = gdk_draw_context_get_surface (GDK_DRAW_CONTEXT (context));
+  return gdk_surface_ensure_egl_surface (surface, depth);
+}
+static EGLSurface
+gdk_gl_context_get_egl_surface (GdkGLContext *context)
+{
+  GdkGLContextClass *context_class = GDK_GL_CONTEXT_GET_CLASS (context);
+  if (context_class->get_egl_surface)
+    return context_class->get_egl_surface (context);
+  GdkSurface *surface = gdk_draw_context_get_surface (GDK_DRAW_CONTEXT (context));
+  return gdk_surface_get_egl_surface (surface);
+}
+#endif // HAVE_EGL
+
 static cairo_region_t *
 gdk_gl_context_real_get_damage (GdkGLContext *context)
 {
@@ -483,7 +504,7 @@ gdk_gl_context_real_get_damage (GdkGLContext *context)
       GdkSurface *surface = gdk_draw_context_get_surface (draw_context);
       EGLSurface egl_surface;
       int buffer_age = 0;
-      egl_surface = gdk_surface_get_egl_surface (surface);
+      egl_surface = gdk_gl_context_get_egl_surface (context);
       gdk_gl_context_make_current (context);
       eglQuerySurface (gdk_display_get_egl_display (display), egl_surface,
                        EGL_BUFFER_AGE_EXT, &buffer_age);
@@ -577,7 +598,7 @@ gdk_gl_context_real_make_current (GdkGLContext *context,
     return FALSE;
 
   if (!surfaceless)
-    egl_surface = gdk_surface_get_egl_surface (gdk_gl_context_get_surface (context));
+    egl_surface = gdk_gl_context_get_egl_surface (context);
   else
     egl_surface = EGL_NO_SURFACE;
 
@@ -613,7 +634,7 @@ gdk_gl_context_real_begin_frame (GdkDrawContext  *draw_context,
 
 #ifdef HAVE_EGL
   if (priv->egl_context)
-    *out_depth = gdk_surface_ensure_egl_surface (surface, depth);
+    *out_depth = gdk_gl_context_ensure_egl_surface (context, depth);
   else
     *out_depth = GDK_MEMORY_U8;
 
@@ -673,7 +694,9 @@ gdk_gl_context_real_end_frame (GdkDrawContext *draw_context,
 
   gdk_gl_context_make_current (context);
 
-  egl_surface = gdk_surface_get_egl_surface (surface);
+  egl_surface = gdk_gl_context_get_egl_surface (context);
+  if (egl_surface == EGL_NO_SURFACE)
+    return;
 
   if (priv->eglSwapBuffersWithDamage)
     {

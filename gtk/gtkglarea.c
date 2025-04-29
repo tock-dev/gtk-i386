@@ -861,7 +861,8 @@ gtk_gl_area_snapshot (GtkWidget   *widget,
        * compared to what GSK expects, so flip it back.
        */
       gtk_snapshot_save (snapshot);
-      gtk_snapshot_scale (snapshot, 1.0 / scale, 1.0 / scale);
+      gtk_snapshot_translate (snapshot, &GRAPHENE_POINT_INIT(0.0, gdk_texture_get_height (holder) / scale));
+      gtk_snapshot_scale (snapshot, 1.0 / scale, -1.0 / scale);
       gtk_snapshot_append_scaled_texture (snapshot,
                                           holder,
                                           GSK_SCALING_FILTER_NEAREST,

@@ -444,21 +444,53 @@ get_utf8_preedit_string (GtkIMContextIME *context_ime,
 static PangoAttrList *
 get_pango_attr_list (GtkIMContextIME *context_ime, const gchar *utf8str)
 {
-  PangoAttrList *attrs = pango_attr_list_new ();
-  HWND hwnd;
-  HIMC himc;
-  guint8 *buf = NULL;
+  PangoAttrList *attrs    = pango_attr_list_new ();
+  HWND           hwnd     = 0;
+  HIMC           himc     = 0;
+  GdkWindow     *toplevel = NULL;
+  guint8        *buf      = NULL;
+  glong          utf8_len = 0;
 
+  /*
+   * Is this check really needed? Probably not, since client_window isn't used
+   * in this function. But it feels safer leaving it.
+   */
   if (!GDK_IS_WINDOW (context_ime->client_window))
-    return attrs;
+    goto cleanup;
 
-  g_return_val_if_fail (GDK_IS_WINDOW (context_ime->toplevel), attrs);
+  /*
+   * The toplevel window is what we actually care about as it is the one
+   * associated with the input context.
+   */
+  toplevel = GDK_WINDOW (context_ime->toplevel);
+
+  if (!toplevel)
+    goto cleanup;
 
   hwnd = gdk_win32_window_get_impl_hwnd (context_ime->toplevel);
   himc = ImmGetContext (hwnd);
-  if (!himc)
-    return attrs;
 
+  if (!himc)
+    goto cleanup;
+
+  /*
+   * Should we emit a warning here or is this legal (in case of a 0-length
+   * string)?
+   */
+  if (!utf8str)
+    goto cleanup;
+
+  utf8_len = g_utf8_strlen (utf8str, -1);
+
+  /*
+   * If the string is empty, then there is nothing to do.
+   */
+  if (utf8_len <= 0)
+    goto cleanup;
+
+  /*
+   * TODO: This entire section could be made more elegant and safer.
+   */
   if (context_ime->preediting)
     {
       const gchar *schr = utf8str, *echr;
@@ -467,10 +499,39 @@ get_pango_attr_list (GtkIMContextIME *context_ime, const gchar *utf8str)
       PangoAttribute *attr;
 
       /*
-       *  get attributes list of IME.
+       * Get the length of the attribute data.
+       *
+       * Note that, even though we are calling a "*W" API, both the returned
+       * length and the *data* are in bytes, with one byte representing the
+       * attributes for one "wide character" in the composition string.
+       *
+       * It is not entirely clear if characters spanning multiple UTF-16 units are
+       * to be handled as a single character or as multiple characters. The GDK
+       * code seems to assume the former, or this case was just not considered
+       * when the code was originally written, but this seems questionable as
+       * of 2025.
        */
       len = ImmGetCompositionStringW (himc, GCS_COMPATTR, NULL, 0);
-      buf = g_malloc (len);
+
+      /*
+       * According to MSDN, ImmGetCompositionStringW can return one of the
+       * following negative values upon failure:
+       *
+       *  IMM_ERROR_NODATA  (-1)
+       *  IMM_ERROR_GENERAL (-2)
+       *
+       * In addition, we also have to check for 0 because g_malloc() may return
+       * NULL for a 0-length size, which causes an access violation in the loop
+       * that follows.
+       */
+
+      if (len <= 0)
+        goto cleanup;
+
+      /*
+       *  get attributes list of IME.
+       */
+      buf = g_malloc0 (len);
       ImmGetCompositionStringW (himc, GCS_COMPATTR, buf, len);
 
       /*
@@ -483,8 +544,40 @@ get_pango_attr_list (GtkIMContextIME *context_ime, const gchar *utf8str)
            *  spos and epos are buf(attributes list of IME) position by
            *  bytes.
            *  Using the wide-char API, this value is same with UTF-8 offset.
+           *
+           *  FIXME: I think this is incorrect for codepoints that don't
+           *         fit into a single UTF-16 unit.
+           *         -- Isopod/Philip Zander, 2025-04-29
            */
-	  epos = g_utf8_pointer_to_offset (utf8str, echr);
+          epos = g_utf8_pointer_to_offset (utf8str, echr);
+
+#ifndef G_DISABLE_CHECKS
+          /*
+           * Paranoid range-checking
+           */
+          if (spos < 0 || spos >= len)
+            {
+              g_warning ("spos (%ld) is out of valid range [0,%ld)", spos, len);
+              goto cleanup;
+            }
+          if (epos < 0 || epos >= len)
+            {
+              g_warning ("epos (%ld) is out of valid range [0,%ld)", epos, len);
+              goto cleanup;
+            }
+          /*
+           * The cast to "volatile guintptr" should hopefully discourage overly
+           * smart compilers from ever optimizing out this range check due to
+           * some C-standard legalese and whatnot.
+           */
+          if (((volatile guintptr)echr <= (volatile guintptr)utf8str ||
+               (volatile guintptr)echr > (volatile guintptr)utf8str + utf8_len))
+            {
+              g_warning ("echr (%p) is out of valid range [%p,%p]",
+                         (void*)echr, (void*)utf8str, (void*)(utf8str + utf8_len));
+              goto cleanup;
+            }
+#endif
 
           /*
            *  sidx and eidx are positions in utf8str by bytes.
@@ -538,8 +631,12 @@ get_pango_attr_list (GtkIMContextIME *context_ime, const gchar *utf8str)
         }
     }
 
-  ImmReleaseContext (hwnd, himc);
-  g_free(buf);
+cleanup:
+
+  if (himc)
+    ImmReleaseContext (hwnd, himc);
+
+  g_free (buf);
 
   return attrs;
 }

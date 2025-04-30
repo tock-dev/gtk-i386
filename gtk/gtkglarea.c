@@ -218,14 +218,6 @@ enum {
   LAST_SIGNAL
 };
 
-/* From OpenGL Red Book:
- * "An optimum compromise that allows all primitives to be specified at integer
- * positions, while still ensuring predictable rasterization, is to translate x
- * and y by 0.375, as shown in the following code sample. Such a translation
- * keeps polygon and pixel image edges safely away from the centers of pixels,
- * while moving line vertices close enough to the pixel centers."
- */
-#define PERFECT_PIXEL_ALIGNMENT_TRANSLATION 0.375
 
 static void gtk_gl_area_allocate_buffers (GtkGLArea *area);
 static void gtk_gl_area_allocate_texture (GtkGLArea *area);
@@ -866,8 +858,8 @@ gtk_gl_area_snapshot (GtkWidget   *widget,
       gtk_snapshot_append_scaled_texture (snapshot,
                                           holder,
                                           GSK_SCALING_FILTER_NEAREST,
-                                          &GRAPHENE_RECT_INIT (PERFECT_PIXEL_ALIGNMENT_TRANSLATION / scale,
-                                                               PERFECT_PIXEL_ALIGNMENT_TRANSLATION / scale,
+                                          &GRAPHENE_RECT_INIT (0.0,
+                                                               0.0,
                                                                gdk_texture_get_width (holder),
                                                                gdk_texture_get_height (holder)));
       gtk_snapshot_restore (snapshot);

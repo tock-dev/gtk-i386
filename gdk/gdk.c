@@ -144,7 +144,8 @@ static const GdkDebugKey gdk_debug_keys[] = {
   { "default-settings",GDK_DEBUG_DEFAULT_SETTINGS, "Force default values for xsettings" },
   { "high-depth",      GDK_DEBUG_HIGH_DEPTH, "Use high bit depth rendering if possible" },
   { "no-vsync",        GDK_DEBUG_NO_VSYNC, "Repaint instantly (uses 100% CPU with animations)" },
-  { "color-mgmt",      GDK_DEBUG_COLOR_MANAGEMENT, "Enable color management" },
+  { "color-mgmt",      GDK_DEBUG_COLOR_MANAGEMENT, "Enable color management (Wayland)" },
+  { "touch",           GDK_DEBUG_TOUCH, "Simulate a simple touch device (Wayland)" },
 };
 
 static const GdkDebugKey gdk_feature_keys[] = {

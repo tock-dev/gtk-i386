@@ -33,6 +33,8 @@
 
 #include <string.h>
 
+#include <pango/pango.h>
+
 #ifdef GDK_WINDOWING_X11
 #include "x11/gdkx.h"
 #include <pango/pangofc-fontmap.h>

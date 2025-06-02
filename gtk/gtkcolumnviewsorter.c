@@ -294,6 +294,14 @@ gboolean
 gtk_column_view_sorter_add_column (GtkColumnViewSorter *self,
                                    GtkColumnViewColumn *column)
 {
+  return gtk_column_view_sorter_add_sort_column (self, column, FALSE);
+}
+
+gboolean
+gtk_column_view_sorter_add_sort_column (GtkColumnViewSorter *self,
+                                        GtkColumnViewColumn *column,
+                                        gboolean inverted)
+{
   GSequenceIter *iter;
   GtkSorter *sorter;
   Sorter *s, *first;
@@ -324,7 +332,7 @@ gtk_column_view_sorter_add_column (GtkColumnViewSorter *self,
   s->column = g_object_ref (column);
   s->sorter = g_object_ref (sorter);
   s->changed_id = g_signal_connect (sorter, "changed", G_CALLBACK (gtk_column_view_sorter_changed_cb), self);
-  s->inverted = FALSE;
+  s->inverted = inverted;
 
   g_sequence_insert_before (iter, s);
 

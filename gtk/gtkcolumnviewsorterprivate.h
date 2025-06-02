@@ -31,6 +31,9 @@ GtkColumnViewSorter *   gtk_column_view_sorter_new              (void);
 
 gboolean                gtk_column_view_sorter_add_column       (GtkColumnViewSorter    *self,
                                                                  GtkColumnViewColumn    *column);
+gboolean                gtk_column_view_sorter_add_sort_column  (GtkColumnViewSorter    *self,
+                                                                 GtkColumnViewColumn    *column,
+                                                                 gboolean                inverted);
 gboolean                gtk_column_view_sorter_remove_column    (GtkColumnViewSorter    *self,
                                                                  GtkColumnViewColumn    *column);
 

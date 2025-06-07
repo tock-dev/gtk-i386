@@ -2572,6 +2572,7 @@ typedef void (* GradientOpFunc) (GskGpuNodeProcessor   *self,
 static void
 gsk_gpu_node_processor_add_gradient_node (GskGpuNodeProcessor   *self,
                                           GskRenderNode         *node,
+                                          GskRectSnap            snap,
                                           GdkColorState         *ics,
                                           const GskGradientStop *stops,
                                           gsize                  n_stops,
@@ -2589,7 +2590,7 @@ gsk_gpu_node_processor_add_gradient_node (GskGpuNodeProcessor   *self,
       return;
     }
 
-  if (!gsk_gpu_node_processor_clip_node_bounds_and_snap_to_grid (self, node, GSK_RECT_SNAP_GROW, &bounds))
+  if (!gsk_gpu_node_processor_clip_node_bounds_and_snap_to_grid (self, node, snap, &bounds))
     return;
 
   image = gsk_gpu_node_processor_init_draw (&other,
@@ -2654,7 +2655,7 @@ gsk_gpu_node_processor_add_gradient_node (GskGpuNodeProcessor   *self,
                                    image,
                                    ics,
                                    GSK_GPU_SAMPLER_DEFAULT,
-                                   &node->bounds,
+                                   &bounds,
                                    &bounds);
 
   g_object_unref (image);
@@ -2667,6 +2668,14 @@ gsk_gpu_node_processor_linear_gradient_op (GskGpuNodeProcessor   *self,
                                            const GskGradientStop *stops,
                                            gsize                  n_stops)
 {
+  graphene_rect_t bounds;
+
+  gsk_rect_snap_to_grid (&node->bounds,
+                         gsk_linear_gradient_node_get_snap (node),
+                         &self->scale,
+                         &self->offset,
+                         &bounds);
+
   gsk_gpu_linear_gradient_op (self->frame,
                               gsk_gpu_clip_get_shader_clip (&self->clip, &self->offset, &node->bounds),
                               target,
@@ -2675,7 +2684,7 @@ gsk_gpu_node_processor_linear_gradient_op (GskGpuNodeProcessor   *self,
                               gsk_linear_gradient_node_get_interpolation_color_state (node),
                               gsk_linear_gradient_node_get_hue_interpolation (node),
                               GSK_RENDER_NODE_TYPE (node) == GSK_REPEATING_LINEAR_GRADIENT_NODE,
-                              &node->bounds,
+                              &bounds,
                               gsk_linear_gradient_node_get_start (node),
                               gsk_linear_gradient_node_get_end (node),
                               stops,
@@ -2688,6 +2697,7 @@ gsk_gpu_node_processor_add_linear_gradient_node (GskGpuNodeProcessor *self,
 {
   gsk_gpu_node_processor_add_gradient_node (self,
                                             node,
+                                            gsk_linear_gradient_node_get_snap (node),
                                             gsk_linear_gradient_node_get_interpolation_color_state (node),
                                             gsk_linear_gradient_node_get_gradient_stops (node),
                                             gsk_linear_gradient_node_get_n_color_stops (node),
@@ -2701,6 +2711,14 @@ gsk_gpu_node_processor_radial_gradient_op (GskGpuNodeProcessor   *self,
                                            const GskGradientStop *stops,
                                            gsize                  n_stops)
 {
+  graphene_rect_t bounds;
+
+  gsk_rect_snap_to_grid (&node->bounds,
+                         gsk_radial_gradient_node_get_snap (node),
+                         &self->scale,
+                         &self->offset,
+                         &bounds);
+
   gsk_gpu_radial_gradient_op (self->frame,
                               gsk_gpu_clip_get_shader_clip (&self->clip, &self->offset, &node->bounds),
                               target,
@@ -2709,7 +2727,7 @@ gsk_gpu_node_processor_radial_gradient_op (GskGpuNodeProcessor   *self,
                               gsk_radial_gradient_node_get_interpolation_color_state (node),
                               gsk_radial_gradient_node_get_hue_interpolation (node),
                               GSK_RENDER_NODE_TYPE (node) == GSK_REPEATING_RADIAL_GRADIENT_NODE,
-                              &node->bounds,
+                              &bounds,
                               gsk_radial_gradient_node_get_center (node),
                               &GRAPHENE_POINT_INIT (
                                   gsk_radial_gradient_node_get_hradius (node),
@@ -2727,6 +2745,7 @@ gsk_gpu_node_processor_add_radial_gradient_node (GskGpuNodeProcessor *self,
 {
   gsk_gpu_node_processor_add_gradient_node (self,
                                             node,
+                                            gsk_radial_gradient_node_get_snap (node),
                                             gsk_radial_gradient_node_get_interpolation_color_state (node),
                                             gsk_radial_gradient_node_get_gradient_stops (node),
                                             gsk_radial_gradient_node_get_n_color_stops (node),
@@ -2740,6 +2759,14 @@ gsk_gpu_node_processor_conic_gradient_op (GskGpuNodeProcessor   *self,
                                           const GskGradientStop *stops,
                                           gsize                  n_stops)
 {
+  graphene_rect_t bounds;
+
+  gsk_rect_snap_to_grid (&node->bounds,
+                         gsk_conic_gradient_node_get_snap (node),
+                         &self->scale,
+                         &self->offset,
+                         &bounds);
+
   gsk_gpu_conic_gradient_op (self->frame,
                              gsk_gpu_clip_get_shader_clip (&self->clip, &self->offset, &node->bounds),
                              target,
@@ -2747,7 +2774,7 @@ gsk_gpu_node_processor_conic_gradient_op (GskGpuNodeProcessor   *self,
                              &self->offset,
                              gsk_conic_gradient_node_get_interpolation_color_state (node),
                              gsk_conic_gradient_node_get_hue_interpolation (node),
-                             &node->bounds,
+                             &bounds,
                              gsk_conic_gradient_node_get_center (node),
                              gsk_conic_gradient_node_get_angle (node),
                              stops,
@@ -2760,6 +2787,7 @@ gsk_gpu_node_processor_add_conic_gradient_node (GskGpuNodeProcessor *self,
 {
   gsk_gpu_node_processor_add_gradient_node (self,
                                             node,
+                                            gsk_conic_gradient_node_get_snap (node),
                                             gsk_conic_gradient_node_get_interpolation_color_state (node),
                                             gsk_conic_gradient_node_get_gradient_stops (node),
                                             gsk_conic_gradient_node_get_n_color_stops (node),

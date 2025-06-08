@@ -3385,7 +3385,7 @@ gtk_snapshot_append_inset_shadow (GtkSnapshot          *snapshot,
   gdk_color_finish (&color2);
 }
 
-/*< private >
+/**
  * gtk_snapshot_add_inset_shadow:
  * @snapshot: a `GtkSnapshot`
  * @outline: outline of the region surrounded by shadow
@@ -3395,6 +3395,8 @@ gtk_snapshot_append_inset_shadow (GtkSnapshot          *snapshot,
  * @blur_radius: how much blur to apply to the shadow
  *
  * Appends an inset shadow into the box given by @outline.
+ *
+ * Since: 4.20
  */
 void
 gtk_snapshot_add_inset_shadow (GtkSnapshot            *snapshot,
@@ -3462,7 +3464,7 @@ gtk_snapshot_append_outset_shadow (GtkSnapshot          *snapshot,
   gdk_color_finish (&color2);
 }
 
-/*< private >
+/**
  * gtk_snapshot_add_outset_shadow:
  * @snapshot: a `GtkSnapshot`
  * @outline: outline of the region surrounded by shadow
@@ -3472,6 +3474,8 @@ gtk_snapshot_append_outset_shadow (GtkSnapshot          *snapshot,
  * @blur_radius: how much blur to apply to the shadow
  *
  * Appends an outset shadow node around the box given by @outline.
+ *
+ * Since: 4.20
  */
 void
 gtk_snapshot_add_outset_shadow (GtkSnapshot            *snapshot,

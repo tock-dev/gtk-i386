@@ -40,7 +40,7 @@ struct _GdkMemoryLayout
 
 #define GDK_MEMORY_LAYOUT_SIMPLE(format,width,height,stride) \
   (GdkMemoryLayout) { \
-    (format), (width), (height), (stride) * (height), \
+    (format), (width), (height), (stride) * ((height) - 1) + (width) * 4, \
     { { 0, (stride) }, } \
   }
 

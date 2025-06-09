@@ -25,6 +25,8 @@
 
 #include "gskpath.h"
 #include "gskpathbuilder.h"
+#include "gskpointsnap.h"
+#include "gskrectsnap.h"
 #include "gskroundedrectprivate.h"
 #include "gskrendernodeprivate.h"
 #include "gskstroke.h"
@@ -1803,6 +1805,90 @@ parse_mask_mode (GtkCssParser *parser,
   return FALSE;
 }
 
+static gboolean
+parse_snap_dir (GtkCssParser *parser,
+                Context      *context,
+                gpointer      out_dir)
+{
+  if (gtk_css_parser_try_ident (parser, "round"))
+    *(GskSnapDirection *) out_dir = GSK_SNAP_ROUND;
+  else if (gtk_css_parser_try_ident (parser, "floor"))
+    *(GskSnapDirection *) out_dir = GSK_SNAP_FLOOR;
+  else if (gtk_css_parser_try_ident (parser, "ceil"))
+    *(GskSnapDirection *) out_dir = GSK_SNAP_CEIL;
+  else if (gtk_css_parser_try_ident (parser, "none"))
+    *(GskSnapDirection *) out_dir = GSK_SNAP_NONE;
+  else
+    return FALSE;
+
+  return TRUE;
+}
+
+static gboolean
+parse_rect_snap (GtkCssParser *parser,
+                 Context      *context,
+                 gpointer      out_snap)
+{
+  GskRectSnap snap;
+
+  if (gtk_css_parser_try_ident (parser, "grow"))
+    snap = GSK_RECT_SNAP_GROW;
+  else if (gtk_css_parser_try_ident (parser, "shrink"))
+    snap = GSK_RECT_SNAP_SHRINK;
+  else
+    {
+      GskSnapDirection dir[4];
+      gsize i;
+
+      for (i = 0; i < 4; i++)
+        {
+          if (!parse_snap_dir (parser, context, &dir[i]))
+            break;
+        }
+      if (i == 0)
+        {
+          gtk_css_parser_error_value (parser, "Unknown value for snap");
+          return FALSE;
+        }
+      for (; i < 4; i++)
+        {
+          dir[i] = dir[(i - 1) >> 1];
+        }
+      snap = gsk_rect_snap_new (dir[0], dir[1], dir[2], dir[3]);
+    }
+
+  *(GskRectSnap *) out_snap = snap;
+  return TRUE;
+}
+
+static gboolean
+parse_point_snap (GtkCssParser *parser,
+                  Context      *context,
+                  gpointer      out_snap)
+{
+  GskSnapDirection dir[2];
+  gsize i;
+
+  for (i = 0; i < 2; i++)
+    {
+      if (!parse_snap_dir (parser, context, &dir[i]))
+        break;
+    }
+
+  if (i == 0)
+    {
+      gtk_css_parser_error_value (parser, "Unknown value for snap");
+      return FALSE;
+    }
+
+  if (i == 1)
+    dir[1] = dir[0];
+
+  *(GskPointSnap *) out_snap = GSK_POINT_SNAP_INIT (dir[0], dir[1]);
+
+  return TRUE;
+}
+
 static PangoFont *
 font_from_string (PangoFontMap *fontmap,
                   const char   *string,
@@ -2389,15 +2475,17 @@ parse_color_node (GtkCssParser *parser,
 {
   graphene_rect_t bounds = GRAPHENE_RECT_INIT (0, 0, 50, 50);
   GdkColor color = GDK_COLOR_SRGB (1, 0, 0.8, 1);
+  GskRectSnap snap = GSK_RECT_SNAP_NONE;
   const Declaration declarations[] = {
     { "bounds", parse_rect, NULL, &bounds },
     { "color", parse_color, NULL, &color },
+    { "snap", parse_rect_snap, NULL, &snap },
   };
   GskRenderNode *node;
 
   parse_declarations (parser, context, declarations, G_N_ELEMENTS (declarations));
 
-  node = gsk_color_node_new2 (&color, &bounds);
+  node = gsk_color_node_new_snapped (&color, &bounds, snap);
 
   gdk_color_finish (&color);
 
@@ -2415,6 +2503,7 @@ parse_linear_gradient_node_internal (GtkCssParser *parser,
   GArray *stops = NULL;
   GdkColorState *interpolation = NULL;
   GskHueInterpolation hue_interpolation = GSK_HUE_INTERPOLATION_SHORTER;
+  GskRectSnap snap = GSK_RECT_SNAP_NONE;
   const Declaration declarations[] = {
     { "bounds", parse_rect, NULL, &bounds },
     { "start", parse_point, NULL, &start },
@@ -2422,6 +2511,7 @@ parse_linear_gradient_node_internal (GtkCssParser *parser,
     { "stops", parse_stops, clear_stops, &stops },
     { "interpolation", parse_color_state, &clear_color_state, &interpolation },
     { "hue-interpolation", parse_hue_interpolation, NULL, &hue_interpolation },
+    { "snap", parse_rect_snap, NULL, &snap },
   };
   GskRenderNode *result;
 
@@ -2448,19 +2538,21 @@ parse_linear_gradient_node_internal (GtkCssParser *parser,
     interpolation = GDK_COLOR_STATE_SRGB;
 
   if (repeating)
-    result = gsk_repeating_linear_gradient_node_new2 (&bounds,
-                                                      &start, &end,
-                                                      interpolation,
-                                                      hue_interpolation,
-                                                      (GskGradientStop *) stops->data,
-                                                      stops->len);
+    result = gsk_repeating_linear_gradient_node_new_snapped (&bounds,
+                                                             snap,
+                                                             &start, &end,
+                                                             interpolation,
+                                                             hue_interpolation,
+                                                             (GskGradientStop *) stops->data,
+                                                             stops->len);
   else
-    result = gsk_linear_gradient_node_new2 (&bounds,
-                                            &start, &end,
-                                            interpolation,
-                                            hue_interpolation,
-                                            (GskGradientStop *) stops->data,
-                                            stops->len);
+    result = gsk_linear_gradient_node_new_snapped (&bounds,
+                                                   snap,
+                                                   &start, &end,
+                                                   interpolation,
+                                                   hue_interpolation,
+                                                   (GskGradientStop *) stops->data,
+                                                   stops->len);
 
   clear_stops (&stops);
   clear_color_state (&interpolation);
@@ -2496,6 +2588,7 @@ parse_radial_gradient_node_internal (GtkCssParser *parser,
   GArray *stops = NULL;
   GdkColorState *interpolation = NULL;
   GskHueInterpolation hue_interpolation = GSK_HUE_INTERPOLATION_SHORTER;
+  GskRectSnap snap = GSK_RECT_SNAP_NONE;
   const Declaration declarations[] = {
     { "bounds", parse_rect, NULL, &bounds },
     { "center", parse_point, NULL, &center },
@@ -2506,6 +2599,7 @@ parse_radial_gradient_node_internal (GtkCssParser *parser,
     { "stops", parse_stops, clear_stops, &stops },
     { "interpolation", parse_color_state, &clear_color_state, &interpolation },
     { "hue-interpolation", parse_hue_interpolation, NULL, &hue_interpolation },
+    { "snap", parse_rect_snap, NULL, &snap },
   };
   GskRenderNode *result;
 
@@ -2541,21 +2635,25 @@ parse_radial_gradient_node_internal (GtkCssParser *parser,
       result = NULL;
     }
   else if (repeating)
-    result = gsk_repeating_radial_gradient_node_new2 (&bounds, &center,
-                                                      hradius, vradius,
-                                                      start, end,
-                                                      interpolation,
-                                                      hue_interpolation,
-                                                      (GskGradientStop *) stops->data,
-                                                      stops->len);
+    result = gsk_repeating_radial_gradient_node_new_snapped (&bounds,
+                                                             snap,
+                                                             &center,
+                                                             hradius, vradius,
+                                                             start, end,
+                                                             interpolation,
+                                                             hue_interpolation,
+                                                             (GskGradientStop *) stops->data,
+                                                             stops->len);
   else
-    result = gsk_radial_gradient_node_new2 (&bounds, &center,
-                                            hradius, vradius,
-                                            start, end,
-                                            interpolation,
-                                            hue_interpolation,
-                                            (GskGradientStop *) stops->data,
-                                            stops->len);
+    result = gsk_radial_gradient_node_new_snapped (&bounds,
+                                                   snap,
+                                                   &center,
+                                                   hradius, vradius,
+                                                   start, end,
+                                                   interpolation,
+                                                   hue_interpolation,
+                                                   (GskGradientStop *) stops->data,
+                                                   stops->len);
 
   clear_stops (&stops);
   clear_color_state (&interpolation);
@@ -2587,6 +2685,7 @@ parse_conic_gradient_node (GtkCssParser *parser,
   GArray *stops = NULL;
   GdkColorState *interpolation = NULL;
   GskHueInterpolation hue_interpolation = GSK_HUE_INTERPOLATION_SHORTER;
+  GskRectSnap snap = GSK_RECT_SNAP_NONE;
   const Declaration declarations[] = {
     { "bounds", parse_rect, NULL, &bounds },
     { "center", parse_point, NULL, &center },
@@ -2594,6 +2693,7 @@ parse_conic_gradient_node (GtkCssParser *parser,
     { "stops", parse_stops, clear_stops, &stops },
     { "interpolation", parse_color_state, &clear_color_state, &interpolation },
     { "hue-interpolation", parse_hue_interpolation, NULL, &hue_interpolation },
+    { "snap", parse_rect_snap, NULL, &snap },
   };
   GskRenderNode *result;
 
@@ -2619,12 +2719,13 @@ parse_conic_gradient_node (GtkCssParser *parser,
   if (interpolation == NULL)
     interpolation = GDK_COLOR_STATE_SRGB;
 
-  result = gsk_conic_gradient_node_new2 (&bounds,
-                                         &center, rotation,
-                                         interpolation,
-                                         hue_interpolation,
-                                         (GskGradientStop *) stops->data,
-                                         stops->len);
+  result = gsk_conic_gradient_node_new_snapped (&bounds,
+                                                snap,
+                                                &center, rotation,
+                                                interpolation,
+                                                hue_interpolation,
+                                                (GskGradientStop *) stops->data,
+                                                stops->len);
 
   clear_stops (&stops);
   clear_color_state (&interpolation);
@@ -2639,19 +2740,21 @@ parse_inset_shadow_node (GtkCssParser *parser,
   GskRoundedRect outline = GSK_ROUNDED_RECT_INIT (0, 0, 50, 50);
   GdkColor color = GDK_COLOR_SRGB (0, 0, 0, 1);
   double dx = 1, dy = 1, blur = 0, spread = 0;
+  GskRectSnap snap = GSK_RECT_SNAP_NONE;
   const Declaration declarations[] = {
     { "outline", parse_rounded_rect, NULL, &outline },
     { "color", parse_color, NULL, &color },
     { "dx", parse_double, NULL, &dx },
     { "dy", parse_double, NULL, &dy },
     { "spread", parse_double, NULL, &spread },
-    { "blur", parse_positive_double, NULL, &blur }
+    { "blur", parse_positive_double, NULL, &blur },
+    { "snap", parse_rect_snap, NULL, &snap },
   };
   GskRenderNode *node;
 
   parse_declarations (parser, context, declarations, G_N_ELEMENTS (declarations));
 
-  node = gsk_inset_shadow_node_new2 (&outline, &color, &GRAPHENE_POINT_INIT (dx, dy), spread, blur);
+  node = gsk_inset_shadow_node_new_snapped (&outline, snap, &color, &GRAPHENE_POINT_INIT (dx, dy), spread, blur);
 
   gdk_color_finish (&color);
 
@@ -2943,15 +3046,17 @@ parse_border_node (GtkCssParser *parser,
     GDK_COLOR_SRGB (0, 0, 0, 1),
     GDK_COLOR_SRGB (0, 0, 0, 1),
   };
+  GskRectSnap snap = GSK_RECT_SNAP_NONE;
   const Declaration declarations[] = {
     { "outline", parse_rounded_rect, NULL, &outline },
     { "widths", parse_float4, NULL, &widths },
     { "colors", parse_colors4, NULL, &colors },
+    { "snap", parse_rect_snap, NULL, &snap },
   };
 
   parse_declarations (parser, context, declarations, G_N_ELEMENTS (declarations));
 
-  return gsk_border_node_new2 (&outline, widths, colors);
+  return gsk_border_node_new_snapped (&outline, snap, widths, colors);
 }
 
 static GskRenderNode *
@@ -2960,9 +3065,11 @@ parse_texture_node (GtkCssParser *parser,
 {
   graphene_rect_t bounds = GRAPHENE_RECT_INIT (0, 0, 50, 50);
   GdkTexture *texture = NULL;
+  GskRectSnap snap = GSK_RECT_SNAP_NONE;
   const Declaration declarations[] = {
     { "bounds", parse_rect, NULL, &bounds },
-    { "texture", parse_texture, clear_texture, &texture }
+    { "texture", parse_texture, clear_texture, &texture },
+    { "snap", parse_rect_snap, NULL, &snap },
   };
   GskRenderNode *node;
 
@@ -2971,7 +3078,7 @@ parse_texture_node (GtkCssParser *parser,
   if (texture == NULL)
     texture = create_default_texture ();
 
-  node = gsk_texture_node_new (texture, &bounds);
+  node = gsk_texture_node_new_snapped (texture, &bounds, snap);
   g_object_unref (texture);
 
   return node;
@@ -2984,10 +3091,12 @@ parse_texture_scale_node (GtkCssParser *parser,
   graphene_rect_t bounds = GRAPHENE_RECT_INIT (0, 0, 50, 50);
   GdkTexture *texture = NULL;
   GskScalingFilter filter = GSK_SCALING_FILTER_LINEAR;
+  GskRectSnap snap = GSK_RECT_SNAP_NONE;
   const Declaration declarations[] = {
     { "bounds", parse_rect, NULL, &bounds },
     { "texture", parse_texture, clear_texture, &texture },
-    { "filter", parse_scaling_filter, NULL, &filter }
+    { "filter", parse_scaling_filter, NULL, &filter },
+    { "snap", parse_rect_snap, NULL, &snap },
   };
   GskRenderNode *node;
 
@@ -2996,7 +3105,7 @@ parse_texture_scale_node (GtkCssParser *parser,
   if (texture == NULL)
     texture = create_default_texture ();
 
-  node = gsk_texture_scale_node_new (texture, &bounds, filter);
+  node = gsk_texture_scale_node_new_snapped (texture, &bounds, snap, filter);
   g_object_unref (texture);
 
   return node;
@@ -3059,19 +3168,21 @@ parse_outset_shadow_node (GtkCssParser *parser,
   GskRoundedRect outline = GSK_ROUNDED_RECT_INIT (0, 0, 50, 50);
   GdkColor color = GDK_COLOR_SRGB (0, 0, 0, 1);
   double dx = 1, dy = 1, blur = 0, spread = 0;
+  GskRectSnap snap = GSK_RECT_SNAP_NONE;
   const Declaration declarations[] = {
     { "outline", parse_rounded_rect, NULL, &outline },
     { "color", parse_color, NULL, &color },
     { "dx", parse_double, NULL, &dx },
     { "dy", parse_double, NULL, &dy },
     { "spread", parse_double, NULL, &spread },
-    { "blur", parse_positive_double, NULL, &blur }
+    { "blur", parse_positive_double, NULL, &blur },
+    { "snap", parse_rect_snap, NULL, &snap },
   };
   GskRenderNode *node;
 
   parse_declarations (parser, context, declarations, G_N_ELEMENTS (declarations));
 
-  node = gsk_outset_shadow_node_new2 (&outline, &color, &GRAPHENE_POINT_INIT (dx, dy), spread, blur);
+  node = gsk_outset_shadow_node_new_snapped (&outline, snap, &color, &GRAPHENE_POINT_INIT (dx, dy), spread, blur);
 
   gdk_color_finish (&color);
 
@@ -3369,6 +3480,7 @@ parse_text_node (GtkCssParser *parser,
   cairo_antialias_t antialias = CAIRO_ANTIALIAS_GRAY;
   cairo_hint_metrics_t hint_metrics = CAIRO_HINT_METRICS_OFF;
   PangoFont *hinted;
+  GskPointSnap snap = GSK_POINT_SNAP_NONE;
   const Declaration declarations[] = {
     { "font", parse_font, clear_font, &font },
     { "offset", parse_point, NULL, &offset },
@@ -3377,6 +3489,7 @@ parse_text_node (GtkCssParser *parser,
     { "hint-style", parse_hint_style, NULL, &hint_style },
     { "antialias", parse_antialias, NULL, &antialias },
     { "hint-metrics", parse_hint_metrics, NULL, &hint_metrics },
+    { "snap", parse_point_snap, NULL, &snap },
   };
   GskRenderNode *result;
 
@@ -3415,7 +3528,7 @@ parse_text_node (GtkCssParser *parser,
     }
   else
     {
-      result = gsk_text_node_new2 (font, glyphs, &color, &offset);
+      result = gsk_text_node_new_snapped (font, glyphs, &color, &offset, snap);
       if (result == NULL)
         {
           gtk_css_parser_error_value (parser, "Glyphs result in empty text");
@@ -3705,9 +3818,11 @@ parse_shadow_node (GtkCssParser *parser,
 {
   GskRenderNode *child = NULL;
   GArray *shadows = g_array_new (FALSE, TRUE, sizeof (GskShadowEntry));
+  GskRectSnap snap = GSK_RECT_SNAP_NONE;
   const Declaration declarations[] = {
     { "child", parse_node, clear_node, &child },
     { "shadows", parse_shadows, clear_shadows, shadows },
+    { "snap", parse_rect_snap, NULL, &snap },
   };
   GskRenderNode *result;
 
@@ -3721,7 +3836,7 @@ parse_shadow_node (GtkCssParser *parser,
       g_array_append_val (shadows, default_shadow);
     }
 
-  result = gsk_shadow_node_new2 (child, (GskShadowEntry *)shadows->data, shadows->len);
+  result = gsk_shadow_node_new_snapped (child, snap, (GskShadowEntry *)shadows->data, shadows->len);
 
   clear_shadows (shadows);
   g_array_free (shadows, TRUE);
@@ -4535,6 +4650,79 @@ append_enum_param (Printer    *p,
   g_string_append_c (p->str, '\n');
 }
 
+static const char *snap_dir_names[] = {
+  [GSK_SNAP_NONE] = "none",
+  [GSK_SNAP_FLOOR] = "floor",
+  [GSK_SNAP_CEIL] = "ceil",
+  [GSK_SNAP_ROUND] = "round",
+};
+
+static void
+append_snap_param (Printer     *p,
+                   const char  *param_name,
+                   GskRectSnap  snap)
+{
+  if (snap == GSK_RECT_SNAP_NONE)
+    return;
+
+  _indent (p);
+  g_string_append_printf (p->str, "%s: ", param_name);
+
+  /* try the shortcuts */
+  if (snap == GSK_RECT_SNAP_GROW)
+    {
+      g_string_append (p->str, "grow;\n");
+      return;
+    }
+  else if (snap == GSK_RECT_SNAP_SHRINK)
+    {
+      g_string_append (p->str, "shrink;\n");
+      return;
+    }
+
+  g_string_append (p->str, snap_dir_names[gsk_rect_snap_get_direction (snap, 0)]);
+  if (gsk_rect_snap_get_direction (snap, 0) != gsk_rect_snap_get_direction (snap, 1) ||
+      gsk_rect_snap_get_direction (snap, 0) != gsk_rect_snap_get_direction (snap, 2) ||
+      gsk_rect_snap_get_direction (snap, 0) != gsk_rect_snap_get_direction (snap, 3))
+    {
+      g_string_append_c (p->str, ' ');
+      g_string_append (p->str, snap_dir_names[gsk_rect_snap_get_direction (snap, 1)]);
+      if (gsk_rect_snap_get_direction (snap, 0) != gsk_rect_snap_get_direction (snap, 2) ||
+          gsk_rect_snap_get_direction (snap, 1) != gsk_rect_snap_get_direction (snap, 3))
+        {
+          g_string_append_c (p->str, ' ');
+          g_string_append (p->str, snap_dir_names[gsk_rect_snap_get_direction (snap, 2)]);
+          if (gsk_rect_snap_get_direction (snap, 1) != gsk_rect_snap_get_direction (snap, 3))
+            {
+              g_string_append_c (p->str, ' ');
+              g_string_append (p->str, snap_dir_names[gsk_rect_snap_get_direction (snap, 3)]);
+            }
+        }
+    }
+  g_string_append (p->str, ";\n");
+}
+
+static void
+append_point_snap_param (Printer      *p,
+                         const char   *param_name,
+                         GskPointSnap  snap)
+{
+  if (snap == GSK_POINT_SNAP_NONE)
+    return;
+
+  _indent (p);
+  g_string_append_printf (p->str, "%s: ", param_name);
+
+  g_string_append (p->str, snap_dir_names[gsk_point_snap_get_direction (snap, 1)]);
+  if (gsk_point_snap_get_direction (snap, 0) != gsk_point_snap_get_direction (snap, 1))
+    {
+      g_string_append_c (p->str, ' ');
+      g_string_append (p->str, snap_dir_names[gsk_point_snap_get_direction (snap, 0)]);
+    }
+
+  g_string_append (p->str, ";\n");
+}
+
 static void
 append_vec4_param (Printer               *p,
                    const char            *param_name,
@@ -5319,6 +5507,7 @@ render_node_print (Printer       *p,
         start_node (p, "color", node_name);
         append_rect_param (p, "bounds", &node->bounds);
         append_color_param (p, "color", gsk_color_node_get_gdk_color (node));
+        append_snap_param (p, "snap", gsk_color_node_get_snap (node));
         end_node (p);
       }
       break;
@@ -5346,6 +5535,7 @@ render_node_print (Printer       *p,
           start_node (p, "linear-gradient", node_name);
 
         append_rect_param (p, "bounds", &node->bounds);
+        append_snap_param (p, "snap", gsk_linear_gradient_node_get_snap (node));
         append_point_param (p, "start", gsk_linear_gradient_node_get_start (node));
         append_point_param (p, "end", gsk_linear_gradient_node_get_end (node));
         append_stops_param (p, "stops", gsk_linear_gradient_node_get_gradient_stops (node),
@@ -5372,6 +5562,7 @@ render_node_print (Printer       *p,
           start_node (p, "radial-gradient", node_name);
 
         append_rect_param (p, "bounds", &node->bounds);
+        append_snap_param (p, "snap", gsk_radial_gradient_node_get_snap (node));
         append_point_param (p, "center", gsk_radial_gradient_node_get_center (node));
         append_float_param (p, "hradius", gsk_radial_gradient_node_get_hradius (node), 0.0f);
         append_float_param (p, "vradius", gsk_radial_gradient_node_get_vradius (node), 0.0f);
@@ -5398,6 +5589,7 @@ render_node_print (Printer       *p,
         start_node (p, "conic-gradient", node_name);
 
         append_rect_param (p, "bounds", &node->bounds);
+        append_snap_param (p, "snap", gsk_conic_gradient_node_get_snap (node));
         append_point_param (p, "center", gsk_conic_gradient_node_get_center (node));
         append_float_param (p, "rotation", gsk_conic_gradient_node_get_rotation (node), 0.0f);
 
@@ -5429,6 +5621,7 @@ render_node_print (Printer       *p,
       {
         start_node (p, "outset-shadow", node_name);
 
+        append_snap_param (p, "snap", gsk_outset_shadow_node_get_snap (node));
         append_float_param (p, "blur", gsk_outset_shadow_node_get_blur_radius (node), 0.0f);
         if (!gdk_color_equal (gsk_outset_shadow_node_get_gdk_color (node), &GDK_COLOR_SRGB (0, 0, 0, 1)))
           append_color_param (p, "color", gsk_outset_shadow_node_get_gdk_color (node));
@@ -5534,6 +5727,8 @@ render_node_print (Printer       *p,
         guint i, n;
         start_node (p, "border", node_name);
 
+        append_snap_param (p, "snap", gsk_border_node_get_snap (node));
+
         if (!gdk_color_equal (&colors[3], &colors[1]))
           n = 4;
         else if (!gdk_color_equal (&colors[2], &colors[0]))
@@ -5595,6 +5790,8 @@ render_node_print (Printer       *p,
 
         start_node (p, "shadow", node_name);
 
+        append_snap_param (p, "snap", gsk_shadow_node_get_snap (node));
+
         _indent (p);
         g_string_append (p->str, "shadows: ");
         for (i = 0; i < n_shadows; i ++)
@@ -5628,6 +5825,7 @@ render_node_print (Printer       *p,
       {
         start_node (p, "inset-shadow", node_name);
 
+        append_snap_param (p, "snap", gsk_inset_shadow_node_get_snap (node));
         append_float_param (p, "blur", gsk_inset_shadow_node_get_blur_radius (node), 0.0f);
         if (!gdk_color_equal (gsk_inset_shadow_node_get_gdk_color (node), &GDK_COLOR_SRGB (0, 0, 0, 1)))
           append_color_param (p, "color", gsk_inset_shadow_node_get_gdk_color (node));
@@ -5646,6 +5844,7 @@ render_node_print (Printer       *p,
 
         append_rect_param (p, "bounds", &node->bounds);
         append_texture_param (p, "texture", gsk_texture_node_get_texture (node));
+        append_snap_param (p, "snap", gsk_texture_node_get_snap (node));
 
         end_node (p);
       }
@@ -5672,6 +5871,8 @@ render_node_print (Printer       *p,
           }
 
         append_texture_param (p, "texture", gsk_texture_scale_node_get_texture (node));
+        append_snap_param (p, "snap", gsk_texture_scale_node_get_snap (node));
+
         end_node (p);
       }
       break;
@@ -5698,6 +5899,8 @@ render_node_print (Printer       *p,
 
         if (!graphene_point_equal (offset, graphene_point_zero ()))
           append_point_param (p, "offset", offset);
+
+        append_point_snap_param (p, "snap", gsk_text_node_get_snap (node));
 
         gsk_text_node_serialize_font_options (node, p);
 

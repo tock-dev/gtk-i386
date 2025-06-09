@@ -473,6 +473,9 @@ node_parser_tests = [
   'text-font-options-error.ref.node',
   'text-font-options-error.ref.errors',
   'text-no-color.node',
+  'text-snap.node',
+  'text-snap.errors',
+  'text-snap.ref.node',
   'texture-fail.node',
   'texture-fail.ref.node',
   'texture-fail.errors',
@@ -482,6 +485,8 @@ node_parser_tests = [
   'texture-scale-unknown-filter.errors',
   'texture-scale-unknown-filter.node',
   'texture-scale-unknown-filter.ref.node',
+  'texture-snap.node',
+  'texture-snap.ref.node',
   'transform-fail.node',
   'transform-fail.ref.node',
   'transform-fail.errors',
@@ -640,6 +645,7 @@ internal_tests = [
   [ 'rounded-rect'],
   [ 'scaling', [ 'scaling.c', '../gdk/gdktestutils.c' ] ],
   [ 'transform' ],
+  [ 'snap' ],
 ]
 
 foreach t : internal_tests

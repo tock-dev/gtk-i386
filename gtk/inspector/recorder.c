@@ -1110,6 +1110,40 @@ add_texture_rows (GListStore *store,
 }
 
 static void
+add_snap_row (GListStore *store,
+              const char *name,
+              GskRectSnap snap)
+{
+  char *names[4];
+  gsize i;
+
+  for (i = 0; i < 4; i++)
+    names[i] = g_enum_to_string (GSK_TYPE_SNAP_DIRECTION, gsk_rect_snap_get_direction (snap, i));
+
+  add_text_row (store, name, "%s %s %s %s", names[0], names[1], names[2], names[3]);
+
+  for (i = 0; i < 4; i++)
+    g_free (names[i]);
+}
+
+static void
+add_point_snap_row (GListStore   *store,
+                    const char   *name,
+                    GskPointSnap  snap)
+{
+  char *names[2];
+  gsize i;
+
+  for (i = 0; i < 2; i++)
+    names[i] = g_enum_to_string (GSK_TYPE_SNAP_DIRECTION, gsk_point_snap_get_direction (snap, i));
+
+  add_text_row (store, name, "%s %s", names[0], names[1]);
+
+  for (i = 0; i < 2; i++)
+    g_free (names[i]);
+}
+
+static void
 populate_render_node_properties (GListStore    *store,
                                  GskRenderNode *node,
                                  const char    *role)
@@ -1178,6 +1212,7 @@ populate_render_node_properties (GListStore    *store,
         GdkTexture *texture = gsk_texture_node_get_texture (node);
 
         add_texture_rows (store, texture);
+        add_snap_row (store, "Snap", gsk_texture_node_get_snap (node));
       }
       break;
 
@@ -1191,12 +1226,14 @@ populate_render_node_properties (GListStore    *store,
 
         tmp = g_enum_to_string (GSK_TYPE_SCALING_FILTER, filter);
         add_text_row (store, "Filter", "%s", tmp);
+        add_snap_row (store, "Snap", gsk_texture_scale_node_get_snap (node));
         g_free (tmp);
       }
       break;
 
     case GSK_COLOR_NODE:
       add_color_row (store, "Color", gsk_color_node_get_gdk_color (node));
+      add_snap_row (store, "Snap", gsk_color_node_get_snap (node));
       break;
 
     case GSK_LINEAR_GRADIENT_NODE:
@@ -1348,6 +1385,7 @@ populate_render_node_properties (GListStore    *store,
         add_text_row (store, "Position", "%.2f %.2f", offset->x, offset->y);
 
         add_color_row (store, "Color", gsk_text_node_get_gdk_color (node));
+        add_point_snap_row (store, "Snap", gsk_text_node_get_snap (node));
       }
       break;
 
@@ -1357,6 +1395,8 @@ populate_render_node_properties (GListStore    *store,
         const float *widths = gsk_border_node_get_widths (node);
         const GdkColor *colors = gsk_border_node_get_gdk_colors (node);
         int i;
+
+        add_snap_row (store, "Snap", gsk_border_node_get_snap (node));
 
         for (i = 0; i < 4; i++)
           {
@@ -1493,6 +1533,7 @@ G_GNUC_END_IGNORE_DEPRECATIONS
         float spread = gsk_inset_shadow_node_get_spread (node);
         float radius = gsk_inset_shadow_node_get_blur_radius (node);
 
+        add_snap_row (store, "Snap", gsk_inset_shadow_node_get_snap (node));
         add_color_row (store, "Color", color);
 
         add_text_row (store, "Offset", "%.2f %.2f", dx, dy);
@@ -1512,6 +1553,7 @@ G_GNUC_END_IGNORE_DEPRECATIONS
         float radius = gsk_outset_shadow_node_get_blur_radius (node);
         float rect[12];
 
+        add_snap_row (store, "Snap", gsk_outset_shadow_node_get_snap (node));
         gsk_rounded_rect_to_float (outline, graphene_point_zero (), rect);
         add_text_row (store, "Outline",
                              "%.2f x %.2f + %.2f + %.2f",

@@ -189,6 +189,7 @@ Creates a node like `gsk_blur_node_new()` with the given properties.
 | colors   | `<color>{1,4}`   | black                  | non-default |
 | outline  | `<rounded-rect>` | 50                     | always      |
 | widths   | `<number>{1,4}`  | 1                      | non-default |
+| snap     | `<snap>`         | none                   | non-default |
 
 Creates a node like `gsk_border_node_new()` with the given properties.
 
@@ -197,6 +198,10 @@ of top, right, bottom, left. If the last/left value isn't given, the 2nd/right
 value is used. If the 3rd/bottom value isn't given, the 1st/top value is used.
 And if the 2nd/right value also isn't given, the 1st/top value is used for
 every 4 values.
+
+Possible values for the snap property are:
+
+    snap: grow | shrink | ( round | floor | ceil | none ){1-4}
 
 ### cairo
 
@@ -228,8 +233,9 @@ clip property. If that rectangle is indeed rounded, a node like
 | -------- | ---------------- | ---------------------- | ----------- |
 | bounds   | `<rect>`         | 50                     | always      |
 | color    | `<color>`        | #FF00CC                | always      |
+| snap     | `<snap>`         | none                   | non-default |
 
-Creates a node like `gsk_color_node_new()` with the given properties.
+Creates a node like `gsk_color_node_new_snapped()` with the given properties.
 
 The color is chosen as an error pink so it is visible while also reminding
 people to change it.
@@ -259,6 +265,7 @@ matrix3d() production to specify all 16 values individually.
 | stops             | `<color-stops>` | 0 #AF0, 1 #F0C | always      |
 | interpolation     | `<color-state>` | srgb           | non-default |
 | hue-interpolation | `<hue-interp>`  | shorter        | non-default |
+| snap              | `<snap>`        | none           | non-default |
 
 Creates a node like `gsk_conic_gradient_node_new()` with the given properties.
 
@@ -338,6 +345,7 @@ uniforms in the shader.
 | dy       | `<number>`       | 1                      | non-default |
 | outline  | `<rounded-rect>` | 50                     | always      |
 | spread   | `<number>`       | 0                      | non-default |
+| snap     | `<snap>`         | none                   | non-default |
 
 Creates a node like `gsk_inset_shadow_node_new()` with the given properties.
 
@@ -351,6 +359,7 @@ Creates a node like `gsk_inset_shadow_node_new()` with the given properties.
 | stops             | `<color-stops>` | 0 #AF0, 1 #F0C | always      |
 | interpolation     | `<color-state>` | srgb           | non-default |
 | hue-interpolation | `<hue-interp>`  | shorter        | non-default |
+| snap              | `<snap>`        | none           | non-default |
 
 Creates a node like `gsk_linear_gradient_node_new()` with the given properties.
 
@@ -387,6 +396,7 @@ Creates a node like `gsk_transform_node_new()` with the given properties.
 | dy       | `<number>`       | 1                      | non-default |
 | outline  | `<rounded-rect>` | 50                     | always      |
 | spread   | `<number>`       | 0                      | non-default |
+| snap     | `<snap>`         | none                   | non-default |
 
 Creates a node like `gsk_outset_shadow_node_new()` with the given properties.
 
@@ -403,6 +413,7 @@ Creates a node like `gsk_outset_shadow_node_new()` with the given properties.
 | stops             | `<color-stops>` | 0 #AF0, 1 #F0C | always      |
 | interpolation     | `<color-state>` | srgb           | non-default |
 | hue-interpolation | `<hue-interp>`  | shorter        | non-default |
+| snap              | `<snap>`        | none           | non-default |
 
 Creates a node like `gsk_radial_gradient_node_new()` with the given properties.
 
@@ -458,6 +469,7 @@ Creates a node like `gsk_rounded_clip_node_new()` with the given properties.
 | -------- | ---------------- | ---------------------- | ----------- |
 | child    | `<node>`         | color { }              | always      |
 | shadows  | `<shadow>`       | black 1 1              | always      |
+| snap     | `<snap>`         | none                   | non-default |
 
 Creates a node like `gsk_shadow_node_new()` with the given properties.
 
@@ -498,6 +510,7 @@ Possible values for the line-join property are:
 | hint-style   | `<hint-style>`      | slight              | non-default |
 | antialias    | `<antialias>`       | gray                | non-default |
 | hint-metrics | `<hint-metrics>`    | off                 | non-default |
+| snap         | `<snap>`            | none                | non-default |
 
 Creates a node like `gsk_text_node_new()` with the given properties.
 
@@ -524,12 +537,18 @@ Possible value for hint-metrics are:
 
     hint-metrics:  on | off
 
+Possible values for the snap property are:
+
+    snap: ( round | floor | ceil | none ){1-2}
+
+### cairo
 ### texture
 
 | property | syntax              | default                | printed     |
 | -------- | ------------------- | ---------------------- | ----------- |
 | bounds   | `<rect>`            | 50                     | always      |
 | texture  | `<string>`?`<url>`? | *see below*            | always      |
+| snap     | `<snap>`            | none                   | non-default |
 
 Creates a node like `gsk_texture_node_new()` with the given properties.
 
@@ -541,6 +560,10 @@ The default texture is a 10x10 checkerboard with the top left and bottom right
 5x5 being in the color #FF00CC and the other part being transparent. A possible
 representation for this texture is `url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAABmJLR0QA/wD/AP+gvaeTAAAAKUlEQVQYlWP8z3DmPwMaYGQwYUQXY0IXwAUGUCGGoxkYGBiweXAoeAYAz44F3e3U1xUAAAAASUVORK5CYII=")
 `.
+
+Possible values for the snap property are:
+
+    snap: grow | shrink | ( round | floor | ceil | none ){1-4}
 
 ### texture-scale
 

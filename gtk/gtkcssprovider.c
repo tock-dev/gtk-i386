@@ -218,7 +218,7 @@ gtk_css_provider_class_init (GtkCssProviderClass *klass)
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
   gtk_css_media_feature_define_discrete ("prefers-color-scheme", 2, (const char *[]) { "light", "dark" });
-  gtk_css_media_feature_define_discrete ("prefers-contrast", 4, (const char *[]) { "no-preference", "less", "more", "custom" });
+  gtk_css_media_feature_define_discrete ("prefers-contrast", 4, (const char *[]) { "no-preference", "less", "more" });
   gtk_css_media_feature_define_discrete ("--gdk-display", 6, (const char *[]) { "wayland", "x11", "windows", "macos", "android", "broadway" });
 
   if (g_getenv ("GTK_CSS_DEBUG"))
@@ -1699,7 +1699,11 @@ gtk_css_provider_load_named (GtkCssProvider *provider,
   /* try loading the resource for the theme. This is mostly meant for built-in
    * themes.
    */
-  resource_path = g_strdup_printf ("/org/gtk/libgtk/theme/%s/gtk.css", name);
+  if (variant)
+    resource_path = g_strdup_printf ("/org/gtk/libgtk/theme/%s/gtk-%s.css", name, variant);
+
+  if (resource_path == NULL || !g_resources_get_info (resource_path, 0, NULL, NULL, NULL))
+    resource_path = g_strdup_printf ("/org/gtk/libgtk/theme/%s/gtk.css", name);
 
   if (g_resources_get_info (resource_path, 0, NULL, NULL, NULL))
     {
@@ -1798,8 +1802,15 @@ gtk_css_provider_add_discrete_media_feature (GtkCssProvider  *provider,
  * @feature_names: (array length=n_features): name of the feature
  * @feature_values: (array length=n_features): value of the feature
  *
- * Update CSS media features. Media features need to be defined with
- * [func@Gtk.css_provider_define_discrete_media_feature].
+ * Update CSS media features.
+ *
+ * Valid media features are:
+ *
+ * | name                   | values                                                      |
+ * | ---                    | ---                                                         |
+ * | `prefers-color-scheme` | `light`, `dark`                                             |
+ * | `prefers-contrast`     | `no-preference`, `more`, `less`                             |
+ * | `--gdk-display`        | `wayland`, `x11`, `windows`, `macos`, `android`, `broadway` |
  *
  * Updating media features will trigger a re-evaluation of the CSS.
  *

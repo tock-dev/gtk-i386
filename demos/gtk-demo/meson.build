@@ -63,6 +63,7 @@ demos = files([
   'listview_words.c',
   'markup.c',
   'mask.c',
+  'notifications.c',
   'overlay.c',
   'overlay_decorative.c',
   'paint.c',
@@ -249,7 +250,7 @@ executable('gtk4-demo',
 )
 
 executable('gtk4-demo-application',
-  sources: ['application.c', gtkdemo_resources],
+  sources: ['application.c', 'notifications.c', gtkdemo_resources],
   c_args: common_cflags,
   dependencies: gtkdemo_deps,
   include_directories: confinc,
@@ -267,6 +268,17 @@ endforeach
 
 # desktop file
 install_data('org.gtk.Demo4.desktop', install_dir: gtk_applicationsdir)
+install_data('org.gtk.Demo4.App.desktop', install_dir: gtk_applicationsdir)
+
+# service file
+app_service_file_config = configuration_data()
+app_service_file_config.set('bindir', gtk_bindir)
+configure_file(
+  input: 'org.gtk.Demo4.App.service.in',
+  output: 'org.gtk.Demo4.App.service',
+  configuration: app_service_file_config,
+  install_dir: gtk_datadir / 'dbus-1' / 'services',
+)
 
 # GSettings
 install_data('org.gtk.Demo4.gschema.xml', install_dir: gtk_schemasdir)

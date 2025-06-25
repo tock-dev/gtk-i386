@@ -212,6 +212,10 @@
     <file>hsla.h</file>
     <file>hsla.c</file>
   </gresource>
+  <gresource prefix="/notifications">
+    <file>notifications.h</file>
+    <file>notifications.ui</file>
+  </gresource>
   <gresource prefix="/paintable_svg">
     <file>svgpaintable.h</file>
     <file>svgpaintable.c</file>
@@ -313,6 +317,7 @@
     <file>main.c</file>
     <file>markup.c</file>
     <file>mask.c</file>
+    <file>notifications.c</file>
     <file>overlay.c</file>
     <file>overlay_decorative.c</file>
     <file>paint.c</file>
@@ -448,5 +453,9 @@
   </gresource>
   <gresource prefix="/org/gtk/Demo4/gtk">
     <file preprocess="xml-stripblanks">help-overlay.ui</file>
+  </gresource>
+  <gresource prefix="/org/gtk/Demo4/App">
+    <file>icons/scalable/actions/paper-plane-symbolic.svg</file>
+    <file>icons/scalable/actions/person-symbolic.svg</file>
   </gresource>
 </gresources>

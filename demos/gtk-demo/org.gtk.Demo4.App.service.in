@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.gtk.Demo4.App
+Exec=@bindir@/gtk4-demo-application --gapplication-service

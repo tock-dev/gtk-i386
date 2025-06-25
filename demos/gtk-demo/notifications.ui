@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <menu id="menu">
+    <item>
+      <attribute name="label">Silent mode</attribute>
+      <attribute name="action">app.silent-mode</attribute>
+    </item>
+  </menu>
+  <object class="GtkHeaderBar" id="header_bar">
+    <property name="title-widget">
+      <object class="GtkLabel">
+        <style>
+          <class name="title"/>
+        </style>
+        <property name="label">Messaging app</property>
+      </object>
+    </property>
+    <child type="end">
+      <object class="GtkMenuButton">
+        <property name="child">
+          <object class="GtkImage">
+            <property name="resource">/org/gtk/libgtk/icons/scalable/actions/open-menu-symbolic.svg</property>
+          </object>
+        </property>
+        <property name="menu-model">menu</property>
+      </object>
+    </child>
+  </object>
+  <object class="GtkBox" id="window_child">
+    <property name="orientation">vertical</property>
+    <child>
+      <object class="GtkStack" id="stack">
+        <property name="vexpand">true</property>
+        <child>
+          <object class="GtkStackPage">
+            <property name="name">welcome</property>
+            <property name="child">
+              <object class="GtkScrolledWindow">
+                <style>
+                  <class name="view"/>
+                </style>
+                <property name="hscrollbar-policy">never</property>
+                <property name="propagate-natural-height">true</property>
+                <property name="propagate-natural-width">true</property>
+                <property name="child">
+                  <object class="GtkBox">
+                    <property name="margin-top">16</property>
+                    <property name="margin-bottom">16</property>
+                    <property name="margin-start">16</property>
+                    <property name="margin-end">16</property>
+                    <property name="orientation">vertical</property>
+                    <property name="spacing">32</property>
+                    <property name="halign">center</property>
+                    <property name="valign">center</property>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="label"
+                          >&lt;span weight="bold" size="x-large"&gt;Welcome!&lt;/span&gt;</property>
+                        <property name="use-markup">true</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="width-request">400</property>
+                        <property name="wrap">true</property>
+                        <property name="justify">center</property>
+                        <property name="label"
+                          >This is the GNotifications demo for GTK, feel free to click any of the buttons in the bottom bar.</property>
+                      </object>
+                    </child>
+                  </object>
+                </property>
+              </object>
+            </property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkStackPage">
+            <property name="name">messages</property>
+            <property name="child">
+              <object class="GtkScrolledWindow" id="messages_scrolled_window">
+                <property name="child">
+                  <object class="GtkBox" id="messages_box">
+                    <property name="orientation">vertical</property>
+                    <property name="halign">center</property>
+                    <property name="spacing">16</property>
+                    <property name="width-request">600</property>
+                    <property name="margin-top">16</property>
+                    <property name="margin-bottom">16</property>
+                    <property name="margin-start">16</property>
+                    <property name="margin-end">16</property>
+                  </object>
+                </property>
+              </object>
+            </property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="GtkSeparator">
+        <property name="orientation">horizontal</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkBox">
+        <style>
+          <class name="toolbar"/>
+        </style>
+        <child>
+          <object class="GtkDropDown" id="dropdown">
+            <property name="model">
+              <object class="GtkStringList">
+                <items>
+                  <item>Send message</item>
+                  <item>Call me</item>
+                </items>
+              </object>
+            </property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkSeparator">
+            <property name="orientation">vertical</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkEntry" id="text_entry">
+            <property name="hexpand">true</property>
+            <property name="editable">false</property>
+            <property name="has-frame">false</property>
+            <property name="xalign">0.01</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkSeparator">
+            <property name="orientation">vertical</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkButton" id="send_button">
+            <style>
+              <class name="suggested-action"/>
+            </style>
+            <property name="action-name">win.send</property>
+            <property name="icon-name">paper-plane-symbolic</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+
+  <object class="GtkBox" id="user_message">
+    <style>
+      <class name="message"/>
+    </style>
+    <property name="spacing">8</property>
+    <property name="halign">end</property>
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">vertical</property>
+        <property name="spacing">8</property>
+        <child>
+          <object class="GtkLabel">
+            <property name="halign">end</property>
+            <property name="label">&lt;span weight="bold" size="small"&gt;You&lt;/span&gt;</property>
+            <property name="use-markup">true</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkLabel">
+            <property name="label">Hi! How are you doing?</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="GtkImage">
+        <property name="icon-name">person-symbolic</property>
+        <property name="width-request">32</property>
+        <property name="height-request">32</property>
+      </object>
+    </child>
+  </object>
+
+  <object class="GtkBox" id="response_message">
+    <style>
+      <class name="message"/>
+    </style>
+    <property name="spacing">8</property>
+    <property name="halign">start</property>
+    <child>
+      <object class="GtkImage">
+        <property name="icon-name">person-symbolic</property>
+        <property name="width-request">32</property>
+        <property name="height-request">32</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">vertical</property>
+        <property name="spacing">8</property>
+        <property name="valign">center</property>
+        <child>
+          <object class="GtkLabel">
+            <property name="halign">start</property>
+            <property name="label">&lt;span weight="bold" size="small"&gt;Jesús R.&lt;/span&gt;</property>
+            <property name="use-markup">true</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkLabel">
+            <property name="label">Hi! I'm doing great, thanks!</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+
+  <object class="GtkBox" id="user_request_call">
+    <style>
+      <class name="message"/>
+    </style>
+    <property name="spacing">8</property>
+    <property name="halign">end</property>
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">vertical</property>
+        <property name="valign">center</property>
+        <property name="spacing">8</property>
+        <child>
+          <object class="GtkLabel">
+            <property name="halign">end</property>
+            <property name="label">&lt;span weight="bold" size="small"&gt;You&lt;/span&gt;</property>
+            <property name="use-markup">true</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkLabel">
+            <property name="label">Could you please call me back? I ran out of call minutes :-(</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="GtkImage">
+        <property name="icon-name">person-symbolic</property>
+        <property name="width-request">32</property>
+        <property name="height-request">32</property>
+      </object>
+    </child>
+  </object>
+
+  <object class="GtkBox" id="response_call">
+    <style>
+      <class name="message"/>
+    </style>
+    <property name="spacing">8</property>
+    <property name="halign">start</property>
+    <child>
+      <object class="GtkImage">
+        <property name="icon-name">person-symbolic</property>
+        <property name="width-request">32</property>
+        <property name="height-request">32</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">vertical</property>
+        <property name="valign">center</property>
+        <property name="spacing">8</property>
+        <child>
+          <object class="GtkLabel">
+            <property name="label">&lt;span weight="bold" size="small"&gt;Jesús R.&lt;/span&gt;</property>
+            <property name="use-markup">true</property>
+            <property name="halign">start</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkStack" id="call_stack">
+            <child>
+              <object class="GtkStackPage">
+                <property name="name">in-call</property>
+                <property name="child">
+                  <object class="GtkLabel">
+                    <style>
+                      <class name="dim-label"/>
+                    </style>
+                    <property name="halign">start</property>
+                    <property name="label">&lt;span weight="bold" size="large"&gt;Is calling you...&lt;/span&gt;</property>
+                    <property name="use-markup">true</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkStackPage">
+                <property name="name">answered</property>
+                <property name="child">
+                  <object class="GtkLabel">
+                    <property name="halign">start</property>
+                    <property name="label">&lt;span weight="bold" size="large"&gt;You answered&lt;/span&gt;</property>
+                    <property name="use-markup">true</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkStackPage">
+                <property name="name">rejected</property>
+                <property name="child">
+                  <object class="GtkLabel">
+                    <style>
+                      <class name="error"/>
+                    </style>
+                    <property name="halign">start</property>
+                    <property name="label">&lt;span weight="bold" size="large"&gt;You rejected&lt;/span&gt;</property>
+                    <property name="use-markup">true</property>
+                  </object>
+                </property>
+              </object>>
+            </child>
+            <child>
+              <object class="GtkStackPage">
+                <property name="name">missed</property>
+                <property name="child">
+                  <object class="GtkLabel">
+                    <property name="halign">start</property>
+                    <property name="label">&lt;span weight="bold" size="large"&gt;Missed call&lt;/span&gt;</property>
+                    <property name="use-markup">true</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>

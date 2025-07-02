@@ -2127,10 +2127,11 @@ translate_gesture (GdkTitlebarGesture         gesture,
 static gboolean
 gdk_wayland_toplevel_supports_titlebar_gestures (GdkWaylandToplevel *wayland_toplevel)
 {
-  if (!gdk_wayland_toplevel_init_gtk_surface (wayland_toplevel))
-    return FALSE;
+  GdkWaylandDisplay *wayland_display =
+    GDK_WAYLAND_DISPLAY (gdk_surface_get_display (GDK_SURFACE (wayland_toplevel)));
 
-  if (gtk_surface1_get_version (wayland_toplevel->display_server.gtk_surface) < GTK_SURFACE1_TITLEBAR_GESTURE_SINCE_VERSION)
+  if (!wayland_display->gtk_shell ||
+      gtk_shell1_get_version (wayland_display->gtk_shell) < GTK_SURFACE1_TITLEBAR_GESTURE_SINCE_VERSION)
     return FALSE;
 
   return TRUE;
@@ -2147,7 +2148,9 @@ gdk_wayland_toplevel_titlebar_gesture (GdkToplevel        *toplevel,
   struct wl_seat *wl_seat;
   uint32_t serial;
 
-  if (!gdk_wayland_toplevel_supports_titlebar_gestures (wayland_toplevel))
+  if (!wayland_toplevel->display_server.gtk_surface ||
+      gtk_surface1_get_version (wayland_toplevel->display_server.gtk_surface) <
+      GTK_SURFACE1_TITLEBAR_GESTURE_SINCE_VERSION)
     return FALSE;
 
   if (!translate_gesture (gesture, &gtk_gesture))

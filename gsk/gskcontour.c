@@ -463,6 +463,32 @@ apply_corner_direction (GskPathDirection  direction,
     }
 }
 
+static inline gboolean
+stroke_params_simple (GskLineJoin line_join,
+                      float       miter_limit,
+                      float       dash_length)
+{
+  if (line_join == GSK_LINE_JOIN_ROUND ||
+      line_join == GSK_LINE_JOIN_BEVEL)
+    return FALSE;
+
+  if (miter_limit < 1.5)
+    return FALSE;
+
+  if (dash_length != 0)
+    return FALSE;
+
+  return TRUE;
+}
+
+static inline gboolean
+stroke_is_simple (GskStroke *stroke)
+{
+  return stroke_params_simple (stroke->line_join,
+                               stroke->miter_limit,
+                               stroke->dash_length);
+}
+
 /* }}} */
 /* {{{ Default implementations */
 
@@ -1680,6 +1706,19 @@ gsk_circle_contour_stroke (const GskContour *contour,
                            GskPathBuilder   *builder,
                            GskStroke        *stroke)
 {
+  const GskCircleContour *self = (const GskCircleContour *) contour;
+
+  if (stroke->dash_length == 0)
+    {
+      GskContour *c;
+
+      c = gsk_circle_contour_new (&self->center, self->radius - stroke->line_width / 2);
+      gsk_path_builder_add_contour (builder, c);
+
+      c = gsk_circle_contour_new (&self->center, self->radius + stroke->line_width / 2);
+      ((GskCircleContour *)c)->ccw = TRUE;
+      gsk_path_builder_add_contour (builder, c);
+    }
 }
 
 static void
@@ -1689,6 +1728,11 @@ gsk_circle_contour_offset (const GskContour *contour,
                            GskLineJoin       line_join,
                            float             miter_limit)
 {
+  const GskCircleContour *self = (const GskCircleContour *) contour;
+  GskContour *c;
+
+  c = gsk_circle_contour_new (&self->center, self->radius - distance);
+  gsk_path_builder_add_contour (builder, c);
 }
 
 static gpointer
@@ -2026,6 +2070,24 @@ gsk_rect_contour_stroke (const GskContour *contour,
                          GskPathBuilder   *builder,
                          GskStroke        *stroke)
 {
+  const GskRectContour *self = (const GskRectContour *) contour;
+
+  if (stroke_is_simple (stroke))
+    {
+      GskContour *c;
+      graphene_rect_t rect;
+
+      graphene_rect_init (&rect, self->x, self->y, self->width, self->height);
+      graphene_rect_inset (&rect, stroke->line_width / 2, stroke->line_width / 2);
+      c = gsk_rect_contour_new (&rect);
+      gsk_path_builder_add_contour (builder, c);
+
+      graphene_rect_inset (&rect, - stroke->line_width, - stroke->line_width);
+      rect.origin.x += rect.size.width;
+      rect.size.width = - rect.size.width;
+      c = gsk_rect_contour_new (&rect);
+      gsk_path_builder_add_contour (builder, c);
+    }
 }
 
 static void
@@ -2035,6 +2097,16 @@ gsk_rect_contour_offset (const GskContour *contour,
                          GskLineJoin       line_join,
                          float             miter_limit)
 {
+  const GskRectContour *self = (const GskRectContour *) contour;
+
+  if (stroke_params_simple (line_join, miter_limit, 0))
+    {
+      graphene_rect_t rect;
+
+      graphene_rect_init (&rect, self->x, self->y, self->width, self->height);
+      graphene_rect_inset (&rect, distance, distance);
+      gsk_path_builder_add_rect (builder, &rect);
+    }
 }
 
 static gpointer
@@ -2421,6 +2493,33 @@ gsk_rounded_rect_contour_stroke (const GskContour *contour,
                                  GskPathBuilder   *builder,
                                  GskStroke        *stroke)
 {
+  const GskRoundedRectContour *self = (const GskRoundedRectContour *) contour;
+
+  if (stroke_is_simple (stroke))
+    {
+      GskRoundedRect rect;
+      GskContour *c;
+
+      gsk_rounded_rect_init_copy (&rect, &self->rect);
+
+      gsk_rounded_rect_shrink (&rect,
+                               stroke->line_width / 2,
+                               stroke->line_width / 2,
+                               stroke->line_width / 2,
+                               stroke->line_width / 2);
+      c = gsk_rounded_rect_contour_new (&rect);
+      gsk_path_builder_add_contour (builder, c);
+
+      gsk_rounded_rect_init_copy (&rect, &self->rect);
+      gsk_rounded_rect_shrink (&rect,
+                               - stroke->line_width / 2,
+                               - stroke->line_width / 2,
+                               - stroke->line_width / 2,
+                               - stroke->line_width / 2);
+      c = gsk_rounded_rect_contour_new (&rect);
+      ((GskRoundedRectContour *)c)->ccw = TRUE;
+      gsk_path_builder_add_contour (builder, c);
+    }
 }
 
 static void
@@ -2430,6 +2529,18 @@ gsk_rounded_rect_contour_offset (const GskContour *contour,
                                  GskLineJoin       line_join,
                                  float             miter_limit)
 {
+  const GskRoundedRectContour *self = (const GskRoundedRectContour *) contour;
+
+  if (stroke_params_simple (line_join, miter_limit, 0))
+    {
+      GskRoundedRect rect;
+      GskContour *c;
+
+      gsk_rounded_rect_init_copy (&rect, &self->rect);
+      gsk_rounded_rect_shrink (&rect, distance, distance, distance, distance);
+      c = gsk_rounded_rect_contour_new (&rect);
+      gsk_path_builder_add_contour (builder, c);
+    }
 }
 
 typedef struct

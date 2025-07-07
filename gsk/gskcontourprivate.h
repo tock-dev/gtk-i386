@@ -109,4 +109,20 @@ float                   gsk_contour_get_distance                (const GskContou
                                                                  const GskPathPoint     *point,
                                                                  gpointer                measure_data);
 
+void                    gsk_contour_default_stroke              (const GskContour       *contour,
+                                                                 GskPathBuilder         *builder,
+                                                                 GskStroke              *stroke);
+void                    gsk_contour_default_offset              (const GskContour       *contour,
+                                                                 GskPathBuilder         *builder,
+                                                                 float                   distance,
+                                                                 GskLineJoin             line_join,
+                                                                 float                   miter_limit);
+
+gboolean                gsk_contour_dash                        (const GskContour       *contour,
+                                                                 GskStroke              *stroke,
+                                                                 GskPathForeachFunc      func,
+                                                                 gpointer                user_data);
+
+
+
 G_END_DECLS

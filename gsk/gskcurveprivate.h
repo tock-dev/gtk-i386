@@ -159,6 +159,9 @@ void                    gsk_curve_segment                       (const GskCurve 
                                                                  float                   start,
                                                                  float                   end,
                                                                  GskCurve               *segment);
+void                    gsk_curve_offset                        (const GskCurve         *curve,
+                                                                 float                   distance,
+                                                                 GskCurve               *offset_curve);
 gboolean                gsk_curve_decompose                     (const GskCurve         *curve,
                                                                  float                   tolerance,
                                                                  GskCurveAddLineFunc     add_line_func,

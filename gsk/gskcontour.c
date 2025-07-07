@@ -85,6 +85,14 @@ struct _GskContourClass
                                                  gboolean                emit_move_to,
                                                  const GskPathPoint     *start,
                                                  const GskPathPoint     *end);
+  void                  (* stroke)              (const GskContour       *contour,
+                                                 GskPathBuilder         *builder,
+                                                 GskStroke              *stroke);
+  void                  (* offset)              (const GskContour       *contour,
+                                                 GskPathBuilder         *builder,
+                                                 float                   distance,
+                                                 GskLineJoin             line_join,
+                                                 float                   miter_limit);
   gpointer              (* init_measure)        (const GskContour       *contour,
                                                  float                   tolerance,
                                                  float                  *out_length);
@@ -958,6 +966,22 @@ gsk_standard_contour_add_segment (const GskContour   *contour,
     }
 }
 
+static void
+gsk_standard_contour_stroke (const GskContour *contour,
+                             GskPathBuilder   *builder,
+                             GskStroke        *stroke)
+{
+}
+
+static void
+gsk_standard_contour_offset (const GskContour *contour,
+                             GskPathBuilder   *builder,
+                             float             distance,
+                             GskLineJoin       line_join,
+                             float             miter_limit)
+{
+}
+
 typedef struct
 {
   gsize idx;
@@ -1284,6 +1308,8 @@ static const GskContourClass GSK_STANDARD_CONTOUR_CLASS =
   gsk_standard_contour_get_tangent,
   gsk_standard_contour_get_curvature,
   gsk_standard_contour_add_segment,
+  gsk_standard_contour_stroke,
+  gsk_standard_contour_offset,
   gsk_standard_contour_init_measure,
   gsk_standard_contour_free_measure,
   gsk_standard_contour_get_point,
@@ -1649,6 +1675,22 @@ gsk_circle_contour_add_segment (const GskContour   *contour,
   gsk_path_unref (path);
 }
 
+static void
+gsk_circle_contour_stroke (const GskContour *contour,
+                           GskPathBuilder   *builder,
+                           GskStroke        *stroke)
+{
+}
+
+static void
+gsk_circle_contour_offset (const GskContour *contour,
+                           GskPathBuilder   *builder,
+                           float             distance,
+                           GskLineJoin       line_join,
+                           float             miter_limit)
+{
+}
+
 static gpointer
 gsk_circle_contour_init_measure (const GskContour *contour,
                                  float             tolerance,
@@ -1747,6 +1789,8 @@ static const GskContourClass GSK_CIRCLE_CONTOUR_CLASS =
   gsk_circle_contour_get_tangent,
   gsk_circle_contour_get_curvature,
   gsk_circle_contour_add_segment,
+  gsk_circle_contour_stroke,
+  gsk_circle_contour_offset,
   gsk_circle_contour_init_measure,
   gsk_circle_contour_free_measure,
   gsk_circle_contour_get_point,
@@ -1977,6 +2021,22 @@ gsk_rect_contour_add_segment (const GskContour   *contour,
   contour_add_segment (contour, builder, emit_move_to, start, end);
 }
 
+static void
+gsk_rect_contour_stroke (const GskContour *contour,
+                         GskPathBuilder   *builder,
+                         GskStroke        *stroke)
+{
+}
+
+static void
+gsk_rect_contour_offset (const GskContour *contour,
+                         GskPathBuilder   *builder,
+                         float             distance,
+                         GskLineJoin       line_join,
+                         float             miter_limit)
+{
+}
+
 static gpointer
 gsk_rect_contour_init_measure (const GskContour *contour,
                                float             tolerance,
@@ -2093,6 +2153,8 @@ static const GskContourClass GSK_RECT_CONTOUR_CLASS =
   gsk_rect_contour_get_tangent,
   gsk_rect_contour_get_curvature,
   gsk_rect_contour_add_segment,
+  gsk_rect_contour_stroke,
+  gsk_rect_contour_offset,
   gsk_rect_contour_init_measure,
   gsk_rect_contour_free_measure,
   gsk_rect_contour_get_point,
@@ -2354,6 +2416,22 @@ gsk_rounded_rect_contour_add_segment (const GskContour   *contour,
   contour_add_segment (contour, builder, emit_move_to, start, end);
 }
 
+static void
+gsk_rounded_rect_contour_stroke (const GskContour *contour,
+                                 GskPathBuilder   *builder,
+                                 GskStroke        *stroke)
+{
+}
+
+static void
+gsk_rounded_rect_contour_offset (const GskContour *contour,
+                                 GskPathBuilder   *builder,
+                                 float             distance,
+                                 GskLineJoin       line_join,
+                                 float             miter_limit)
+{
+}
+
 typedef struct
 {
   const GskContour *contour;
@@ -2427,6 +2505,8 @@ static const GskContourClass GSK_ROUNDED_RECT_CONTOUR_CLASS =
   gsk_rounded_rect_contour_get_tangent,
   gsk_rounded_rect_contour_get_curvature,
   gsk_rounded_rect_contour_add_segment,
+  gsk_rounded_rect_contour_stroke,
+  gsk_rounded_rect_contour_offset,
   gsk_rounded_rect_contour_init_measure,
   gsk_rounded_rect_contour_free_measure,
   gsk_rounded_rect_contour_get_point,
@@ -2634,6 +2714,24 @@ gsk_contour_add_segment (const GskContour   *self,
                          const GskPathPoint *end)
 {
   self->klass->add_segment (self, builder, emit_move_to, start, end);
+}
+
+void
+gsk_contour_stroke (const GskContour *self,
+                    GskPathBuilder   *builder,
+                    GskStroke        *stroke)
+{
+  self->klass->stroke (self, builder, stroke);
+}
+
+void
+gsk_contour_offset (const GskContour *self,
+                    GskPathBuilder   *builder,
+                    float             distance,
+                    GskLineJoin       line_join,
+                    float             miter_limit)
+{
+  self->klass->offset (self, builder, distance, line_join, miter_limit);
 }
 
 gpointer

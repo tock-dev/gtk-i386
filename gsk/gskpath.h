@@ -143,6 +143,15 @@ gboolean                gsk_path_foreach                        (GskPath        
                                                                  GskPathForeachFunc      func,
                                                                  gpointer                user_data);
 
+GDK_AVAILABLE_IN_4_20
+GskPath *               gsk_path_stroke                         (GskPath                *self,
+                                                                 GskStroke              *stroke);
+GDK_AVAILABLE_IN_4_20
+GskPath *               gsk_path_offset                         (GskPath                *self,
+                                                                 float                   distance,
+                                                                 GskLineJoin             line_join,
+                                                                 float                   miter_limit);
+
 /**
  * GskPathIntersection:
  * @GSK_PATH_INTERSECTION_NONE: No intersection

@@ -146,6 +146,9 @@ void                    gsk_curve_get_point                     (const GskCurve 
 void                    gsk_curve_get_tangent                   (const GskCurve         *curve,
                                                                  float                   progress,
                                                                  graphene_vec2_t        *tangent);
+void                    gsk_curve_get_normal                    (const GskCurve         *curve,
+                                                                 float                   progress,
+                                                                 graphene_vec2_t        *normal);
 void                    gsk_curve_reverse                       (const GskCurve         *curve,
                                                                  GskCurve               *reverse);
 void                    gsk_curve_split                         (const GskCurve         *curve,
@@ -156,6 +159,9 @@ void                    gsk_curve_segment                       (const GskCurve 
                                                                  float                   start,
                                                                  float                   end,
                                                                  GskCurve               *segment);
+void                    gsk_curve_offset                        (const GskCurve         *curve,
+                                                                 float                   distance,
+                                                                 GskCurve               *offset_curve);
 gboolean                gsk_curve_decompose                     (const GskCurve         *curve,
                                                                  float                   tolerance,
                                                                  GskCurveAddLineFunc     add_line_func,

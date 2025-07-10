@@ -58,6 +58,12 @@ gboolean                gsk_path_foreach_with_tolerance         (GskPath        
 void                    gsk_path_builder_add_contour            (GskPathBuilder         *builder,
                                                                  GskContour             *contour);
 
+gboolean                gsk_path_dash                           (GskPath                *path,
+                                                                 GskStroke              *stroke,
+                                                                 GskPathForeachFunc      func,
+                                                                 gpointer                user_data);
+
+
 static inline void
 gsk_cairo_set_fill_rule (cairo_t     *cr,
                          GskFillRule  fill_rule)

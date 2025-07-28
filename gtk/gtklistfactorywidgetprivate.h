@@ -66,6 +66,12 @@ void                    gtk_list_factory_widget_set_factory     (GtkListFactoryW
                                                                  GtkListItemFactory     *factory);
 GtkListItemFactory *    gtk_list_factory_widget_get_factory     (GtkListFactoryWidget   *self);
 
+void                    gtk_list_factory_widget_set_select_on_hover
+                                                                (GtkListFactoryWidget   *self,
+                                                                 gboolean                select_on_hover);
+gboolean                gtk_list_factory_widget_get_select_on_hover
+                                                                (GtkListFactoryWidget   *self);
+
 void                    gtk_list_factory_widget_set_single_click_activate
                                                                 (GtkListFactoryWidget   *self,
                                                                  gboolean                single_click_activate);

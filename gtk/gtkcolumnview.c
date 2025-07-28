@@ -182,6 +182,7 @@ gtk_column_list_view_create_list_widget (GtkListBase *base)
   result = gtk_column_view_row_widget_new (gtk_list_view_get_factory (self->listview), FALSE);
 
   gtk_list_factory_widget_set_single_click_activate (GTK_LIST_FACTORY_WIDGET (result), GTK_LIST_VIEW (base)->single_click_activate);
+  gtk_list_factory_widget_set_select_on_hover (GTK_LIST_FACTORY_WIDGET (result), GTK_LIST_VIEW (base)->select_on_hover);
 
   for (i = 0; i < g_list_model_get_n_items (G_LIST_MODEL (self->columns)); i++)
     {
@@ -225,6 +226,7 @@ enum
   PROP_MODEL,
   PROP_REORDERABLE,
   PROP_ROW_FACTORY,
+  PROP_SELECT_ON_HOVER,
   PROP_SHOW_ROW_SEPARATORS,
   PROP_SHOW_COLUMN_SEPARATORS,
   PROP_SINGLE_CLICK_ACTIVATE,
@@ -658,6 +660,10 @@ gtk_column_view_get_property (GObject    *object,
       g_value_set_object (value, gtk_column_view_get_row_factory (self));
       break;
 
+    case PROP_SELECT_ON_HOVER:
+      g_value_set_boolean (value, gtk_column_view_get_select_on_hover (self));
+      break;
+
     case PROP_SHOW_ROW_SEPARATORS:
       g_value_set_boolean (value, gtk_list_view_get_show_separators (self->listview));
       break;
@@ -747,6 +753,10 @@ gtk_column_view_set_property (GObject      *object,
 
     case PROP_ROW_FACTORY:
       gtk_column_view_set_row_factory (self, g_value_get_object (value));
+      break;
+
+    case PROP_SELECT_ON_HOVER:
+      gtk_column_view_set_select_on_hover (self, g_value_get_boolean (value));
       break;
 
     case PROP_SHOW_ROW_SEPARATORS:
@@ -878,6 +888,18 @@ gtk_column_view_class_init (GtkColumnViewClass *klass)
                          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
 
   /**
+   * GtkColumnView:select-on-hover:
+   *
+   * Select rows them on hover.
+   *
+   * Since: 4.20
+   */
+  properties[PROP_SELECT_ON_HOVER] =
+    g_param_spec_boolean ("select-on-hover", NULL, NULL,
+                          FALSE,
+                          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
+
+  /**
    * GtkColumnView:show-row-separators:
    *
    * Show separators between rows.
@@ -910,7 +932,7 @@ gtk_column_view_class_init (GtkColumnViewClass *klass)
   /**
    * GtkColumnView:single-click-activate:
    *
-   * Activate rows on single click and select them on hover.
+   * Activate rows on single click.
    */
   properties[PROP_SINGLE_CLICK_ACTIVATE] =
     g_param_spec_boolean ("single-click-activate", NULL, NULL,
@@ -1961,12 +1983,53 @@ gtk_column_view_sort_by_column (GtkColumnView       *self,
 }
 
 /**
+ * gtk_column_view_set_select_on_hover:
+ * @self: a columnview
+ * @select_on_hover: whether to select items on hover
+ *
+ * Sets whether rows should be selected on hover.
+ *
+ * Since: 4.20
+ */
+void
+gtk_column_view_set_select_on_hover (GtkColumnView *self,
+                                     gboolean       select_on_hover)
+{
+  g_return_if_fail (GTK_IS_COLUMN_VIEW (self));
+
+  if (select_on_hover == gtk_list_view_get_select_on_hover (self->listview))
+    return;
+
+  gtk_list_view_set_select_on_hover (self->listview, select_on_hover);
+
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_SELECT_ON_HOVER]);
+}
+
+/**
+ * gtk_column_view_get_select_on_hover:
+ * @self: a columnview
+ *
+ * Returns whether rows will be selected on hover.
+ *
+ * Returns: true if rows are selected on hover
+ *
+ * Since: 4.20
+ */
+gboolean
+gtk_column_view_get_select_on_hover (GtkColumnView *self)
+{
+  g_return_val_if_fail (GTK_IS_COLUMN_VIEW (self), FALSE);
+
+  return gtk_list_view_get_select_on_hover (self->listview);
+}
+
+/**
  * gtk_column_view_set_single_click_activate:
  * @self: a columnview
  * @single_click_activate: whether to activate items on single click
  *
- * Sets whether rows should be activated on single click and
- * selected on hover.
+ * Sets whether rows should be activated on single click. This also sets
+ * [property@Gtk.ColumnView:select-on-hover] to the same value.
  */
 void
 gtk_column_view_set_single_click_activate (GtkColumnView *self,
@@ -1986,8 +2049,7 @@ gtk_column_view_set_single_click_activate (GtkColumnView *self,
  * gtk_column_view_get_single_click_activate:
  * @self: a columnview
  *
- * Returns whether rows will be activated on single click and
- * selected on hover.
+ * Returns whether rows will be activated on single click.
  *
  * Returns: true if rows are activated on single click
  */

@@ -155,6 +155,7 @@ enum
   PROP_FACTORY,
   PROP_HEADER_FACTORY,
   PROP_MODEL,
+  PROP_SELECT_ON_HOVER,
   PROP_SHOW_SEPARATORS,
   PROP_SINGLE_CLICK_ACTIVATE,
   PROP_TAB_BEHAVIOR,
@@ -282,6 +283,7 @@ gtk_list_view_create_list_widget (GtkListBase *base)
                                      "row",
                                      GTK_ACCESSIBLE_ROLE_LIST_ITEM);
 
+  gtk_list_factory_widget_set_select_on_hover (GTK_LIST_FACTORY_WIDGET (result), self->select_on_hover);
   gtk_list_factory_widget_set_single_click_activate (GTK_LIST_FACTORY_WIDGET (result), self->single_click_activate);
 
   return GTK_LIST_ITEM_BASE (result);
@@ -766,6 +768,10 @@ gtk_list_view_get_property (GObject    *object,
       g_value_set_object (value, gtk_list_base_get_model (GTK_LIST_BASE (self)));
       break;
 
+    case PROP_SELECT_ON_HOVER:
+      g_value_set_boolean (value, self->select_on_hover);
+      break;
+
     case PROP_SHOW_SEPARATORS:
       g_value_set_boolean (value, self->show_separators);
       break;
@@ -808,6 +814,10 @@ gtk_list_view_set_property (GObject      *object,
 
     case PROP_MODEL:
       gtk_list_view_set_model (self, g_value_get_object (value));
+      break;
+
+    case PROP_SELECT_ON_HOVER:
+      gtk_list_view_set_select_on_hover (self, g_value_get_boolean (value));
       break;
 
     case PROP_SHOW_SEPARATORS:
@@ -921,6 +931,18 @@ gtk_list_view_class_init (GtkListViewClass *klass)
                          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
 
   /**
+   * GtkListView:select-on-hover:
+   *
+   * Select rows on hover.
+   *
+   * Since: 4.20
+   */
+  properties[PROP_SELECT_ON_HOVER] =
+    g_param_spec_boolean ("select-on-hover", NULL, NULL,
+                          FALSE,
+                          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
+
+  /**
    * GtkListView:show-separators:
    *
    * Show separators between rows.
@@ -933,7 +955,9 @@ gtk_list_view_class_init (GtkListViewClass *klass)
   /**
    * GtkListView:single-click-activate:
    *
-   * Activate rows on single click and select them on hover.
+   * Activate rows on single click. This also sets
+   * [property@Gtk.ListView:select-on-hover] to the same value, but that
+   * property can be controlled on its own.
    */
   properties[PROP_SINGLE_CLICK_ACTIVATE] =
     g_param_spec_boolean ("single-click-activate", NULL, NULL,
@@ -1237,12 +1261,63 @@ gtk_list_view_get_show_separators (GtkListView *self)
 }
 
 /**
+ * gtk_list_view_set_select_on_hover:
+ * @self: a listview
+ * @select_on_hover: whether to select items on hover
+ *
+ * Sets whether rows should be selected on hover.
+ *
+ * Since: 4.20
+ */
+void
+gtk_list_view_set_select_on_hover (GtkListView *self,
+                                   gboolean     select_on_hover)
+{
+  GtkListTile *tile;
+
+  g_return_if_fail (GTK_IS_LIST_VIEW (self));
+
+  if (select_on_hover == self->select_on_hover)
+    return;
+
+  self->select_on_hover = select_on_hover;
+
+  for (tile = gtk_list_item_manager_get_first (self->item_manager);
+       tile != NULL;
+       tile = gtk_rb_tree_node_get_next (tile))
+    {
+      if (tile->widget && tile->type == GTK_LIST_TILE_ITEM)
+        gtk_list_factory_widget_set_select_on_hover (GTK_LIST_FACTORY_WIDGET (tile->widget), select_on_hover);
+    }
+
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_SELECT_ON_HOVER]);
+}
+
+/**
+ * gtk_list_view_get_select_on_hover:
+ * @self: a listview
+ *
+ * Returns whether rows will be selected on hover.
+ *
+ * Returns: true if rows are selected on hover
+ *
+ * Since: 4.20
+ */
+gboolean
+gtk_list_view_get_select_on_hover (GtkListView *self)
+{
+  g_return_val_if_fail (GTK_IS_LIST_VIEW (self), FALSE);
+
+  return self->select_on_hover;
+}
+
+/**
  * gtk_list_view_set_single_click_activate:
  * @self: a listview
  * @single_click_activate: whether to activate items on single click
  *
- * Sets whether rows should be activated on single click and
- * selected on hover.
+ * Sets whether rows should be activated on single click. This also sets
+ * [property@Gtk.ListView:select-on-hover] to the same value.
  */
 void
 gtk_list_view_set_single_click_activate (GtkListView *self,
@@ -1256,6 +1331,8 @@ gtk_list_view_set_single_click_activate (GtkListView *self,
     return;
 
   self->single_click_activate = single_click_activate;
+
+  gtk_list_view_set_select_on_hover (self, single_click_activate);
 
   for (tile = gtk_list_item_manager_get_first (self->item_manager);
        tile != NULL;
@@ -1272,8 +1349,7 @@ gtk_list_view_set_single_click_activate (GtkListView *self,
  * gtk_list_view_get_single_click_activate:
  * @self: a listview
  *
- * Returns whether rows will be activated on single click and
- * selected on hover.
+ * Returns whether rows will be activated on single click.
  *
  * Returns: true if rows are activated on single click
  */

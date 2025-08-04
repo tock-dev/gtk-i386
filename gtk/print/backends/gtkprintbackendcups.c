@@ -3897,6 +3897,9 @@ cups_request_printer_list_cb (GtkPrintBackendCups *cups_backend,
   g_list_free (removed_printer_checklist);
 
 done:
+  if (cups_backend->list_printers_poll > 0)
+    g_source_remove (cups_backend->list_printers_poll);
+  cups_backend->list_printers_poll = 0;
   if (!backend_finalized)
     {
       if (list_has_changed)
@@ -4105,6 +4108,9 @@ cups_request_ppd_cb (GtkPrintBackendCups *print_backend,
       return;
     }
 
+  /* List printers again to get status messages. */
+  cups_request_printer_list (print_backend);
+  gtk_printer_set_state_message (printer, "");
   gtk_printer_set_has_details (printer, TRUE);
   g_signal_emit_by_name (printer, "details-acquired", TRUE);
 }

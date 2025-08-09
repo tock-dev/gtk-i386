@@ -665,6 +665,8 @@ All widgets receive all events.
 
 `GtkButtonBox` has been removed. Use a [class@Gtk.Box] instead.
 
+To achieve the same style as before, you can use LibAdwaita and apply the `linked` CSS class, (see [Adwaita Linked Controls](https://gnome.pages.gitlab.gnome.org/libadwaita/doc/1.3/style-classes.html#linked-controls)).
+
 ### Adapt to `GtkBox` API changes
 
 The GtkBox `pack_start()` and `pack_end()` methods have been replaced by

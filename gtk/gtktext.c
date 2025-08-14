@@ -298,6 +298,7 @@ struct _GtkTextPrivate
   guint         propagate_text_width    : 1;
   guint         text_handles_enabled    : 1;
   guint         enable_undo             : 1;
+  guint         emit_changed            : 1;
 };
 
 struct _GtkTextPasswordHint
@@ -2149,6 +2150,8 @@ gtk_text_init (GtkText *self)
     }
 
   set_text_cursor (GTK_WIDGET (self));
+
+  priv->emit_changed = TRUE;
 }
 
 static void
@@ -2263,8 +2266,9 @@ end_change (GtkText *self)
     {
        if (priv->real_changed)
          {
-           g_signal_emit_by_name (self, "changed");
-           priv->real_changed = FALSE;
+          if (priv->emit_changed) 
+            g_signal_emit_by_name (self, "changed");
+          priv->real_changed = FALSE;
          }
     }
 }
@@ -2274,7 +2278,7 @@ emit_changed (GtkText *self)
 {
   GtkTextPrivate *priv = gtk_text_get_instance_private (self);
 
-  if (priv->change_count == 0)
+  if (priv->change_count == 0 && priv->emit_changed)
     g_signal_emit_by_name (self, "changed");
   else
     priv->real_changed = TRUE;
@@ -5792,7 +5796,9 @@ gtk_text_set_text (GtkText     *self,
 
   begin_change (self);
   g_object_freeze_notify (G_OBJECT (self));
+  priv->emit_changed = FALSE;
   gtk_editable_delete_text (GTK_EDITABLE (self), 0, -1);
+  priv->emit_changed = TRUE;
   gtk_accessible_text_update_contents (GTK_ACCESSIBLE_TEXT (self),
                                        GTK_ACCESSIBLE_TEXT_CONTENT_CHANGE_REMOVE,
                                        0, G_MAXUINT);

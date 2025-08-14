@@ -95,10 +95,16 @@ void            gtk_column_view_set_select_on_hover             (GtkColumnView  
 GDK_AVAILABLE_IN_4_20
 gboolean        gtk_column_view_get_select_on_hover             (GtkColumnView          *self);
 
-GDK_AVAILABLE_IN_ALL
+GDK_AVAILABLE_IN_4_20
+void            gtk_column_view_set_activate_on_single_click    (GtkColumnView          *self,
+                                                                 gboolean                activate_on_single_click);
+GDK_AVAILABLE_IN_4_20
+gboolean        gtk_column_view_get_activate_on_single_click    (GtkColumnView          *self);
+
+GDK_DEPRECATED_IN_4_20
 void            gtk_column_view_set_single_click_activate       (GtkColumnView          *self,
                                                                  gboolean                single_click_activate);
-GDK_AVAILABLE_IN_ALL
+GDK_DEPRECATED_IN_4_20
 gboolean        gtk_column_view_get_single_click_activate       (GtkColumnView          *self);
 
 GDK_AVAILABLE_IN_ALL

@@ -80,15 +80,21 @@ GtkListTabBehavior
                 gtk_grid_view_get_tab_behavior                  (GtkGridView            *self);
 
 GDK_AVAILABLE_IN_4_20
+void            gtk_grid_view_set_activate_on_single_click      (GtkGridView            *self,
+                                                                 gboolean                select_on_hover);
+GDK_AVAILABLE_IN_4_20
+gboolean        gtk_grid_view_get_activate_on_single_click      (GtkGridView            *self);
+
+GDK_AVAILABLE_IN_4_20
 void            gtk_grid_view_set_select_on_hover               (GtkGridView            *self,
                                                                  gboolean                select_on_hover);
 GDK_AVAILABLE_IN_4_20
 gboolean        gtk_grid_view_get_select_on_hover               (GtkGridView            *self);
 
-GDK_AVAILABLE_IN_ALL
+GDK_DEPRECATED_IN_4_20
 void            gtk_grid_view_set_single_click_activate         (GtkGridView            *self,
                                                                  gboolean                single_click_activate);
-GDK_AVAILABLE_IN_ALL
+GDK_DEPRECATED_IN_4_20
 gboolean        gtk_grid_view_get_single_click_activate         (GtkGridView            *self);
 
 GDK_AVAILABLE_IN_4_12

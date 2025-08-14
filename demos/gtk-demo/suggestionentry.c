@@ -888,7 +888,7 @@ suggestion_entry_init (SuggestionEntry *self)
 
   gtk_popover_set_child (GTK_POPOVER (self->popup), sw);
   self->list = gtk_list_view_new (NULL, NULL);
-  gtk_list_view_set_single_click_activate (GTK_LIST_VIEW (self->list), TRUE);
+  gtk_list_view_set_activate_on_single_click (GTK_LIST_VIEW (self->list), TRUE);
   g_signal_connect (self->list, "activate",
                     G_CALLBACK (suggestion_entry_row_activated), self);
   gtk_scrolled_window_set_child (GTK_SCROLLED_WINDOW (sw), self->list);

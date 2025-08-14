@@ -76,10 +76,16 @@ void            gtk_list_view_set_select_on_hover               (GtkListView    
 GDK_AVAILABLE_IN_4_20
 gboolean        gtk_list_view_get_select_on_hover               (GtkListView            *self);
 
-GDK_AVAILABLE_IN_ALL
+GDK_AVAILABLE_IN_4_20
+void            gtk_list_view_set_activate_on_single_click      (GtkListView            *self,
+                                                                 gboolean                select_on_hover);
+GDK_AVAILABLE_IN_4_20
+gboolean        gtk_list_view_get_activate_on_single_click      (GtkListView            *self);
+
+GDK_DEPRECATED_IN_4_20
 void            gtk_list_view_set_single_click_activate         (GtkListView            *self,
                                                                  gboolean                single_click_activate);
-GDK_AVAILABLE_IN_ALL
+GDK_DEPRECATED_IN_4_20
 gboolean        gtk_list_view_get_single_click_activate         (GtkListView            *self);
 
 GDK_AVAILABLE_IN_ALL

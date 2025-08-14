@@ -218,6 +218,7 @@ gtk_column_list_view_class_init (GtkColumnListViewClass *klass)
 enum
 {
   PROP_0,
+  PROP_ACTIVATE_ON_SINGLE_CLICK,
   PROP_COLUMNS,
   PROP_ENABLE_RUBBERBAND,
   PROP_HADJUSTMENT,
@@ -628,6 +629,10 @@ gtk_column_view_get_property (GObject    *object,
 
   switch (property_id)
     {
+    case PROP_ACTIVATE_ON_SINGLE_CLICK:
+      g_value_set_boolean (value, gtk_column_view_get_activate_on_single_click (self));
+      break;
+
     case PROP_COLUMNS:
       g_value_set_object (value, self->columns);
       break;
@@ -685,7 +690,9 @@ gtk_column_view_get_property (GObject    *object,
       break;
 
     case PROP_SINGLE_CLICK_ACTIVATE:
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
       g_value_set_boolean (value, gtk_column_view_get_single_click_activate (self));
+G_GNUC_END_IGNORE_DEPRECATIONS
       break;
 
     case PROP_TAB_BEHAVIOR:
@@ -709,6 +716,10 @@ gtk_column_view_set_property (GObject      *object,
 
   switch (property_id)
     {
+    case PROP_ACTIVATE_ON_SINGLE_CLICK:
+      gtk_column_view_set_activate_on_single_click (self, g_value_get_boolean (value));
+      break;
+
     case PROP_ENABLE_RUBBERBAND:
       gtk_column_view_set_enable_rubberband (self, g_value_get_boolean (value));
       break;
@@ -784,7 +795,9 @@ gtk_column_view_set_property (GObject      *object,
       break;
 
     case PROP_SINGLE_CLICK_ACTIVATE:
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
       gtk_column_view_set_single_click_activate (self, g_value_get_boolean (value));
+G_GNUC_END_IGNORE_DEPRECATIONS
       break;
 
     case PROP_TAB_BEHAVIOR:
@@ -832,6 +845,18 @@ gtk_column_view_class_init (GtkColumnViewClass *klass)
   properties[PROP_VSCROLL_POLICY] =
       g_param_spec_override ("vscroll-policy",
                              g_object_interface_find_property (iface, "vscroll-policy"));
+
+  /**
+   * GtkColumnView:activate-on-single-click:
+   *
+   * Activate rows on single click.
+   *
+   * Since: 4.20
+   */
+  properties[PROP_ACTIVATE_ON_SINGLE_CLICK] =
+    g_param_spec_boolean ("activate-on-single-click", NULL, NULL,
+                          FALSE,
+                          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
 
   /**
    * GtkColumnView:columns:
@@ -932,12 +957,14 @@ gtk_column_view_class_init (GtkColumnViewClass *klass)
   /**
    * GtkColumnView:single-click-activate:
    *
-   * Activate rows on single click.
+   * Activate rows on single click and select them on hover.
+   * Identical to setting [property@Gtk.ColumnView:select-on-hover] and
+   * [property@Gtk.ColumnView:activate-on-single-click]
    */
   properties[PROP_SINGLE_CLICK_ACTIVATE] =
     g_param_spec_boolean ("single-click-activate", NULL, NULL,
                           FALSE,
-                          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
+                          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_DEPRECATED);
 
   /**
    * GtkColumnView:tab-behavior:
@@ -2024,11 +2051,53 @@ gtk_column_view_get_select_on_hover (GtkColumnView *self)
 }
 
 /**
+ * gtk_column_view_set_activate_on_single_click:
+ * @self: a columnview
+ * @activate_on_single_click: whether to activate items on single click
+ *
+ * Sets whether rows should be activated on single click.
+ *
+ * Since: 4.20
+ */
+void
+gtk_column_view_set_activate_on_single_click (GtkColumnView *self,
+                                              gboolean       activate_on_single_click)
+{
+  g_return_if_fail (GTK_IS_COLUMN_VIEW (self));
+
+  if (activate_on_single_click == gtk_list_view_get_activate_on_single_click (self->listview))
+    return;
+
+  gtk_list_view_set_activate_on_single_click (self->listview, activate_on_single_click);
+
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_ACTIVATE_ON_SINGLE_CLICK]);
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_SINGLE_CLICK_ACTIVATE]);
+}
+
+/**
+ * gtk_column_view_get_activate_on_single_click:
+ * @self: a columnview
+ *
+ * Returns whether rows will be activated on single click.
+ *
+ * Returns: true if rows are activated on single click
+ *
+ * Since: 4.20
+ */
+gboolean
+gtk_column_view_get_activate_on_single_click (GtkColumnView *self)
+{
+  g_return_val_if_fail (GTK_IS_COLUMN_VIEW (self), FALSE);
+
+  return gtk_list_view_get_activate_on_single_click (self->listview);
+}
+
+/**
  * gtk_column_view_set_single_click_activate:
  * @self: a columnview
  * @single_click_activate: whether to activate items on single click
  *
- * Sets whether rows should be activated on single click. This also sets
+ * Sets [property@Gtk.ColumnView:activate-on-single-click] and
  * [property@Gtk.ColumnView:select-on-hover] to the same value.
  */
 void
@@ -2037,12 +2106,8 @@ gtk_column_view_set_single_click_activate (GtkColumnView *self,
 {
   g_return_if_fail (GTK_IS_COLUMN_VIEW (self));
 
-  if (single_click_activate == gtk_list_view_get_single_click_activate (self->listview))
-    return;
-
-  gtk_list_view_set_single_click_activate (self->listview, single_click_activate);
-
-  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_SINGLE_CLICK_ACTIVATE]);
+  gtk_column_view_set_select_on_hover (self, single_click_activate);
+  gtk_column_view_set_activate_on_single_click (self, single_click_activate);
 }
 
 /**
@@ -2058,7 +2123,9 @@ gtk_column_view_get_single_click_activate (GtkColumnView *self)
 {
   g_return_val_if_fail (GTK_IS_COLUMN_VIEW (self), FALSE);
 
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
   return gtk_list_view_get_single_click_activate (self->listview);
+G_GNUC_END_IGNORE_DEPRECATIONS
 }
 
 /**

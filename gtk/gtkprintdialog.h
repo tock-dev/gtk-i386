@@ -93,6 +93,20 @@ GDK_AVAILABLE_IN_4_14
 void               gtk_print_dialog_set_print_settings  (GtkPrintDialog       *self,
                                                          GtkPrintSettings     *print_settings);
 
+/* GDK_AVAILABLE_IN_4_22 */
+gboolean           gtk_print_dialog_get_has_current_page (GtkPrintDialog      *self);
+
+/* GDK_AVAILABLE_IN_4_22 */
+void               gtk_print_dialog_set_has_current_page (GtkPrintDialog      *self,
+                                                          gboolean             has_current_page);
+
+/* GDK_AVAILABLE_IN_4_22 */
+gboolean           gtk_print_dialog_get_has_selected_pages (GtkPrintDialog      *self);
+
+/* GDK_AVAILABLE_IN_4_22 */
+void               gtk_print_dialog_set_has_selected_pages (GtkPrintDialog      *self,
+                                                            gboolean             has_selected_pages);
+
 GDK_AVAILABLE_IN_4_14
 void            gtk_print_dialog_setup                  (GtkPrintDialog       *self,
                                                          GtkWindow            *parent,

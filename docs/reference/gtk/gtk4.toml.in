@@ -71,6 +71,7 @@ content_files = [
   "coordinates.md",
   "css-overview.md",
   "css-properties.md",
+  "icon-format.md",
   "section-accessibility.md",
   "section-dialogs.md",
   "section-list-widget.md",
@@ -327,6 +328,10 @@ content_images = [
   "images/navigation-sidebar.png",
   "images/box-model-light.png",
   "images/box-model-dark.png",
+  "images/path-paintable-transition-light.webm",
+  "images/path-paintable-transition-dark.webm",
+  "images/path-paintable-animation-light.webm",
+  "images/path-paintable-animation-dark.webm",
 ]
 content_base_url = "https://gitlab.gnome.org/GNOME/gtk/-/blob/main/docs/reference/gtk/"
 urlmap_file = "urlmap.js"

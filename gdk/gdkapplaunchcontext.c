@@ -233,6 +233,7 @@ gdk_app_launch_context_set_timestamp (GdkAppLaunchContext *context,
 {
   g_return_if_fail (GDK_IS_APP_LAUNCH_CONTEXT (context));
 
+  context->timestamp_set = TRUE;
   context->timestamp = timestamp;
 }
 

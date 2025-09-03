@@ -117,6 +117,8 @@ activate_cb (GtkListView  *list,
    * and GAppInfo.
    */
   context = gdk_display_get_app_launch_context (gtk_widget_get_display (GTK_WIDGET (list)));
+  gdk_app_launch_context_set_timestamp (context, GDK_CURRENT_TIME);
+
   if (!g_app_info_launch (app_info,
                           NULL,
                           G_APP_LAUNCH_CONTEXT (context),

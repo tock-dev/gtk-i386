@@ -201,6 +201,9 @@ _gdk_win32_adjust_client_rect (GdkSurface *surface,
 {
   LONG style, exstyle;
 
+  if (!GDK_WIN32_SURFACE (surface)->decorate_all)
+    return;
+
   style = GetWindowLong (GDK_SURFACE_HWND (surface), GWL_STYLE);
   exstyle = GetWindowLong (GDK_SURFACE_HWND (surface), GWL_EXSTYLE);
   API_CALL (AdjustWindowRectEx, (rect, style, FALSE, exstyle));

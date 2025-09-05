@@ -1171,10 +1171,6 @@ get_effective_surface_decorations (GdkSurface       *surface,
   if (!GDK_IS_TOPLEVEL (surface))
     return FALSE;
 
-  /* we want to apply the "no decorations", if decorations are disabled */
-  if (!GDK_WIN32_SURFACE (surface)->decorate_all)
-    return TRUE;
-
   if ((impl->hint_flags & GDK_HINT_MIN_SIZE) &&
       (impl->hint_flags & GDK_HINT_MAX_SIZE) &&
       impl->hints.min_width == impl->hints.max_width &&

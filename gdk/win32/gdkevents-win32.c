@@ -3040,6 +3040,13 @@ gdk_event_translate (MSG *msg,
         return_val = TRUE;
       break;
 
+    case WM_NCCALCSIZE:
+      if (msg->wParam == 0 || GDK_WIN32_SURFACE (surface)->decorate_all)
+        break;
+      *ret_valp = 0;
+      return_val = TRUE;
+      break;
+
     case WM_TABLET_QUERYSYSTEMGESTURESTATUS:
       *ret_valp = TABLET_DISABLE_PRESSANDHOLD |
                   TABLET_DISABLE_PENTAPFEEDBACK |

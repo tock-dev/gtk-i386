@@ -1410,82 +1410,6 @@ generate_button_event (GdkEventType  type,
   _gdk_win32_append_event (event);
 }
 
-static gboolean
-handle_wm_sysmenu (GdkSurface *surface,
-                   MSG        *msg,
-                   int *ret_valp)
-{
-  GdkWin32Surface *impl;
-  LONG_PTR style, tmp_style;
-  LONG_PTR additional_styles;
-
-  impl = GDK_WIN32_SURFACE (surface);
-
-  style = GetWindowLongPtr (msg->hwnd, GWL_STYLE);
-
-  additional_styles = 0;
-
-  if (!(style & WS_SYSMENU))
-    additional_styles |= WS_SYSMENU;
-
-  if (!(style & WS_MAXIMIZEBOX))
-    additional_styles |= WS_MAXIMIZEBOX;
-
-  if (!(style & WS_MINIMIZEBOX))
-    additional_styles |= WS_MINIMIZEBOX;
-
-  if (!(style & WS_SIZEBOX))
-    additional_styles |= WS_SIZEBOX;
-
-  if (!(style & WS_DLGFRAME))
-    additional_styles |= WS_DLGFRAME;
-
-  if (!(style & WS_BORDER))
-    additional_styles |= WS_BORDER;
-
-  if (additional_styles == 0)
-    /* The caller will eventually pass this to DefWindowProc (),
-     * only without the style dance, which isn't needed, as it turns out.
-     */
-    return FALSE;
-
-  /* Note: This code will enable resizing, maximizing and minimizing surfaces
-   * via window menu even if these are non-CSD windows that were explicitly
-   * forbidden from doing this by removing the appropriate styles,
-   * or if these are CSD windows that were explicitly forbidden from doing
-   * this by removing appropriate decorations from the headerbar and/or
-   * changing hints or properties.
-   *
-   * If doing this for non-CSD windows is not desired,
-   * do a _gdk_win32_surface_lacks_wm_decorations() check and return FALSE
-   * if it doesn't pass.
-   *
-   * If doing this for CSD windows with disabled decorations is not desired,
-   * tough luck - GDK can't know which CSD decorations are enabled, and which
-   * are not.
-   *
-   * If doing this for CSD windows with particular hints is not desired,
-   * check surface hints here and return FALSE (DefWindowProc() will return
-   * FALSE later) or set *ret_valp to 0 and return TRUE.
-   */
-  tmp_style = style | additional_styles;
-  GDK_NOTE (EVENTS, g_print (" Handling WM_SYSMENU: style 0x%" G_GINTPTR_MODIFIER "x -> 0x%" G_GINTPTR_MODIFIER "x\n", style, tmp_style));
-  impl->have_temp_styles = TRUE;
-  impl->temp_styles = additional_styles;
-  SetWindowLongPtr (msg->hwnd, GWL_STYLE, tmp_style);
-
-  *ret_valp = DefWindowProc (msg->hwnd, msg->message, msg->wParam, msg->lParam);
-
-  tmp_style = GetWindowLongPtr (msg->hwnd, GWL_STYLE);
-  style = tmp_style & ~additional_styles;
-
-  GDK_NOTE (EVENTS, g_print (" Handling WM_SYSMENU: style 0x%" G_GINTPTR_MODIFIER "x <- 0x%" G_GINTPTR_MODIFIER "x\n", style, tmp_style));
-  SetWindowLongPtr (msg->hwnd, GWL_STYLE, style);
-  impl->have_temp_styles = FALSE;
-
-  return TRUE;
-}
-
 gboolean
 _gdk_win32_surface_fill_min_max_info (GdkSurface *surface,
                                       MINMAXINFO *mmi)
@@ -2691,30 +2615,6 @@ gdk_event_translate (MSG *msg,
           SetCursor (gdk_win32_hcursor_get_handle (GDK_WIN32_SURFACE (surface)->cursor));
           return_val = TRUE;
           *ret_valp = TRUE;
-        }
-
-      break;
-
-    case WM_SYSMENU:
-      return_val = handle_wm_sysmenu (surface, msg, ret_valp);
-      break;
-
-    case WM_INITMENU:
-      impl = GDK_WIN32_SURFACE (surface);
-
-      if (impl->have_temp_styles)
-        {
-          LONG_PTR hwnd_style;
-
-          hwnd_style = GetWindowLongPtr (GDK_SURFACE_HWND (surface),
-                                           GWL_STYLE);
-          /* Handling WM_SYSMENU added extra styles to this surface,
-           * remove them now.
-           */
-          hwnd_style &= ~impl->temp_styles;
-          SetWindowLongPtr (GDK_SURFACE_HWND (surface),
-                            GWL_STYLE,
-                            hwnd_style);
         }
 
       break;

@@ -161,11 +161,6 @@ struct _GdkWin32Surface
 
   guint inhibit_configure : 1;
 
-  /* If TRUE, the @temp_styles is set to the styles that were temporarily
-   * added to this surface.
-   */
-  guint have_temp_styles : 1;
-
   /* If TRUE, the surface is in the process of being maximized.
    * This is set by WM_SYSCOMMAND and by gdk_win32_surface_maximize (),
    * and is unset when WM_WINDOWPOSCHANGING is handled.
@@ -176,12 +171,6 @@ struct _GdkWin32Surface
 
   /* Enable all decorations? */
   gboolean decorate_all;
-
-  /* Temporary styles that this HWND got for the purpose of
-   * handling WM_SYSMENU.
-   * They are removed at the first opportunity (usually WM_INITMENU).
-   */
-  LONG_PTR temp_styles;
 
   /* scale of surface on HiDPI */
   int surface_scale;

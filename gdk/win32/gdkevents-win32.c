@@ -3000,6 +3000,23 @@ gdk_event_translate (MSG *msg,
     case WM_NCCALCSIZE:
       if (msg->wParam == 0 || GDK_WIN32_SURFACE (surface)->decorate_all)
         break;
+      if( IsZoomed(msg->hwnd) )
+        {
+          /*
+          * Add a margin on each side of our maximized window to compensate
+          * for Windows' quirk of maximized windows being larger than the
+          * monitor's workspace. See:
+          * https://devblogs.microsoft.com/oldnewthing/20150304-00/?p=44543
+          */
+          RECT *client_area = &((NCCALCSIZE_PARAMS *)msg->lParam)->rgrc[0];
+          int padded_border = GetSystemMetrics(SM_CXPADDEDBORDER);
+          int margin_x = GetSystemMetrics(SM_CXFRAME) + padded_border;
+          int margin_y = GetSystemMetrics(SM_CYFRAME) + padded_border;
+          client_area->left += margin_x;
+          client_area->top += margin_y;
+          client_area->right -= margin_x;
+          client_area->bottom -= margin_y;
+        }
       *ret_valp = 0;
       return_val = TRUE;
       break;

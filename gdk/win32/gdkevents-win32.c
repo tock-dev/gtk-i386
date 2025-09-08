@@ -1407,7 +1407,8 @@ generate_button_event (GdkEventType  type,
 
 gboolean
 _gdk_win32_surface_fill_min_max_info (GdkSurface *surface,
-                                      MINMAXINFO *mmi)
+                                      MINMAXINFO *mmi,
+                                      HMONITOR target_monitor)
 {
   GdkWin32Surface *impl;
   RECT rect;
@@ -1466,10 +1467,11 @@ _gdk_win32_surface_fill_min_max_info (GdkSurface *surface,
        * to maximize the window, catch WM_WINDOWPOSCHANGING and
        * adjust the size then.
        */
-      HMONITOR nearest_monitor;
+      HMONITOR nearest_monitor = target_monitor;
       MONITORINFO nearest_info;
 
-      nearest_monitor = MonitorFromWindow (GDK_SURFACE_HWND (surface), MONITOR_DEFAULTTONEAREST);
+      if (nearest_monitor == NULL)
+        nearest_monitor = MonitorFromWindow (GDK_SURFACE_HWND (surface), MONITOR_DEFAULTTONEAREST);
       nearest_info.cbSize = sizeof (nearest_info);
 
       if (GetMonitorInfo (nearest_monitor, &nearest_info))
@@ -2598,11 +2600,6 @@ gdk_event_translate (MSG *msg,
         case SC_RESTORE:
           do_show_surface (surface, msg->wParam == SC_MINIMIZE ? TRUE : FALSE);
           break;
-
-        case SC_MAXIMIZE:
-          impl = GDK_WIN32_SURFACE (surface);
-          impl->maximizing = TRUE;
-          break;
         }
 
       break;
@@ -2684,13 +2681,15 @@ gdk_event_translate (MSG *msg,
 
           impl = GDK_WIN32_SURFACE (surface);
 
-          if (impl->maximizing)
+          if (IsZoomed (GDK_SURFACE_HWND (surface)))
             {
               MINMAXINFO our_mmi;
 
-              if (_gdk_win32_surface_fill_min_max_info (surface, &our_mmi))
+              hwndpos = (WINDOWPOS *) msg->lParam;
+              POINT point = { hwndpos->x + hwndpos->cx / 2, hwndpos->y + hwndpos->cy / 2 };
+              HMONITOR monitor = MonitorFromPoint (point, MONITOR_DEFAULTTONEAREST);
+              if (_gdk_win32_surface_fill_min_max_info (surface, &our_mmi, monitor))
                 {
-                  hwndpos = (WINDOWPOS *) msg->lParam;
                   hwndpos->cx = our_mmi.ptMaxSize.x;
                   hwndpos->cy = our_mmi.ptMaxSize.y;
 
@@ -2702,8 +2701,6 @@ gdk_event_translate (MSG *msg,
                       impl->inhibit_configure = TRUE;
                     }
                 }
-
-              impl->maximizing = FALSE;
             }
         }
 
@@ -2847,7 +2844,7 @@ gdk_event_translate (MSG *msg,
 				 mmi->ptMaxPosition.x, mmi->ptMaxPosition.y,
 				 mmi->ptMaxSize.x, mmi->ptMaxSize.y));
 
-      if (_gdk_win32_surface_fill_min_max_info (surface, mmi))
+      if (_gdk_win32_surface_fill_min_max_info (surface, mmi, NULL))
         {
           /* Don't call DefWindowProcW() */
           GDK_NOTE (EVENTS,

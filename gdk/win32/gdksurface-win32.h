@@ -102,12 +102,6 @@ struct _GdkWin32Surface
 
   guint inhibit_configure : 1;
 
-  /* If TRUE, the surface is in the process of being maximized.
-   * This is set by WM_SYSCOMMAND and by gdk_win32_surface_maximize (),
-   * and is unset when WM_WINDOWPOSCHANGING is handled.
-   */
-  guint maximizing : 1;
-
   /* Enable all decorations? */
   gboolean decorate_all;
 

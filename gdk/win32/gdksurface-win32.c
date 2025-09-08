@@ -31,6 +31,7 @@
 #include "gdk.h"
 #include "gdkprivate-win32.h"
 #include "gdkdeviceprivate.h"
+#include "gdkeventsprivate.h"
 #include "gdkdevicemanager-win32.h"
 #include "gdkenumtypes.h"
 #include "gdkwin32.h"
@@ -1762,6 +1763,24 @@ gdk_win32_toplevel_begin_resize (GdkToplevel    *toplevel,
   gdk_win32_surface_get_root_coords (surface, x, y, &root_x, &root_y);
 
   DefWindowProcW (hwnd, WM_NCLBUTTONDOWN, winedge, MAKELPARAM (root_x, root_y));
+
+  /*
+  * manually release left mouse button, win32 will not send us a WM_LBUTTONUP
+  * after we told them WM_NCLBUTTONDOWN.
+  */
+  GdkWin32Surface *impl = GDK_WIN32_SURFACE (surface);
+  GdkEvent *event = gdk_button_event_new (GDK_BUTTON_RELEASE,
+                                          surface,
+                                          device,
+                                          NULL,
+                                          timestamp,
+                                          GDK_BUTTON1_MASK,
+                                          GDK_BUTTON1_MASK,
+                                          x,
+                                          y,
+                                          NULL);
+
+  _gdk_win32_append_event (event);
 }
 
 static void
@@ -1797,6 +1816,24 @@ gdk_win32_toplevel_begin_move (GdkToplevel *toplevel,
   gdk_win32_surface_get_root_coords (surface, x, y, &root_x, &root_y);
 
   DefWindowProcW (hwnd, WM_NCLBUTTONDOWN, HTCAPTION, MAKELPARAM (root_x, root_y));
+
+  /*
+  * manually release left mouse button, win32 will not send us a WM_LBUTTONUP
+  * after we told them WM_NCLBUTTONDOWN.
+  */
+  GdkWin32Surface *impl = GDK_WIN32_SURFACE (surface);
+  GdkEvent *event = gdk_button_event_new (GDK_BUTTON_RELEASE,
+                                          surface,
+                                          device,
+                                          NULL,
+                                          timestamp,
+                                          GDK_BUTTON1_MASK,
+                                          GDK_BUTTON1_MASK,
+                                          x,
+                                          y,
+                                          NULL);
+
+  _gdk_win32_append_event (event);
 }
 
 

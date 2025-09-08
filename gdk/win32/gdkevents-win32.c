@@ -1496,7 +1496,8 @@ _gdk_win32_surface_fill_min_max_info (GdkSurface *surface,
           mmi->ptMaxPosition.x = 0;
           mmi->ptMaxPosition.y = 0;
 
-          if (_gdk_win32_surface_lacks_wm_decorations (surface))
+          bool lacks_window_decorations = _gdk_win32_surface_lacks_wm_decorations (surface);
+          if (lacks_window_decorations)
             {
               mmi->ptMaxPosition.x += (nearest_info.rcWork.left - nearest_info.rcMonitor.left);
               mmi->ptMaxPosition.y += (nearest_info.rcWork.top - nearest_info.rcMonitor.top);
@@ -1504,6 +1505,17 @@ _gdk_win32_surface_fill_min_max_info (GdkSurface *surface,
 
           mmi->ptMaxSize.x = nearest_info.rcWork.right - nearest_info.rcWork.left;
           mmi->ptMaxSize.y = nearest_info.rcWork.bottom - nearest_info.rcWork.top;
+
+          /*
+          * HACK: 1px gap below window when maximized.
+          * Asking for a maximized size that is less than the full monitor's work area
+          * to prevent Microsoft from expanding our window size by 8px outside it.
+          * https://devblogs.microsoft.com/oldnewthing/20150304-00/?p=44543
+          * When we switch GdkWin32 to Solid CSD, this hack will not be necessary
+          * as WM_NCPAINT will not be overriden there, it's only needed in Full CSD.
+          */
+          if (lacks_window_decorations)
+            mmi->ptMaxSize.y -= 1;
         }
 
       mmi->ptMaxTrackSize.x = GetSystemMetrics (SM_CXVIRTUALSCREEN) + (impl->shadow.left + impl->shadow.right) * impl->surface_scale;

@@ -2092,10 +2092,6 @@ GtkShowSurfaceHWND (GdkSurface *surface,
 {
   GdkWin32Surface *impl = GDK_WIN32_SURFACE (surface);
 
-  /* Ensure that maximized surface HWND size is corrected later on */
-  if (cmd_show == SW_MAXIMIZE)
-    impl->maximizing = TRUE;
-
   return ShowWindow (GDK_SURFACE_HWND (surface), cmd_show);
 }
 

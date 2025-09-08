@@ -292,8 +292,9 @@ void _gdk_win32_append_event (GdkEvent *event);
 
 gboolean gdk_win32_get_surface_hwnd_rect        (GdkSurface  *surface,
                                                  RECT       *rect);
-gboolean _gdk_win32_surface_fill_min_max_info    (GdkSurface  *surface,
-                                                  MINMAXINFO *mmi);
+gboolean _gdk_win32_surface_fill_min_max_info (GdkSurface *surface,
+                                               MINMAXINFO *mmi,
+                                               HMONITOR target_monitor);
 
 gboolean _gdk_win32_surface_lacks_wm_decorations (GdkSurface *surface);
 

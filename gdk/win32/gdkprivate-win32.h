@@ -297,6 +297,7 @@ gboolean _gdk_win32_surface_fill_min_max_info (GdkSurface *surface,
                                                HMONITOR target_monitor);
 
 gboolean _gdk_win32_surface_lacks_wm_decorations (GdkSurface *surface);
+gboolean _gdk_win32_surface_solid_csd (GdkSurface *surface);
 
 void gdk_win32_surface_show (GdkSurface *surface,
                              gboolean    already_mapped);

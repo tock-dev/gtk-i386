@@ -3130,6 +3130,16 @@ gtk_window_is_composited (GtkWindow *window)
   return gdk_display_is_rgba (display) && gdk_display_is_composited (display);
 }
 
+gboolean
+_gtk_is_solid_csd ()
+{
+  /*
+  * TODO: drive this with a GTK_SOLID_CSD env var, which
+  * should default to TRUE on Win32, and FALSE elsewhere.
+  */
+  return TRUE;
+}
+
 static gboolean
 gtk_window_supports_client_shadow (GtkWindow *window)
 {
@@ -3138,7 +3148,7 @@ gtk_window_supports_client_shadow (GtkWindow *window)
 
   display = priv->display;
 
-  return gdk_display_supports_shadow_width (display);
+  return !_gtk_is_solid_csd() && gdk_display_supports_shadow_width (display);
 }
 
 static void
@@ -3148,7 +3158,7 @@ gtk_window_enable_csd (GtkWindow *window)
   GtkWidget *widget = GTK_WIDGET (window);
 
   /* We need a visual with alpha for rounded corners */
-  if (gtk_window_is_composited (window))
+  if (gtk_window_is_composited (window) && !_gtk_is_solid_csd())
     {
       gtk_widget_add_css_class (widget, "csd");
     }

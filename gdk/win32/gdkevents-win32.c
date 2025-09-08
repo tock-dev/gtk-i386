@@ -1514,7 +1514,7 @@ _gdk_win32_surface_fill_min_max_info (GdkSurface *surface,
           * When we switch GdkWin32 to Solid CSD, this hack will not be necessary
           * as WM_NCPAINT will not be overriden there, it's only needed in Full CSD.
           */
-          if (lacks_window_decorations)
+          if (lacks_window_decorations && !_gdk_win32_surface_solid_csd (surface))
             mmi->ptMaxSize.y -= 1;
         }
 
@@ -3010,13 +3010,25 @@ gdk_event_translate (MSG *msg,
       break;
 
     case WM_NCPAINT:
-      if (!GDK_WIN32_SURFACE (surface)->decorate_all)
+      if (!GDK_WIN32_SURFACE (surface)->decorate_all && !_gdk_win32_surface_solid_csd (surface))
         return_val = TRUE;
       break;
 
     case WM_NCCALCSIZE:
       if (msg->wParam == 0 || GDK_WIN32_SURFACE (surface)->decorate_all)
         break;
+
+      if (_gdk_win32_surface_solid_csd(surface))
+        {
+          RECT *client_rect = &((NCCALCSIZE_PARAMS *) msg->lParam)->rgrc[0];
+          client_rect->left += 8;
+          client_rect->right -= 8;
+          client_rect->bottom -= 8;
+
+          if (IsZoomed (msg->hwnd))
+            client_rect->top += 8;
+        }
+
       *ret_valp = 0;
       return_val = TRUE;
       break;

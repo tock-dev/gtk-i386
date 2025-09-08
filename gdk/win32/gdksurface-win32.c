@@ -186,6 +186,16 @@ _gdk_win32_adjust_client_rect (GdkSurface *surface,
 {
   LONG style, exstyle;
 
+  if (_gdk_win32_surface_solid_csd (surface))
+    {
+      rect->left -= 8;
+      rect->right += 8;
+      rect->bottom += 8;
+      if (IsZoomed (GDK_SURFACE_HWND (surface)))
+            rect->top -= 8;
+      return;
+    }
+
   if (!GDK_WIN32_SURFACE (surface)->decorate_all)
     return;
 
@@ -1569,6 +1579,16 @@ _gdk_win32_surface_lacks_wm_decorations (GdkSurface *surface)
                              surface, GDK_SURFACE_HWND (surface), style));
 
   return !has_any_decorations;
+}
+
+gboolean
+_gdk_win32_surface_solid_csd (GdkSurface *surface)
+{
+  /*
+  * TODO: Add a property to gdktoplevel.c akin to GdkToplevel:decorated
+  * which drives this.. "shadow-decorated"?
+  */
+  return TRUE;
 }
 
 void

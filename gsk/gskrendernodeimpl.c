@@ -8824,6 +8824,223 @@ gsk_component_transfer_node_get_transfer (const GskRenderNode *node,
 }
 
 /* }}} */
+/* {{{ GSK_COMPOSITE_NODE */
+
+struct _GskCompositeNode
+{
+  GskRenderNode render_node;
+
+  GskRenderNode *source;
+  GskRenderNode *dest;
+
+  GskCompositeOperator op;
+};
+
+static void
+gsk_composite_node_finalize (GskRenderNode *node)
+{
+  GskCompositeNode *self = (GskCompositeNode *) node;
+  GskRenderNodeClass *parent_class = g_type_class_peek (g_type_parent (GSK_TYPE_COMPOSITE_NODE));
+
+  gsk_render_node_unref (self->source);
+  gsk_render_node_unref (self->dest);
+
+  parent_class->finalize (node);
+}
+
+static cairo_operator_t
+gsk_composite_operator_to_cairo (GskCompositeOperator op)
+{
+  switch (op)
+    {
+    case GSK_COMPOSITE_OPERATOR_CLEAR:
+      return CAIRO_OPERATOR_CLEAR;
+    case GSK_COMPOSITE_OPERATOR_COPY:
+      return CAIRO_OPERATOR_SOURCE;
+    case GSK_COMPOSITE_OPERATOR_OVER:
+      return CAIRO_OPERATOR_OVER;
+    case GSK_COMPOSITE_OPERATOR_IN:
+      return CAIRO_OPERATOR_IN;
+    case GSK_COMPOSITE_OPERATOR_OUT:
+      return CAIRO_OPERATOR_OUT;
+    case GSK_COMPOSITE_OPERATOR_ATOP:
+      return CAIRO_OPERATOR_ATOP;
+    case GSK_COMPOSITE_OPERATOR_XOR:
+      return CAIRO_OPERATOR_XOR;
+    case GSK_COMPOSITE_OPERATOR_LIGHTER:
+      return CAIRO_OPERATOR_ADD;
+    default:
+      g_assert_not_reached ();
+    }
+}
+
+static void
+gsk_composite_node_draw (GskRenderNode *node,
+                         cairo_t       *cr,
+                         GdkColorState *ccs)
+{
+  GskCompositeNode *self = (GskCompositeNode *) node;
+
+  if (has_empty_clip (cr))
+    return;
+
+  if (!gdk_color_state_equal (ccs, GDK_COLOR_STATE_SRGB))
+    g_warning ("composite node in non-srgb colorstate isn't implemented yet.");
+
+  cairo_push_group (cr);
+  gsk_render_node_draw_ccs (self->dest, cr, ccs);
+
+  cairo_push_group (cr);
+  gsk_render_node_draw_ccs (self->source, cr, ccs);
+
+  cairo_pop_group_to_source (cr);
+  cairo_set_operator (cr, gsk_composite_operator_to_cairo (self->op));
+  cairo_paint (cr);
+
+  cairo_pop_group_to_source (cr); /* resets operator */
+  cairo_paint (cr);
+}
+
+static void
+gsk_composite_node_diff (GskRenderNode *node1,
+                         GskRenderNode *node2,
+                         GskDiffData   *data)
+{
+  GskCompositeNode *self1 = (GskCompositeNode *) node1;
+  GskCompositeNode *self2 = (GskCompositeNode *) node2;
+
+  if (self1->op == self2->op)
+    {
+      gsk_render_node_diff (self1->source, self2->source, data);
+      gsk_render_node_diff (self1->dest, self2->dest, data);
+    }
+  else
+    {
+      gsk_render_node_diff_impossible (node1, node2, data);
+    }
+}
+
+static gboolean
+gsk_composite_node_can_diff (const GskRenderNode *node1,
+                             const GskRenderNode *node2)
+{
+  GskCompositeNode *self1 = (GskCompositeNode *) node1;
+  GskCompositeNode *self2 = (GskCompositeNode *) node2;
+
+  return self1->op == self2->op;
+}
+
+static void
+gsk_composite_node_class_init (gpointer g_class,
+                               gpointer class_data)
+{
+  GskRenderNodeClass *node_class = g_class;
+
+  node_class->node_type = GSK_COMPOSITE_NODE;
+
+  node_class->finalize = gsk_composite_node_finalize;
+  node_class->draw = gsk_composite_node_draw;
+  node_class->can_diff = gsk_composite_node_can_diff;
+  node_class->diff = gsk_composite_node_diff;
+}
+
+/**
+ * gsk_composite_node_new:
+ * @source: The source child
+ * @dest: The dest child
+ * @op: the compositing operator
+ *
+ * Creates a render node that will composite
+ * the child nodes.
+ *
+ * Returns: (transfer full) (type GskCompositeNode): A new `GskRenderNode`
+ *
+ * Since: 4.22
+ */
+GskRenderNode *
+gsk_composite_node_new (GskRenderNode        *source,
+                        GskRenderNode        *dest,
+                        GskCompositeOperator  op)
+{
+  GskCompositeNode *self;
+  GskRenderNode *node;
+
+  g_return_val_if_fail (GSK_IS_RENDER_NODE (source), NULL);
+  g_return_val_if_fail (GSK_IS_RENDER_NODE (dest), NULL);
+
+  self = gsk_render_node_alloc (GSK_COMPOSITE_NODE);
+  node = (GskRenderNode *) self;
+  node->fully_opaque = FALSE;
+
+  self->source = gsk_render_node_ref (source);
+  self->dest = gsk_render_node_ref (dest);
+  self->op = op;
+
+  graphene_rect_union (&source->bounds, &dest->bounds, &node->bounds);
+
+  node->preferred_depth = gdk_memory_depth_merge (gsk_render_node_get_preferred_depth (source),
+                                                  gsk_render_node_get_preferred_depth (dest));
+  node->is_hdr = gsk_render_node_is_hdr (source) ||
+                 gsk_render_node_is_hdr (dest);
+
+  return node;
+}
+
+/**
+ * gsk_composite_node_get_source:
+ * @node: (type GskCompositeNode): a composite `GskRenderNode`
+ *
+ * Gets the source child.
+ *
+ * Returns: (transfer none): the source `GskRenderNode`
+ *
+ * Since: 4.22
+ */
+GskRenderNode *
+gsk_composite_node_get_source (const GskRenderNode *node)
+{
+  GskCompositeNode *self = (GskCompositeNode *) node;
+
+  return self->source;
+}
+
+/**
+ * gsk_composite_node_get_dest:
+ * @node: (type GskCompositeNode): a composite `GskRenderNode`
+ *
+ * Gets the dest child.
+ *
+ * Returns: (transfer none): the dest `GskRenderNode`
+ *
+ * Since: 4.22
+ */
+GskRenderNode *
+gsk_composite_node_get_dest (const GskRenderNode *node)
+{
+  GskCompositeNode *self = (GskCompositeNode *) node;
+
+  return self->dest;
+}
+
+/**
+ * gsk_composite_node_get_composite_mode:
+ * @node: (type GskCompositeNode): a composite `GskRenderNode`
+ *
+ * Gets the compositing operator.
+ *
+ * Returns: (transfer none): the `GskCompositeOperator`
+ *
+ * Since: 4.22
+ */
+GskCompositeOperator
+gsk_composite_node_get_operator (const GskRenderNode *node)
+{
+  GskCompositeNode *self = (GskCompositeNode *) node;
+
+  return self->op;
+}
+
+/* }}} */
 /* {{{ Serialization */
 
 static void
@@ -9089,6 +9306,7 @@ GSK_DEFINE_RENDER_NODE_TYPE (gsk_gl_shader_node, GSK_GL_SHADER_NODE)
 GSK_DEFINE_RENDER_NODE_TYPE (gsk_debug_node, GSK_DEBUG_NODE)
 GSK_DEFINE_RENDER_NODE_TYPE (gsk_subsurface_node, GSK_SUBSURFACE_NODE)
 GSK_DEFINE_RENDER_NODE_TYPE (gsk_component_transfer_node, GSK_COMPONENT_TRANSFER_NODE)
+GSK_DEFINE_RENDER_NODE_TYPE (gsk_composite_node, GSK_COMPOSITE_NODE)
 
 #define GSK_INIT_NODE_TYPE_WITH_STRUCT(TYPE, T_N, S_N, t_n) \
   gsk_render_node_types[TYPE] = gsk_render_node_type_register_static (I_(#T_N), \
@@ -9133,6 +9351,7 @@ G_GNUC_END_IGNORE_DEPRECATIONS
   GSK_INIT_NODE_TYPE (GSK_STROKE_NODE, GskStrokeNode, gsk_stroke_node)
   GSK_INIT_NODE_TYPE (GSK_SUBSURFACE_NODE, GskSubsurfaceNode, gsk_subsurface_node)
   GSK_INIT_NODE_TYPE (GSK_COMPONENT_TRANSFER_NODE, GskComponentTransferNode, gsk_component_transfer_node)
+  GSK_INIT_NODE_TYPE (GSK_COMPOSITE_NODE, GskCompositeNode, gsk_composite_node)
 }
 
 /*< private >

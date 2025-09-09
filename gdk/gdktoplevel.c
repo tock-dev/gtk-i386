@@ -227,6 +227,15 @@ gdk_toplevel_default_init (GdkToplevelInterface *iface)
       g_param_spec_boolean ("decorated", NULL, NULL,
                             FALSE,
                             G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY));
+  /**
+   * GdkToplevel:shadow-decorated:
+   *
+   * Whether the window manager should add shadow decorations.
+   */
+  g_object_interface_install_property (iface,
+      g_param_spec_boolean ("shadow-decorated", NULL, NULL,
+                            FALSE,
+                            G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY));
 
   /**
    * GdkToplevel:deletable:
@@ -335,6 +344,7 @@ gdk_toplevel_install_properties (GObjectClass *object_class,
   g_object_class_override_property (object_class, first_prop + GDK_TOPLEVEL_PROP_MODAL, "modal");
   g_object_class_override_property (object_class, first_prop + GDK_TOPLEVEL_PROP_ICON_LIST, "icon-list");
   g_object_class_override_property (object_class, first_prop + GDK_TOPLEVEL_PROP_DECORATED, "decorated");
+  g_object_class_override_property (object_class, first_prop + GDK_TOPLEVEL_PROP_SHADOWDECORATED, "shadow-decorated");
   g_object_class_override_property (object_class, first_prop + GDK_TOPLEVEL_PROP_DELETABLE, "deletable");
   g_object_class_override_property (object_class, first_prop + GDK_TOPLEVEL_PROP_FULLSCREEN_MODE, "fullscreen-mode");
   g_object_class_override_property (object_class, first_prop + GDK_TOPLEVEL_PROP_SHORTCUTS_INHIBITED, "shortcuts-inhibited");
@@ -601,6 +611,29 @@ gdk_toplevel_set_decorated (GdkToplevel *toplevel,
   g_return_if_fail (GDK_IS_TOPLEVEL (toplevel));
 
   g_object_set (toplevel, "decorated", decorated, NULL);
+}
+
+/**
+ * gdk_toplevel_set_decorated:
+ * @toplevel: a `GdkToplevel`
+ * @decorated: %TRUE to request shadow decorations
+ *
+ * Sets the toplevel to be shadow decorated.
+ *
+ * Setting @shadow_decorated to %TRUE hints the desktop
+ * environment that even if the surface has its own
+ * client-side decorations, would like a shadow effect
+ * added by the compositor.
+ *
+ * Has no effect if this surface is @decorated.
+ */
+void
+gdk_toplevel_set_shadow_decorated (GdkToplevel *toplevel,
+                                   gboolean     shadow_decorated)
+{
+  g_return_if_fail (GDK_IS_TOPLEVEL (toplevel));
+
+  g_object_set (toplevel, "shadow-decorated", shadow_decorated, NULL);
 }
 
 /**

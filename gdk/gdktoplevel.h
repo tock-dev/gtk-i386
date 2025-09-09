@@ -193,6 +193,10 @@ void          gdk_toplevel_set_decorated         (GdkToplevel      *toplevel,
                                                   gboolean          decorated);
 
 GDK_AVAILABLE_IN_ALL
+void          gdk_toplevel_set_shadow_decorated  (GdkToplevel      *toplevel,
+                                                  gboolean          shadow_decorated);
+
+GDK_AVAILABLE_IN_ALL
 void          gdk_toplevel_set_deletable         (GdkToplevel      *toplevel,
                                                   gboolean          deletable);
 GDK_AVAILABLE_IN_ALL

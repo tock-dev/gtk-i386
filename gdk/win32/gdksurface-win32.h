@@ -102,6 +102,9 @@ struct _GdkWin32Surface
 
   guint inhibit_configure : 1;
 
+  /* Enable shadow decorations? */
+  guint shadow_decorated : 1;
+
   /* Enable all decorations? */
   gboolean decorate_all;
 

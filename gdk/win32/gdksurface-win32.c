@@ -1588,7 +1588,7 @@ _gdk_win32_surface_solid_csd (GdkSurface *surface)
   * TODO: Add a property to gdktoplevel.c akin to GdkToplevel:decorated
   * which drives this.. "shadow-decorated"?
   */
-  return TRUE;
+  return GDK_WIN32_SURFACE (surface)->shadow_decorated;
 }
 
 void
@@ -2668,6 +2668,10 @@ gdk_win32_toplevel_set_property (GObject      *object,
       g_object_notify_by_pspec (G_OBJECT (surface), pspec);
       break;
 
+    case LAST_PROP + GDK_TOPLEVEL_PROP_SHADOWDECORATED:
+      GDK_WIN32_SURFACE (surface)->shadow_decorated = g_value_get_boolean (value);
+      break;
+
     case LAST_PROP + GDK_TOPLEVEL_PROP_DELETABLE:
       break;
 
@@ -2722,6 +2726,10 @@ gdk_win32_toplevel_get_property (GObject    *object,
 
     case LAST_PROP + GDK_TOPLEVEL_PROP_DECORATED:
       g_value_set_boolean (value, GDK_WIN32_SURFACE (surface)->decorate_all);
+      break;
+
+    case LAST_PROP + GDK_TOPLEVEL_PROP_SHADOWDECORATED:
+      g_value_set_boolean (value, GDK_WIN32_SURFACE (surface)->shadow_decorated);
       break;
 
     case LAST_PROP + GDK_TOPLEVEL_PROP_DELETABLE:

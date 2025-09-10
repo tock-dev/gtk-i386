@@ -1804,6 +1804,53 @@ parse_mask_mode (GtkCssParser *parser,
   return FALSE;
 }
 
+static const struct {
+  GskCompositeOperator op;
+  const char *name;
+} operators[] = {
+  { GSK_COMPOSITE_OPERATOR_CLEAR, "clear" },
+  { GSK_COMPOSITE_OPERATOR_COPY, "copy" },
+  { GSK_COMPOSITE_OPERATOR_OVER, "over" },
+  { GSK_COMPOSITE_OPERATOR_IN, "in" },
+  { GSK_COMPOSITE_OPERATOR_OUT, "out" },
+  { GSK_COMPOSITE_OPERATOR_ATOP, "atop" },
+  { GSK_COMPOSITE_OPERATOR_XOR, "xor" },
+  { GSK_COMPOSITE_OPERATOR_LIGHTER, "lighter" },
+};
+
+static const char *
+get_operator_name (GskCompositeOperator op)
+{
+  for (unsigned int i = 0; i < G_N_ELEMENTS (operators); i++)
+    {
+      if (operators[i].op == op)
+        return operators[i].name;
+    }
+
+  return NULL;
+}
+
+static gboolean
+parse_operator (GtkCssParser *parser,
+                Context      *context,
+                gpointer      out_op)
+{
+  guint i;
+
+  for (i = 0; i < G_N_ELEMENTS (operators); i++)
+    {
+      if (gtk_css_parser_try_ident (parser, operators[i].name))
+        {
+          *(GskCompositeOperator *) out_op = operators[i].op;
+          return TRUE;
+        }
+    }
+
+  gtk_css_parser_error_syntax (parser, "Not a valid operator.");
+
+  return FALSE;
+}
+
 static PangoFont *
 font_from_string (PangoFontMap *fontmap,
                   const char   *string,
@@ -3828,6 +3875,34 @@ parse_component_transfer_node (GtkCssParser *parser,
   return result;
 }
 
+static GskRenderNode *
+parse_composite_node (GtkCssParser *parser,
+                      Context      *context)
+{
+  GskRenderNode *source = NULL;
+  GskRenderNode *dest = NULL;
+  GskCompositeOperator op = GSK_COMPOSITE_OPERATOR_OVER;
+  const Declaration declarations[] = {
+    { "operator", parse_operator, NULL, &op },
+    { "source", parse_node, clear_node, &source },
+    { "dest", parse_node, clear_node, &dest },
+  };
+  GskRenderNode *result;
+
+  parse_declarations (parser, context, declarations, G_N_ELEMENTS (declarations));
+  if (source == NULL)
+    source = gsk_color_node_new (&GDK_RGBA("AAFF00"), &GRAPHENE_RECT_INIT (0, 0, 50, 50));
+  if (dest == NULL)
+    dest = create_default_render_node ();
+
+  result = gsk_composite_node_new (source, dest, op);
+
+  gsk_render_node_unref (source);
+  gsk_render_node_unref (dest);
+
+  return result;
+}
+
 static gboolean
 parse_node (GtkCssParser *parser,
             Context      *context,
@@ -3868,6 +3943,7 @@ parse_node (GtkCssParser *parser,
     { "mask", parse_mask_node },
     { "subsurface", parse_subsurface_node },
     { "component-transfer", parse_component_transfer_node },
+    { "composite", parse_composite_node },
   };
   GskRenderNode **node_p = out_node;
   guint i;
@@ -4241,6 +4317,11 @@ G_GNUC_END_IGNORE_DEPRECATIONS
 
     case GSK_COMPONENT_TRANSFER_NODE:
       printer_init_duplicates_for_node (printer, gsk_component_transfer_node_get_child (node));
+      break;
+
+    case GSK_COMPOSITE_NODE:
+      printer_init_duplicates_for_node (printer, gsk_composite_node_get_source (node));
+      printer_init_duplicates_for_node (printer, gsk_composite_node_get_dest (node));
       break;
 
     default:
@@ -6057,6 +6138,22 @@ G_GNUC_END_IGNORE_DEPRECATIONS
         append_component_transfer_param (p, "green", gsk_component_transfer_node_get_transfer (node, 1));
         append_component_transfer_param (p, "blue", gsk_component_transfer_node_get_transfer (node, 2));
         append_component_transfer_param (p, "alpha", gsk_component_transfer_node_get_transfer (node, 3));
+
+        end_node (p);
+      }
+      break;
+
+    case GSK_COMPOSITE_NODE:
+      {
+        GskCompositeOperator op = gsk_composite_node_get_operator (node);
+
+        start_node (p, "composite", node_name);
+
+        _indent (p);
+        g_string_append_printf (p->str, "operator: %s;\n", get_operator_name (op));
+
+        append_node_param (p, "source", gsk_composite_node_get_source (node));
+        append_node_param (p, "dest", gsk_composite_node_get_dest (node));
 
         end_node (p);
       }

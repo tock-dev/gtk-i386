@@ -92,6 +92,10 @@ struct _GtkSnapshotState {
       GskComponentTransfer *alpha;
     } component_transfer;
     struct {
+      GskCompositeOperator op;
+      GskRenderNode *dest_node;
+    } composite;
+    struct {
       graphene_rect_t bounds;
       graphene_rect_t child_bounds;
     } repeat;
@@ -760,6 +764,92 @@ gtk_snapshot_push_component_transfer (GtkSnapshot                *snapshot,
   state->data.component_transfer.green = gsk_component_transfer_copy (green);
   state->data.component_transfer.blue = gsk_component_transfer_copy (blue);
   state->data.component_transfer.alpha = gsk_component_transfer_copy (alpha);
+}
+
+static GskRenderNode *
+gtk_snapshot_collect_composite_source (GtkSnapshot       *snapshot,
+                                       GtkSnapshotState  *state,
+                                       GskRenderNode    **nodes,
+                                       guint              n_nodes)
+{
+  GskRenderNode *source_node, *dest_node, *composite_node;
+  GdkRGBA transparent = { 0, 0, 0, 0 };
+
+  source_node = gtk_snapshot_collect_default (snapshot, state, nodes, n_nodes);
+  dest_node = state->data.composite.dest_node != NULL
+              ? gsk_render_node_ref (state->data.composite.dest_node)
+              : NULL;
+
+  g_assert (dest_node != NULL || source_node != NULL);
+
+  if (dest_node == NULL)
+    dest_node = gsk_color_node_new (&transparent, &source_node->bounds);
+  if (source_node == NULL)
+    source_node = gsk_color_node_new (&transparent, &dest_node->bounds);
+
+  composite_node = gsk_composite_node_new (source_node, dest_node, state->data.composite.op);
+
+  gsk_render_node_unref (dest_node);
+  gsk_render_node_unref (source_node);
+
+  return composite_node;
+}
+
+static void
+gtk_snapshot_clear_composite (GtkSnapshotState *state)
+{
+  g_clear_pointer (&(state->data.composite.dest_node), gsk_render_node_unref);
+}
+
+static GskRenderNode *
+gtk_snapshot_collect_composite_dest (GtkSnapshot       *snapshot,
+                                     GtkSnapshotState  *state,
+                                     GskRenderNode    **nodes,
+                                     guint              n_nodes)
+{
+  GtkSnapshotState *prev_state = gtk_snapshot_get_previous_state (snapshot);
+
+  g_assert (prev_state->collect_func == gtk_snapshot_collect_composite_source);
+
+  prev_state->data.composite.dest_node = gtk_snapshot_collect_default (snapshot, state, nodes, n_nodes);
+
+  return NULL;
+}
+
+/**
+ * gtk_snapshot_push_composite:
+ * @snapshot: a `GtkSnapshot`
+ * @op: operator to apply
+ *
+ * Composite together two images with the given operator.
+ *
+ * Until the first call to [method@Gtk.Snapshot.pop], the
+ * destination image for the composite operation will be recorded.
+ * After that call, the source image to be composited will be
+ * recorded until the second call to [method@Gtk.Snapshot.pop].
+ *
+ * Calling this function requires two subsequent calls
+ * to [method@Gtk.Snapshot.pop].
+ *
+ * Since: 4.22
+ */
+void
+gtk_snapshot_push_composite (GtkSnapshot          *snapshot,
+                             GskCompositeOperator  op)
+{
+  GtkSnapshotState *current_state = gtk_snapshot_get_current_state (snapshot);
+  GtkSnapshotState *top_state;
+
+  top_state = gtk_snapshot_push_state (snapshot,
+                                       current_state->transform,
+                                       gtk_snapshot_collect_composite_source,
+                                       gtk_snapshot_clear_composite);
+  top_state->data.composite.op = op;
+
+  gtk_snapshot_push_state (snapshot,
+                           top_state->transform,
+                           gtk_snapshot_collect_composite_dest,
+                           NULL);
 }
 
 static GskRenderNode *

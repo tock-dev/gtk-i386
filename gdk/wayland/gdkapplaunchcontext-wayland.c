@@ -72,8 +72,13 @@ gdk_wayland_app_launch_context_get_startup_notify_id (GAppLaunchContext *context
 {
   GdkWaylandDisplay *display;
   gchar *id = NULL;
+  const gchar *existing_token;
 
   g_object_get (context, "display", &display, NULL);
+
+  existing_token = g_getenv ("XDG_ACTIVATION_TOKEN");
+  if (existing_token)
+    return g_strdup (existing_token);
 
   if (display->xdg_activation)
     {

@@ -109,6 +109,14 @@
  * Since: 4.22
  */
 
+/**
+ * GSK_DISPLACEMENT_NODE:
+ *
+ * A node that applies a displacement map to its child.
+ *
+ * Since: 4.22
+ */
+
 typedef enum {
   GSK_NOT_A_RENDER_NODE = 0,
   GSK_CONTAINER_NODE,
@@ -143,6 +151,7 @@ typedef enum {
   GSK_SUBSURFACE_NODE,
   GSK_COMPONENT_TRANSFER_NODE,
   GSK_COMPOSITE_NODE,
+  GSK_DISPLACEMENT_NODE,
 } GskRenderNodeType;
 
 /**

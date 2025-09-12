@@ -9041,6 +9041,322 @@ gsk_composite_node_get_operator (const GskRenderNode *node)
 }
 
 /* }}} */
+/* {{{ GSK_DISPLACEMENT_NODE */
+
+struct _GskDisplacementNode
+{
+  GskRenderNode render_node;
+
+  GskRenderNode *child;
+  GskRenderNode *map;
+
+  float scale;
+  guint x_channel;
+  guint y_channel;
+};
+
+static void
+gsk_displacement_node_finalize (GskRenderNode *node)
+{
+  GskDisplacementNode *self = (GskDisplacementNode *) node;
+  GskRenderNodeClass *parent_class = g_type_class_peek (g_type_parent (GSK_TYPE_COMPOSITE_NODE));
+
+  gsk_render_node_unref (self->child);
+  gsk_render_node_unref (self->map);
+
+  parent_class->finalize (node);
+}
+
+static void
+gsk_displacement_node_draw (GskRenderNode *node,
+                            cairo_t       *cr,
+                            GdkColorState *ccs)
+{
+  GskDisplacementNode *self = (GskDisplacementNode *) node;
+  gsize width, height;
+  cairo_surface_t *child_surface;
+  cairo_surface_t *map_surface;
+  cairo_surface_t *surface;
+  cairo_t *cr2;
+  gsize stride;
+  guchar *child_data;
+  guchar *map_data;
+  guchar *data;
+  cairo_pattern_t *pattern;
+
+  if (has_empty_clip (cr))
+    return;
+
+  width = ceil (node->bounds.size.width);
+  height = ceil (node->bounds.size.height);
+
+  child_surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height);
+  map_surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height);
+  surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height);
+
+  cr2 = cairo_create (child_surface);
+  gsk_render_node_draw (self->child, cr2);
+  cairo_destroy (cr2);
+
+  cr2 = cairo_create (map_surface);
+  gsk_render_node_draw (self->map, cr2);
+  cairo_destroy (cr2);
+
+  stride = cairo_image_surface_get_stride (child_surface);
+  child_data = cairo_image_surface_get_data (child_surface);
+  map_data = cairo_image_surface_get_data (map_surface);
+  data = cairo_image_surface_get_data (surface);
+
+  for (guint y = 0; y < height; y++)
+    {
+      guchar *row = data + y * stride;
+
+      for (guint x = 0; x < width; x++)
+        {
+          guint32 map_pixel = *(guint32 *)(map_data + y * stride + 4 * x);
+          double map[4];
+          double cx, cy;
+
+          map[3] = ((map_pixel >> 24) & 0xff) / 255.;
+          map[0] = ((map_pixel >> 16) & 0xff) / 255.;
+          map[1] = ((map_pixel >> 8) & 0xff) / 255.;
+          map[2] = ((map_pixel >> 0) & 0xff) / 255.;
+
+          map[0] /= map[3];
+          map[1] /= map[3];
+          map[2] /= map[3];
+
+          cx = x + self->scale * (map[self->x_channel] - 0.5);
+          cy = y + self->scale * (map[self->y_channel] - 0.5);
+
+          if (cx >= 0 && cx < width && cy >= 0 && cy < height)
+            {
+              gsize pos = stride * (int) round (cy) + 4 * (int) round (cx);
+              row[4 * x + 0] = child_data[pos + 0];
+              row[4 * x + 1] = child_data[pos + 1];
+              row[4 * x + 2] = child_data[pos + 2];
+              row[4 * x + 3] = child_data[pos + 3];
+            }
+          else
+            {
+              row[4 * x + 0] = 0;
+              row[4 * x + 1] = 0;
+              row[4 * x + 2] = 0;
+              row[4 * x + 3] = 0;
+            }
+        }
+    }
+
+  cairo_surface_mark_dirty (surface);
+
+  pattern = cairo_pattern_create_for_surface (surface);
+  cairo_pattern_set_extend (pattern, CAIRO_EXTEND_PAD);
+
+  cairo_set_source (cr, pattern);
+  cairo_pattern_destroy (pattern);
+  cairo_surface_destroy (surface);
+
+  gdk_cairo_rect (cr, &node->bounds);
+  cairo_fill (cr);
+
+  cairo_surface_destroy (map_surface);
+  cairo_surface_destroy (child_surface);
+}
+
+static void
+gsk_displacement_node_diff (GskRenderNode *node1,
+                            GskRenderNode *node2,
+                            GskDiffData   *data)
+{
+  GskDisplacementNode *self1 = (GskDisplacementNode *) node1;
+  GskDisplacementNode *self2 = (GskDisplacementNode *) node2;
+
+  if (self1->scale == self2->scale &&
+      self1->x_channel == self2->x_channel &&
+      self1->y_channel == self2->y_channel)
+    {
+      gsk_render_node_diff (self1->child, self2->child, data);
+      gsk_render_node_diff (self1->map, self2->map, data);
+    }
+  else
+    {
+      gsk_render_node_diff_impossible (node1, node2, data);
+    }
+}
+
+static gboolean
+gsk_displacement_node_can_diff (const GskRenderNode *node1,
+                                const GskRenderNode *node2)
+{
+  GskDisplacementNode *self1 = (GskDisplacementNode *) node1;
+  GskDisplacementNode *self2 = (GskDisplacementNode *) node2;
+
+  return self1->scale == self2->scale &&
+         self1->x_channel == self2->x_channel &&
+         self1->y_channel == self2->y_channel;
+}
+
+static void
+gsk_displacement_node_class_init (gpointer g_class,
+                                  gpointer class_data)
+{
+  GskRenderNodeClass *node_class = g_class;
+
+  node_class->node_type = GSK_DISPLACEMENT_NODE;
+
+  node_class->finalize = gsk_displacement_node_finalize;
+  node_class->draw = gsk_displacement_node_draw;
+  node_class->can_diff = gsk_displacement_node_can_diff;
+  node_class->diff = gsk_displacement_node_diff;
+}
+
+/**
+ * gsk_displacement_node_new:
+ * @child: The child
+ * @map: The displacement map
+ * @scale: The scale
+ * @x_channel: which color channel to use for the X coordinate
+ * @y_channel: which color channel to use for the Y coordinate
+ *
+ * Creates a render node that will render its child with
+ * a displacement map applied.
+ *
+ * The displacement map is applied as follows:
+ *
+ *     res(x, y) = child(x + scale * (map(x,y)[x_channel] - 0.5),
+ *                       y + scale * (map(x,y)[y_channel] - 0.5))
+ *
+ * @x_channel and @y_channel must be numbers between 0 and 3,
+ * selecting one of the R, G, B or A components of the map.
+ *
+ * Returns: (transfer full) (type GskDisplacementNode): A new `GskRenderNode`
+ *
+ * Since: 4.22
+ */
+GskRenderNode *
+gsk_displacement_node_new (GskRenderNode *child,
+                           GskRenderNode *map,
+                           float          scale,
+                           guint          x_channel,
+                           guint          y_channel)
+{
+  GskDisplacementNode *self;
+  GskRenderNode *node;
+
+  g_return_val_if_fail (GSK_IS_RENDER_NODE (child), NULL);
+  g_return_val_if_fail (GSK_IS_RENDER_NODE (map), NULL);
+  g_return_val_if_fail (x_channel <= 3, NULL);
+  g_return_val_if_fail (y_channel <= 3, NULL);
+
+  self = gsk_render_node_alloc (GSK_DISPLACEMENT_NODE);
+  node = (GskRenderNode *) self;
+  node->fully_opaque = FALSE;
+
+  self->child = gsk_render_node_ref (child);
+  self->map = gsk_render_node_ref (map);
+  self->scale = scale;
+  self->x_channel = x_channel;
+  self->y_channel = y_channel;
+
+  gsk_rect_init_from_rect (&node->bounds, &child->bounds);
+
+  node->preferred_depth = gsk_render_node_get_preferred_depth (child);
+  node->is_hdr = gsk_render_node_is_hdr (child);
+
+  return node;
+}
+
+/**
+ * gsk_displacement_node_get_child:
+ * @node: (type GskDisplacementNode): a composite `GskRenderNode`
+ *
+ * Gets the child.
+ *
+ * Returns: (transfer none): the child `GskRenderNode`
+ *
+ * Since: 4.22
+ */
+GskRenderNode *
+gsk_displacement_node_get_child (const GskRenderNode *node)
+{
+  GskDisplacementNode *self = (GskDisplacementNode *) node;
+
+  return self->child;
+}
+
+/**
+ * gsk_displacement_node_get_map:
+ * @node: (type GskDisplacementNode): a composite `GskRenderNode`
+ *
+ * Gets the map.
+ *
+ * Returns: (transfer none): the map `GskRenderNode`
+ *
+ * Since: 4.22
+ */
+GskRenderNode *
+gsk_displacement_node_get_map (const GskRenderNode *node)
+{
+  GskDisplacementNode *self = (GskDisplacementNode *) node;
+
+  return self->map;
+}
+
+/**
+ * gsk_displacement_node_get_scale:
+ * @node: (type GskDisplacementNode): a composite `GskRenderNode`
+ *
+ * Gets the scale.
+ *
+ * Returns: (transfer none): the scale
+ *
+ * Since: 4.22
+ */
+float
+gsk_displacement_node_get_scale (const GskRenderNode *node)
+{
+  GskDisplacementNode *self = (GskDisplacementNode *) node;
+
+  return self->scale;
+}
+
+/**
+ * gsk_displacement_node_get_x_channel:
+ * @node: (type GskDisplacementNode): a composite `GskRenderNode`
+ *
+ * Gets the X channel.
+ *
+ * Returns: (transfer none): the X channel
+ *
+ * Since: 4.22
+ */
+guint
+gsk_displacement_node_get_x_channel (const GskRenderNode *node)
+{
+  GskDisplacementNode *self = (GskDisplacementNode *) node;
+
+  return self->x_channel;
+}
+
+/**
+ * gsk_displacement_node_get_y_channel:
+ * @node: (type GskDisplacementNode): a composite `GskRenderNode`
+ *
+ * Gets the Y channel.
+ *
+ * Returns: (transfer none): the Y channel
+ *
+ * Since: 4.22
+ */
+guint
+gsk_displacement_node_get_y_channel (const GskRenderNode *node)
+{
+  GskDisplacementNode *self = (GskDisplacementNode *) node;
+
+  return self->y_channel;
+}
+
+/* }}} */
 /* {{{ Serialization */
 
 static void
@@ -9307,6 +9623,7 @@ GSK_DEFINE_RENDER_NODE_TYPE (gsk_debug_node, GSK_DEBUG_NODE)
 GSK_DEFINE_RENDER_NODE_TYPE (gsk_subsurface_node, GSK_SUBSURFACE_NODE)
 GSK_DEFINE_RENDER_NODE_TYPE (gsk_component_transfer_node, GSK_COMPONENT_TRANSFER_NODE)
 GSK_DEFINE_RENDER_NODE_TYPE (gsk_composite_node, GSK_COMPOSITE_NODE)
+GSK_DEFINE_RENDER_NODE_TYPE (gsk_displacement_node, GSK_DISPLACEMENT_NODE)
 
 #define GSK_INIT_NODE_TYPE_WITH_STRUCT(TYPE, T_N, S_N, t_n) \
   gsk_render_node_types[TYPE] = gsk_render_node_type_register_static (I_(#T_N), \
@@ -9352,6 +9669,7 @@ G_GNUC_END_IGNORE_DEPRECATIONS
   GSK_INIT_NODE_TYPE (GSK_SUBSURFACE_NODE, GskSubsurfaceNode, gsk_subsurface_node)
   GSK_INIT_NODE_TYPE (GSK_COMPONENT_TRANSFER_NODE, GskComponentTransferNode, gsk_component_transfer_node)
   GSK_INIT_NODE_TYPE (GSK_COMPOSITE_NODE, GskCompositeNode, gsk_composite_node)
+  GSK_INIT_NODE_TYPE (GSK_DISPLACEMENT_NODE, GskDisplacementNode, gsk_displacement_node)
 }
 
 /*< private >

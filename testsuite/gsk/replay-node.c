@@ -438,6 +438,20 @@ replay_component_transfer_node (GskRenderNode *node, GtkSnapshot *snapshot)
   gsk_render_node_unref (node2);
 }
 
+static void
+replay_composite_node (GskRenderNode *node, GtkSnapshot *snapshot)
+{
+  GskRenderNode *source = gsk_composite_node_get_source (node);
+  GskRenderNode *dest = gsk_composite_node_get_dest (node);
+  GskCompositeOperator op = gsk_composite_node_get_operator (node);
+
+  gtk_snapshot_push_composite (snapshot, op);
+  replay_node (dest, snapshot);
+  gtk_snapshot_pop (snapshot);
+  replay_node (source, snapshot);
+  gtk_snapshot_pop (snapshot);
+}
+
 void
 replay_node (GskRenderNode *node, GtkSnapshot *snapshot)
 {
@@ -555,6 +569,10 @@ replay_node (GskRenderNode *node, GtkSnapshot *snapshot)
 
     case GSK_COMPONENT_TRANSFER_NODE:
       replay_component_transfer_node (node, snapshot);
+      break;
+
+    case GSK_COMPOSITE_NODE:
+      replay_composite_node (node, snapshot);
       break;
 
     case GSK_SUBSURFACE_NODE:

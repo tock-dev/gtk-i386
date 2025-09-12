@@ -3904,6 +3904,58 @@ parse_composite_node (GtkCssParser *parser,
 }
 
 static gboolean
+parse_color_channel (GtkCssParser *parser,
+                     Context      *context,
+                     gpointer      out_channel)
+{
+  const char *channels[] = { "R", "G", "B", "A" };
+
+  for (unsigned int i = 0; i < G_N_ELEMENTS (channels); i++)
+    {
+      if (gtk_css_parser_try_ident (parser, channels[i]))
+        {
+          *(guint *) out_channel = i;
+          return TRUE;
+        }
+    }
+
+  gtk_css_parser_error_syntax (parser, "Not a valid color channel.");
+
+  return FALSE;
+}
+static GskRenderNode *
+parse_displacement_node (GtkCssParser *parser,
+                         Context      *context)
+{
+  GskRenderNode *child = NULL;
+  GskRenderNode *map = NULL;
+  double scale = 0;
+  guint x_channel = 3;
+  guint y_channel = 3;
+  const Declaration declarations[] = {
+    { "scale", parse_double, NULL, &scale },
+    { "x-channel", parse_color_channel, NULL, &x_channel },
+    { "y-channel", parse_color_channel, NULL, &y_channel },
+    { "child", parse_node, clear_node, &child },
+    { "map", parse_node, clear_texture, &map },
+  };
+  GskRenderNode *result;
+
+  parse_declarations (parser, context, declarations, G_N_ELEMENTS (declarations));
+  if (child == NULL)
+    child = gsk_color_node_new (&GDK_RGBA("AAFF00"), &GRAPHENE_RECT_INIT (0, 0, 50, 50));
+  if (map == NULL)
+    map = create_default_render_node ();
+
+  result = gsk_displacement_node_new (child, map, scale, x_channel, y_channel);
+
+  gsk_render_node_unref (child);
+  gsk_render_node_unref (map);
+
+  return result;
+}
+
+static gboolean
 parse_node (GtkCssParser *parser,
             Context      *context,
             gpointer      out_node)
@@ -3944,6 +3996,7 @@ parse_node (GtkCssParser *parser,
     { "subsurface", parse_subsurface_node },
     { "component-transfer", parse_component_transfer_node },
     { "composite", parse_composite_node },
+    { "displacement", parse_displacement_node },
   };
   GskRenderNode **node_p = out_node;
   guint i;
@@ -4322,6 +4375,10 @@ G_GNUC_END_IGNORE_DEPRECATIONS
     case GSK_COMPOSITE_NODE:
       printer_init_duplicates_for_node (printer, gsk_composite_node_get_source (node));
       printer_init_duplicates_for_node (printer, gsk_composite_node_get_dest (node));
+      break;
+
+    case GSK_DISPLACEMENT_NODE:
+      printer_init_duplicates_for_node (printer, gsk_displacement_node_get_child (node));
       break;
 
     default:
@@ -6154,6 +6211,24 @@ G_GNUC_END_IGNORE_DEPRECATIONS
 
         append_node_param (p, "source", gsk_composite_node_get_source (node));
         append_node_param (p, "dest", gsk_composite_node_get_dest (node));
+
+        end_node (p);
+      }
+      break;
+
+    case GSK_DISPLACEMENT_NODE:
+      {
+        const char *channels[] = { "R", "G", "B", "A" };
+
+        start_node (p, "displacement", node_name);
+
+        _indent (p);
+        g_string_append_printf (p->str, "scale: %g;\n", gsk_displacement_node_get_scale (node));
+        g_string_append_printf (p->str, "x-channel: %s;\n", channels[gsk_displacement_node_get_x_channel (node)]);
+        g_string_append_printf (p->str, "y-channel: %s;\n", channels[gsk_displacement_node_get_y_channel (node)]);
+
+        append_node_param (p, "child", gsk_displacement_node_get_child (node));
+        append_node_param (p, "map", gsk_displacement_node_get_map (node));
 
         end_node (p);
       }

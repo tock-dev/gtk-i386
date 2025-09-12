@@ -408,6 +408,11 @@ G_GNUC_END_IGNORE_DEPRECATIONS
 
     case GSK_COMPONENT_TRANSFER_NODE:
       return create_render_node_list_model (&(RenderNode) { gsk_component_transfer_node_get_child (node), NULL }, 1);
+
+    case GSK_COMPOSITE_NODE:
+      return create_render_node_list_model ((RenderNode[2]) { { gsk_composite_node_get_source (node), "Source" },
+                                                              { gsk_composite_node_get_dest (node), "Destination" } }, 2);
+
     }
 }
 
@@ -498,6 +503,8 @@ node_type_name (GskRenderNodeType type)
       return "Subsurface";
     case GSK_COMPONENT_TRANSFER_NODE:
       return "Component Transfer";
+    case GSK_COMPOSITE_NODE:
+      return "Composite";
     }
 }
 
@@ -536,6 +543,7 @@ node_name (GskRenderNode *node)
     case GSK_GL_SHADER_NODE:
     case GSK_SUBSURFACE_NODE:
     case GSK_COMPONENT_TRANSFER_NODE:
+    case GSK_COMPOSITE_NODE:
       return g_strdup (node_type_name (gsk_render_node_get_node_type (node)));
 
     case GSK_DEBUG_NODE:
@@ -1720,6 +1728,13 @@ G_GNUC_END_IGNORE_DEPRECATIONS
           }
 
         g_string_free (s, TRUE);
+      }
+      break;
+
+    case GSK_COMPOSITE_NODE:
+      {
+        GskCompositeOperator op = gsk_composite_node_get_operator (node);
+        add_text_row (store, "Operator", "%s", enum_to_nick (GSK_TYPE_COMPOSITE_OPERATOR, op));
       }
       break;
 

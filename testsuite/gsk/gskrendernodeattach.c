@@ -214,6 +214,19 @@ G_GNUC_END_IGNORE_DEPRECATIONS
                                              gsk_component_transfer_node_get_transfer (node, 3));
       gsk_render_node_unref (child);
       return res;
+
+    case GSK_COMPOSITE_NODE:
+      {
+        GskRenderNode *source, *dest;
+
+        source = node_attach (gsk_composite_node_get_source (node), surface, idx);
+        dest = node_attach (gsk_composite_node_get_dest (node), surface, idx);
+        res = gsk_composite_node_new (source, dest, gsk_composite_node_get_operator (node));
+        gsk_render_node_unref (source);
+        gsk_render_node_unref (dest);
+        return res;
+      }
+
     case GSK_NOT_A_RENDER_NODE:
     default:
       g_assert_not_reached ();

@@ -452,6 +452,21 @@ replay_composite_node (GskRenderNode *node, GtkSnapshot *snapshot)
   gtk_snapshot_pop (snapshot);
 }
 
+static void
+replay_displacement_node (GskRenderNode *node, GtkSnapshot *snapshot)
+{
+  GskRenderNode *child = gsk_displacement_node_get_child (node);
+  GskRenderNode *map_node = gsk_displacement_node_get_map (node);
+  GdkTexture *map = gsk_texture_node_get_texture (map_node);
+  float scale = gsk_displacement_node_get_scale (node);
+  guint x_channel = gsk_displacement_node_get_x_channel (node);
+  guint y_channel = gsk_displacement_node_get_y_channel (node);
+
+  gtk_snapshot_push_displacement (snapshot, map, scale, x_channel, y_channel);
+  replay_node (child, snapshot);
+  gtk_snapshot_pop (snapshot);
+}
+
 void
 replay_node (GskRenderNode *node, GtkSnapshot *snapshot)
 {
@@ -573,6 +588,10 @@ replay_node (GskRenderNode *node, GtkSnapshot *snapshot)
 
     case GSK_COMPOSITE_NODE:
       replay_composite_node (node, snapshot);
+      break;
+
+    case GSK_DISPLACEMENT_NODE:
+      replay_displacement_node (node, snapshot);
       break;
 
     case GSK_SUBSURFACE_NODE:

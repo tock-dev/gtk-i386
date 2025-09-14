@@ -29,7 +29,7 @@
 #include <gtk/gtk.h>
 #include "gtk-rendernode-tool.h"
 
-#define N_NODE_TYPES (GSK_COMPOSITE_NODE + 1)
+#define N_NODE_TYPES (GSK_DISPLACEMENT_NODE + 1)
 
 static void
 count_nodes (GskRenderNode *node,
@@ -154,6 +154,10 @@ G_GNUC_END_IGNORE_DEPRECATIONS
     case GSK_COMPOSITE_NODE:
       count_nodes (gsk_composite_node_get_source (node), counts, &d);
       count_nodes (gsk_composite_node_get_dest (node), counts, &d);
+      break;
+
+    case GSK_DISPLACEMENT_NODE:
+      count_nodes (gsk_displacement_node_get_child (node), counts, &d);
       break;
 
     case GSK_NOT_A_RENDER_NODE:

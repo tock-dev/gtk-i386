@@ -25,6 +25,7 @@
 #include "gskgpuconvertopprivate.h"
 #include "gskgpucrossfadeopprivate.h"
 #include "gskgpudeviceprivate.h"
+#include "gskgpudisplacementopprivate.h"
 #include "gskgpuframeprivate.h"
 #include "gskgpuglobalsopprivate.h"
 #include "gskgpuimageprivate.h"
@@ -3399,6 +3400,62 @@ gsk_gpu_node_processor_add_composite (GskGpuNodeProcessor *self,
 }
 
 static void
+gsk_gpu_node_processor_add_displacement_node (GskGpuNodeProcessor *self,
+                                              GskRenderNode       *node)
+{
+  GskGpuImage *image;
+  GskGpuImage *map;
+  GskRenderNode *child;
+  GskRenderNode *map_child;
+  graphene_rect_t tex_rect;
+  graphene_rect_t map_rect;
+
+  child = gsk_displacement_node_get_child (node);
+
+  image = gsk_gpu_node_processor_get_node_as_image (self,
+                                                    0,
+                                                    NULL,
+                                                    child,
+                                                    &tex_rect);
+  if (image == NULL)
+    return;
+
+  map_child = gsk_displacement_node_get_map (node);
+
+  map = gsk_gpu_node_processor_get_node_as_image (self,
+                                                  0,
+                                                  NULL,
+                                                  map_child,
+                                                  &map_rect);
+  if (map == NULL)
+    return;
+
+  gsk_gpu_displacement_op (self->frame,
+                           gsk_gpu_clip_get_shader_clip (&self->clip, &self->offset, &node->bounds),
+                           &node->bounds,
+                           &self->offset,
+                           self->opacity,
+                           gsk_displacement_node_get_scale (node),
+                           gsk_displacement_node_get_x_channel (node),
+                           gsk_displacement_node_get_y_channel (node),
+                           &(GskGpuShaderImage) {
+                             image,
+                             GSK_GPU_SAMPLER_DEFAULT,
+                             &node->bounds,
+                             &tex_rect,
+                           },
+                           &(GskGpuShaderImage) {
+                             map,
+                             GSK_GPU_SAMPLER_DEFAULT,
+                             &node->bounds,
+                             &map_rect,
+                           });
+
+  g_object_unref (image);
+  g_object_unref (map);
+}
+
+static void
 gsk_gpu_node_processor_repeat_tile (GskGpuNodeProcessor    *self,
                                     const graphene_rect_t  *rect,
                                     float                   x,
@@ -4192,6 +4249,13 @@ static const struct
     0,
     GSK_GPU_HANDLE_OPACITY,
     gsk_gpu_node_processor_add_composite,
+    NULL,
+    NULL,
+  },
+  [GSK_DISPLACEMENT_NODE] = {
+    0,
+    GSK_GPU_HANDLE_OPACITY,
+    gsk_gpu_node_processor_add_displacement_node,
     NULL,
     NULL,
   },

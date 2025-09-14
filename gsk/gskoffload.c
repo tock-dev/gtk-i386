@@ -564,6 +564,7 @@ visit_node (GskOffload    *self,
     case GSK_STROKE_NODE:
     case GSK_COMPONENT_TRANSFER_NODE:
     case GSK_COMPOSITE_NODE:
+    case GSK_DISPLACEMENT_NODE:
       break;
 
     case GSK_CLIP_NODE:

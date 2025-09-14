@@ -96,6 +96,12 @@ struct _GtkSnapshotState {
       GskRenderNode *dest_node;
     } composite;
     struct {
+      float scale;
+      guint x_channel;
+      guint y_channel;
+      GdkTexture *map;
+    } displacement;
+    struct {
       graphene_rect_t bounds;
       graphene_rect_t child_bounds;
     } repeat;
@@ -850,6 +856,81 @@ gtk_snapshot_push_composite (GtkSnapshot          *snapshot,
                            top_state->transform,
                            gtk_snapshot_collect_composite_dest,
                            NULL);
+}
+
+static GskRenderNode *
+gtk_snapshot_collect_displacement (GtkSnapshot       *snapshot,
+                                   GtkSnapshotState  *state,
+                                   GskRenderNode    **nodes,
+                                   guint              n_nodes)
+{
+  GskRenderNode *child, *map, *node;
+  graphene_rect_t bounds;
+
+  child = gtk_snapshot_collect_default (snapshot, state, nodes, n_nodes);
+  if (child == NULL)
+    return NULL;
+
+  gsk_render_node_get_bounds (child, &bounds);
+  map = gsk_texture_node_new (state->data.displacement.map, &bounds);
+
+  node = gsk_displacement_node_new (child,
+                                    map,
+                                    state->data.displacement.scale,
+                                    state->data.displacement.x_channel,
+                                    state->data.displacement.y_channel);
+
+  gsk_render_node_unref (child);
+  gsk_render_node_unref (map);
+
+  return node;
+}
+
+static void
+gtk_snapshot_clear_displacement (GtkSnapshotState *state)
+{
+  g_clear_object (&(state->data.displacement.map));
+}
+
+/**
+ * gtk_snapshot_push_displacement:
+ * @snapshot: a `GtkSnapshot`
+ * @map: the texture to use as displacement map
+ * @scale: scale for the displacement
+ * @x_channel: Component for X displacement
+ * @y_channel: Component for Y displacement
+ *
+ * Apply a displacement map to a child node.
+ *
+ * Until call to [method@Gtk.Snapshot.pop], the
+ * child image will be recorded.
+ *
+ * The unpremultiplied color components of the @map
+ * texture are first shifted by -0.5 and then multiplied
+ * by @scale to produce a displacement between
+ * -@scale/2 and @scale/2.
+ *
+ * Since: 4.22
+ */
+void
+gtk_snapshot_push_displacement (GtkSnapshot *snapshot,
+                                GdkTexture  *map,
+                                float        scale,
+                                guint        x_channel,
+                                guint        y_channel)
+{
+  GtkSnapshotState *current_state = gtk_snapshot_get_current_state (snapshot);
+  GtkSnapshotState *map_state;
+
+  map_state = gtk_snapshot_push_state (snapshot,
+                                       current_state->transform,
+                                       gtk_snapshot_collect_displacement,
+                                       gtk_snapshot_clear_displacement);
+
+  map_state->data.displacement.map = map;
+  map_state->data.displacement.scale = scale;
+  map_state->data.displacement.x_channel = x_channel;
+  map_state->data.displacement.y_channel = y_channel;
 }
 
 static GskRenderNode *

@@ -296,7 +296,7 @@ Creates a node like `gsk_conic_gradient_node_new()` with the given properties.
 
 Possible values for the hue-interpolation property are:
 
-    hue-interpolation: shorter | longer | increasing | decreasing
+    hue-interp: shorter | longer | increasing | decreasing
 
 The syntax for color stops is:
 
@@ -325,6 +325,22 @@ Creates a node like `gsk_cross_fade_node_new()` with the given properties.
 | message  | `<string>`       | ""                     | non-default |
 
 Creates a node like `gsk_debug_node_new()` with the given properties.
+
+### displacement
+
+| property  | syntax           | default                | printed     |
+| --------- | ---------------- | ---------------------- | ----------- |
+| child     | `<node>`         | color { }              | always      |
+| map       | `<node>`         | color { }              | always      |
+| scale     | `<number>`       | 0                      | non-default |
+| x-channel | `<channel>`      | A                      | non-default |
+| y-channel | `<channel>`      | A                      | non-default |
+
+Creates a node that applies a displacement map to its child node.
+
+The possible values for x-channel and y-channel are:
+
+    channel: R | G | B | A
 
 ### fill
 

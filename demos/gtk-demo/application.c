@@ -1,5 +1,7 @@
 #include "config.h"
 
+#include "notifications.h"
+
 #include <gtk/gtk.h>
 
 typedef GtkApplication DemoApplication;
@@ -387,6 +389,9 @@ demo_application_init (DemoApplication *app)
 
   g_action_map_add_action (G_ACTION_MAP (app), action);
 
+  /* Handles Notifications demo */
+  demo_notifications_init_app (G_APPLICATION (app));
+
   g_object_unref (settings);
 }
 
@@ -551,8 +556,9 @@ main (int argc, char *argv[])
 
   app = GTK_APPLICATION (g_object_new (demo_application_get_type (),
                                        "application-id", "org.gtk.Demo4.App",
-                                       "flags", G_APPLICATION_HANDLES_OPEN,
+                                       "flags", G_APPLICATION_HANDLES_OPEN |
+                                                G_APPLICATION_HANDLES_COMMAND_LINE,
                                        NULL));
 
-  return g_application_run (G_APPLICATION (app), 0, NULL);
+  return g_application_run (G_APPLICATION (app), argc, argv);
 }

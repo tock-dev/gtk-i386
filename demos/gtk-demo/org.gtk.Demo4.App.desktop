@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=GTK Demo Application
+Comment=GTK Application example
+Exec=gtk4-demo-application
+Icon=org.gtk.Demo4
+Terminal=false
+Type=Application
+StartupNotify=true
+Categories=Development;GTK;
+DBusActivatable=true

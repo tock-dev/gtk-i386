@@ -170,6 +170,11 @@ proto_sources = [
     'stability': 'staging',
     'version': 1,
   },
+  {
+    'name': 'xdg-wm-gestures',
+    'stability': 'staging',
+    'version': 1,
+  },
 ]
 
 gdk_wayland_gen_headers = []

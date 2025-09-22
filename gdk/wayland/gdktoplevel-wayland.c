@@ -88,6 +88,7 @@ struct _GdkWaylandToplevel
     struct xdg_toplevel *xdg_toplevel;
     struct zxdg_toplevel_v6 *zxdg_toplevel_v6;
     struct xdg_dialog_v1 *xdg_dialog;
+    struct xdg_wm_gestures_v1 *xdg_wm_gestures;
     struct xdg_toplevel_icon_v1 *toplevel_icon;
   } display_server;
 
@@ -248,6 +249,7 @@ gdk_wayland_toplevel_hide_surface (GdkWaylandSurface *wayland_surface)
 {
   GdkWaylandToplevel *toplevel = GDK_WAYLAND_TOPLEVEL (wayland_surface);
 
+  g_clear_pointer (&toplevel->display_server.xdg_wm_gestures, xdg_wm_gestures_v1_destroy);
   g_clear_pointer (&toplevel->display_server.xdg_toplevel, xdg_toplevel_destroy);
   g_clear_pointer (&toplevel->display_server.zxdg_toplevel_v6, zxdg_toplevel_v6_destroy);
   g_clear_pointer (&toplevel->display_server.xdg_dialog, xdg_dialog_v1_destroy);
@@ -867,12 +869,21 @@ static void
 xdg_toplevel_create_resources (gpointer unused, GdkWaylandToplevel *toplevel)
 {
   GdkWaylandSurface *impl = GDK_WAYLAND_SURFACE (toplevel);
+  GdkWaylandDisplay *wayland_display =
+    GDK_WAYLAND_DISPLAY (gdk_surface_get_display (GDK_SURFACE (toplevel)));
 
   toplevel->display_server.xdg_toplevel =
     xdg_surface_get_toplevel (impl->display_server.xdg_surface);
   xdg_toplevel_add_listener (toplevel->display_server.xdg_toplevel,
                              &xdg_toplevel_listener,
                              toplevel);
+
+  if (wayland_display->xdg_wm_gestures_manager)
+    {
+      toplevel->display_server.xdg_wm_gestures =
+        xdg_wm_gestures_manager_v1_get_wm_gestures (wayland_display->xdg_wm_gestures_manager,
+                                                    toplevel->display_server.xdg_toplevel);
+    }
 }
 
 static void
@@ -2098,21 +2109,32 @@ gdk_wayland_toplevel_show_window_menu (GdkToplevel *toplevel,
 }
 
 static gboolean
-translate_gesture (GdkTitlebarGesture         gesture,
-                   enum gtk_surface1_gesture *out_gesture)
+gdk_wayland_toplevel_titlebar_gesture_wm_gestures (GdkToplevel        *toplevel,
+                                                   GdkTitlebarGesture  gesture)
 {
+  GdkSurface *surface = GDK_SURFACE (toplevel);
+  GdkWaylandToplevel *wayland_toplevel = GDK_WAYLAND_TOPLEVEL (toplevel);
+  struct xdg_toplevel *xdg_toplevel = wayland_toplevel->display_server.xdg_toplevel;
+  enum xdg_wm_gestures_v1_action wm_action;
+  GdkSeat *seat;
+  struct wl_seat *wl_seat;
+  uint32_t serial;
+
+  if (!xdg_toplevel)
+    return FALSE;
+
   switch (gesture)
     {
     case GDK_TITLEBAR_GESTURE_DOUBLE_CLICK:
-      *out_gesture = GTK_SURFACE1_GESTURE_DOUBLE_CLICK;
+      wm_action = XDG_WM_GESTURES_V1_ACTION_DOUBLE_CLICK;
       break;
 
     case GDK_TITLEBAR_GESTURE_RIGHT_CLICK:
-      *out_gesture = GTK_SURFACE1_GESTURE_RIGHT_CLICK;
+      wm_action = XDG_WM_GESTURES_V1_ACTION_RIGHT_CLICK;
       break;
 
     case GDK_TITLEBAR_GESTURE_MIDDLE_CLICK:
-      *out_gesture = GTK_SURFACE1_GESTURE_MIDDLE_CLICK;
+      wm_action = XDG_WM_GESTURES_V1_ACTION_MIDDLE_CLICK;
       break;
 
     default:
@@ -2120,24 +2142,39 @@ translate_gesture (GdkTitlebarGesture         gesture,
       return FALSE;
     }
 
+  seat = gdk_display_get_default_seat (surface->display);
+  if (!seat)
+    return FALSE;
+
+  wl_seat = gdk_wayland_seat_get_wl_seat (seat);
+  serial = _gdk_wayland_seat_get_last_implicit_grab_serial (GDK_WAYLAND_SEAT (seat), NULL);
+
+  xdg_wm_gestures_v1_action (wayland_toplevel->display_server.xdg_wm_gestures,
+                             serial, wl_seat,
+                             wm_action,
+                             XDG_WM_GESTURES_V1_LOCATION_TITLEBAR);
   return TRUE;
 }
 
 static gboolean
 gdk_wayland_toplevel_supports_titlebar_gestures (GdkWaylandToplevel *wayland_toplevel)
 {
-  if (!gdk_wayland_toplevel_init_gtk_surface (wayland_toplevel))
-    return FALSE;
+  GdkWaylandDisplay *wayland_display =
+    GDK_WAYLAND_DISPLAY (gdk_surface_get_display (GDK_SURFACE (wayland_toplevel)));
 
-  if (gtk_surface1_get_version (wayland_toplevel->display_server.gtk_surface) < GTK_SURFACE1_TITLEBAR_GESTURE_SINCE_VERSION)
+  if (wayland_toplevel->display_server.xdg_wm_gestures)
+    return TRUE;
+
+  if (!wayland_display->gtk_shell ||
+      gtk_shell1_get_version (wayland_display->gtk_shell) < GTK_SURFACE1_TITLEBAR_GESTURE_SINCE_VERSION)
     return FALSE;
 
   return TRUE;
 }
 
 static gboolean
-gdk_wayland_toplevel_titlebar_gesture (GdkToplevel        *toplevel,
-                                       GdkTitlebarGesture  gesture)
+gdk_wayland_toplevel_titlebar_gesture_gtk_shell (GdkToplevel        *toplevel,
+                                                 GdkTitlebarGesture  gesture)
 {
   GdkSurface *surface = GDK_SURFACE (toplevel);
   GdkWaylandToplevel *wayland_toplevel = GDK_WAYLAND_TOPLEVEL (toplevel);
@@ -2146,11 +2183,29 @@ gdk_wayland_toplevel_titlebar_gesture (GdkToplevel        *toplevel,
   struct wl_seat *wl_seat;
   uint32_t serial;
 
-  if (!gdk_wayland_toplevel_supports_titlebar_gestures (wayland_toplevel))
+  if (!wayland_toplevel->display_server.gtk_surface ||
+      gtk_surface1_get_version (wayland_toplevel->display_server.gtk_surface) <
+      GTK_SURFACE1_TITLEBAR_GESTURE_SINCE_VERSION)
     return FALSE;
 
-  if (!translate_gesture (gesture, &gtk_gesture))
-    return FALSE;
+  switch (gesture)
+    {
+    case GDK_TITLEBAR_GESTURE_DOUBLE_CLICK:
+      gtk_gesture = GTK_SURFACE1_GESTURE_DOUBLE_CLICK;
+      break;
+
+    case GDK_TITLEBAR_GESTURE_RIGHT_CLICK:
+      gtk_gesture = GTK_SURFACE1_GESTURE_RIGHT_CLICK;
+      break;
+
+    case GDK_TITLEBAR_GESTURE_MIDDLE_CLICK:
+      gtk_gesture = GTK_SURFACE1_GESTURE_MIDDLE_CLICK;
+      break;
+
+    default:
+      g_warning ("Not handling unknown titlebar gesture %u", gesture);
+      return FALSE;
+    }
 
   seat = gdk_display_get_default_seat (surface->display);
   if (!seat)
@@ -2165,6 +2220,18 @@ gdk_wayland_toplevel_titlebar_gesture (GdkToplevel        *toplevel,
                                  gtk_gesture);
 
   return TRUE;
+}
+
+static gboolean
+gdk_wayland_toplevel_titlebar_gesture (GdkToplevel        *toplevel,
+                                       GdkTitlebarGesture  gesture)
+{
+  GdkWaylandToplevel *wayland_toplevel = GDK_WAYLAND_TOPLEVEL (toplevel);
+
+  if (wayland_toplevel->display_server.xdg_wm_gestures)
+    return gdk_wayland_toplevel_titlebar_gesture_wm_gestures (toplevel, gesture);
+  else
+    return gdk_wayland_toplevel_titlebar_gesture_gtk_shell (toplevel, gesture);
 }
 
 static gboolean

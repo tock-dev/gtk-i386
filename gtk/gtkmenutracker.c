@@ -282,6 +282,9 @@ gtk_menu_tracker_remove_items (GtkMenuTracker  *tracker,
 {
   gint i;
 
+  if (*change_point == NULL)
+    return;
+
   for (i = 0; i < n_items; i++)
     {
       GtkMenuTrackerSection *subsection;

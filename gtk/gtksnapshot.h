@@ -85,6 +85,17 @@ void            gtk_snapshot_push_component_transfer   (GtkSnapshot             
                                                         const GskComponentTransfer *blue,
                                                         const GskComponentTransfer *alpha);
 
+GDK_AVAILABLE_IN_4_22
+void            gtk_snapshot_push_composite            (GtkSnapshot                *snapshot,
+                                                        GskCompositeOperator        op);
+
+GDK_AVAILABLE_IN_4_22
+void            gtk_snapshot_push_displacement          (GtkSnapshot            *snapshot,
+                                                         GdkTexture             *map,
+                                                         float                   scale,
+                                                         guint                   x_channel,
+                                                         guint                   y_channel);
+
 GDK_AVAILABLE_IN_ALL
 void            gtk_snapshot_push_repeat                (GtkSnapshot            *snapshot,
                                                          const graphene_rect_t  *bounds,

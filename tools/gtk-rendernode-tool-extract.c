@@ -47,8 +47,10 @@ extract_texture (GskRenderNode *node,
 
   if (gsk_render_node_get_node_type (node) == GSK_TEXTURE_NODE)
     texture = gsk_texture_node_get_texture (node);
-  else
+  else if (gsk_render_node_get_node_type (node) == GSK_TEXTURE_SCALE_NODE)
     texture = gsk_texture_scale_node_get_texture (node);
+  else
+    g_assert_not_reached ();
 
   do {
     filename = g_strdup_printf ("%s-texture-%u.png", basename, texture_count);
@@ -261,6 +263,16 @@ G_GNUC_END_IGNORE_DEPRECATIONS
 
     case GSK_COMPONENT_TRANSFER_NODE:
       extract_from_node (gsk_component_transfer_node_get_child (node), basename);
+      break;
+
+    case GSK_COMPOSITE_NODE:
+      extract_from_node (gsk_composite_node_get_source (node), basename);
+      extract_from_node (gsk_composite_node_get_dest (node), basename);
+      break;
+
+    case GSK_DISPLACEMENT_NODE:
+      extract_from_node (gsk_displacement_node_get_child (node), basename);
+      extract_from_node (gsk_displacement_node_get_map (node), basename);
       break;
 
     case GSK_NOT_A_RENDER_NODE:

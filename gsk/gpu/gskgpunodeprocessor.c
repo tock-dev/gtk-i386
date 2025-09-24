@@ -17,6 +17,7 @@
 #include "gskgpucolorizeopprivate.h"
 #include "gskgpucolormatrixopprivate.h"
 #include "gskgpucomponenttransferopprivate.h"
+#include "gskgpucompositeopprivate.h"
 #include "gskgpucoloropprivate.h"
 #include "gskgpuconicgradientopprivate.h"
 #include "gskgpuconvertbuiltinopprivate.h"
@@ -24,6 +25,7 @@
 #include "gskgpuconvertopprivate.h"
 #include "gskgpucrossfadeopprivate.h"
 #include "gskgpudeviceprivate.h"
+#include "gskgpudisplacementopprivate.h"
 #include "gskgpuframeprivate.h"
 #include "gskgpuglobalsopprivate.h"
 #include "gskgpuimageprivate.h"
@@ -3339,6 +3341,121 @@ gsk_gpu_node_processor_add_component_transfer_node (GskGpuNodeProcessor *self,
 }
 
 static void
+gsk_gpu_node_processor_add_composite (GskGpuNodeProcessor *self,
+                                      GskRenderNode       *node)
+{
+  GskRenderNode *source, *dest;
+  graphene_rect_t source_rect, dest_rect;
+  GskGpuImage *source_image, *dest_image;
+
+  source = gsk_composite_node_get_source (node);
+  dest = gsk_composite_node_get_dest (node);
+
+  source_image = gsk_gpu_node_processor_get_node_as_image (self,
+                                                           0,
+                                                           NULL,
+                                                           source,
+                                                           &source_rect);
+  dest_image = gsk_gpu_node_processor_get_node_as_image (self,
+                                                         0,
+                                                         NULL,
+                                                         dest,
+                                                         &dest_rect);
+
+  if (source_image == NULL)
+    {
+      if (dest_image == NULL)
+        return;
+
+      source_image = g_object_ref (dest_image);
+      source_rect = *graphene_rect_zero ();
+    }
+  else if (dest_image == NULL)
+    {
+      dest_image = g_object_ref (source_image);
+      dest_rect = *graphene_rect_zero ();
+    }
+
+  gsk_gpu_composite_op (self->frame,
+                        gsk_gpu_clip_get_shader_clip (&self->clip, &self->offset, &node->bounds),
+                        &node->bounds,
+                        &self->offset,
+                        self->opacity,
+                        gsk_composite_node_get_operator (node),
+                        &(GskGpuShaderImage) {
+                            source_image,
+                            GSK_GPU_SAMPLER_DEFAULT,
+                            NULL,
+                            &source_rect
+                        },
+                        &(GskGpuShaderImage) {
+                            dest_image,
+                            GSK_GPU_SAMPLER_DEFAULT,
+                            NULL,
+                            &dest_rect
+                        });
+
+  g_object_unref (source_image);
+  g_object_unref (dest_image);
+}
+
+static void
+gsk_gpu_node_processor_add_displacement_node (GskGpuNodeProcessor *self,
+                                              GskRenderNode       *node)
+{
+  GskGpuImage *image;
+  GskGpuImage *map;
+  GskRenderNode *child;
+  GskRenderNode *map_child;
+  graphene_rect_t tex_rect;
+  graphene_rect_t map_rect;
+
+  child = gsk_displacement_node_get_child (node);
+
+  image = gsk_gpu_node_processor_get_node_as_image (self,
+                                                    0,
+                                                    NULL,
+                                                    child,
+                                                    &tex_rect);
+  if (image == NULL)
+    return;
+
+  map_child = gsk_displacement_node_get_map (node);
+
+  map = gsk_gpu_node_processor_get_node_as_image (self,
+                                                  0,
+                                                  NULL,
+                                                  map_child,
+                                                  &map_rect);
+  if (map == NULL)
+    return;
+
+  gsk_gpu_displacement_op (self->frame,
+                           gsk_gpu_clip_get_shader_clip (&self->clip, &self->offset, &node->bounds),
+                           &node->bounds,
+                           &self->offset,
+                           self->opacity,
+                           gsk_displacement_node_get_scale (node),
+                           gsk_displacement_node_get_x_channel (node),
+                           gsk_displacement_node_get_y_channel (node),
+                           &(GskGpuShaderImage) {
+                             image,
+                             GSK_GPU_SAMPLER_DEFAULT,
+                             &node->bounds,
+                             &tex_rect,
+                           },
+                           &(GskGpuShaderImage) {
+                             map,
+                             GSK_GPU_SAMPLER_DEFAULT,
+                             &node->bounds,
+                             &map_rect,
+                           });
+
+  g_object_unref (image);
+  g_object_unref (map);
+}
+
+static void
 gsk_gpu_node_processor_repeat_tile (GskGpuNodeProcessor    *self,
                                     const graphene_rect_t  *rect,
                                     float                   x,
@@ -4125,6 +4242,20 @@ static const struct
     0,
     GSK_GPU_HANDLE_OPACITY,
     gsk_gpu_node_processor_add_component_transfer_node,
+    NULL,
+    NULL,
+  },
+  [GSK_COMPOSITE_NODE] = {
+    0,
+    GSK_GPU_HANDLE_OPACITY,
+    gsk_gpu_node_processor_add_composite,
+    NULL,
+    NULL,
+  },
+  [GSK_DISPLACEMENT_NODE] = {
+    0,
+    GSK_GPU_HANDLE_OPACITY,
+    gsk_gpu_node_processor_add_displacement_node,
     NULL,
     NULL,
   },

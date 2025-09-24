@@ -101,6 +101,22 @@
  * Since: 4.20
  */
 
+/**
+ * GSK_COMPOSITE_NODE:
+ *
+ * A node that applies Porter-Duff compositing to two nodes.
+ *
+ * Since: 4.22
+ */
+
+/**
+ * GSK_DISPLACEMENT_NODE:
+ *
+ * A node that applies a displacement map to its child.
+ *
+ * Since: 4.22
+ */
+
 typedef enum {
   GSK_NOT_A_RENDER_NODE = 0,
   GSK_CONTAINER_NODE,
@@ -134,6 +150,8 @@ typedef enum {
   GSK_STROKE_NODE,
   GSK_SUBSURFACE_NODE,
   GSK_COMPONENT_TRANSFER_NODE,
+  GSK_COMPOSITE_NODE,
+  GSK_DISPLACEMENT_NODE,
 } GskRenderNodeType;
 
 /**
@@ -202,8 +220,45 @@ typedef enum {
   GSK_BLEND_MODE_COLOR,
   GSK_BLEND_MODE_HUE,
   GSK_BLEND_MODE_SATURATION,
-  GSK_BLEND_MODE_LUMINOSITY
+  GSK_BLEND_MODE_LUMINOSITY,
 } GskBlendMode;
+
+/**
+ * GskCompositeOperator:
+ * @GSK_COMPOSITE_OPERATOR_CLEAR: The image is cleared
+ * @GSK_COMPOSITE_OPERATOR_COPY: Only the source is present
+ * @GSK_COMPOSITE_OPERATOR_OVER: Source is placed over destination
+ * @GSK_COMPOSITE_OPERATOR_IN: The source replaces the destination,
+ *   where it overlaps the destination
+ * @GSK_COMPOSITE_OPERATOR_OUT: Source is placed, where it falls
+ *   outside the destination
+ * @GSK_COMPOSITE_OPERATOR_ATOP: Source which overlaps the destination,
+ *   replaces the destination. Destination is placed elsewhere
+ * @GSK_COMPOSITE_OPERATOR_XOR: The non-overlapping regions of source
+ *   and destination are combined
+ * @GSK_COMPOSITE_OPERATOR_LIGHTER: Display the sum of the source and
+ *   destination
+ *
+ * The compositing operators available for render nodes.
+ *
+ * The implementation of each operator is deferred to the
+ * rendering pipeline.
+ *
+ * See <https://www.w3.org/TR/compositing-1/#porterduffcompositingoperators>
+ * for more information on these operators.
+ *
+ * Since: 4.22
+ */
+typedef enum {
+  GSK_COMPOSITE_OPERATOR_CLEAR,
+  GSK_COMPOSITE_OPERATOR_COPY,
+  GSK_COMPOSITE_OPERATOR_OVER,
+  GSK_COMPOSITE_OPERATOR_IN,
+  GSK_COMPOSITE_OPERATOR_OUT,
+  GSK_COMPOSITE_OPERATOR_ATOP,
+  GSK_COMPOSITE_OPERATOR_XOR,
+  GSK_COMPOSITE_OPERATOR_LIGHTER
+} GskCompositeOperator;
 
 /**
  * GskCorner:

@@ -1,6 +1,7 @@
 gsk_private_gpu_include_shaders = files([
   'blendmode.glsl',
   'color.glsl',
+  'composite.glsl',
   'common.glsl',
   'common-gl.glsl',
   'common-vulkan.glsl',
@@ -18,6 +19,7 @@ gsk_private_gpu_shaders = files([
   'gskgpucolor.glsl',
   'gskgpucolorize.glsl',
   'gskgpucolormatrix.glsl',
+  'gskgpucomposite.glsl',
   'gskgpucomponenttransfer.glsl',
   'gskgpuconicgradient.glsl',
   'gskgpuconvert.glsl',

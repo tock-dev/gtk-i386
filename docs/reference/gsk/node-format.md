@@ -266,6 +266,21 @@ Possible values for the transfer propertes are:
     transfer: none | levels(n) | linear(m,b) | gamma(amp,exp,ofs) |
               discrete(v1,…,vn) | table(v1,…,vn)
 
+### composite
+
+| property          | syntax          | default        | printed     |
+| ----------------- | --------------- | -------------- | ----------- |
+| source            | `<node>`        | color { }      | always      |
+| dest              | `<node>`        | color { }      | always      |
+| operator          | `<operator>`    | over           | always      |
+
+Creates a node that combines the source and dest nodes using Porter-Duff
+compositing.
+
+Possible values for the operator property are:
+
+    operator: clear | copy | over | in | out | atop | xor | lighter
+
 ### conic-gradient
 
 | property          | syntax          | default        | printed     |

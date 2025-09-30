@@ -1,0 +1,11 @@
+composite {
+  operator: out;
+  source: color {
+    bounds: 25 25 50 50;
+    color: rgb(0,0,255);
+  }
+  dest: color {
+    bounds: 0 0 50 50;
+    color: rgb(255,255,0);
+  }
+}

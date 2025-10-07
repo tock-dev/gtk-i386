@@ -53,10 +53,17 @@ libgtk_css = static_library('gtk_css',
   ] + common_cflags,
 )
 
+gtk_css_public_deps = [
+  libm,
+  glib_dep,
+  gobject_dep,
+  platform_gio_dep,
+]
+
 # We don't have link_with: to internal static libs here on purpose, just
 # list the dependencies and generated headers and such, for use in the
 # "public" libgtk_dep used by internal executables.
 libgtk_css_dep = declare_dependency(include_directories: [ confinc, ],
   sources: [ gtk_css_enum_h ],
-  dependencies: gtk_css_deps,
+  dependencies: gtk_css_public_deps,
 )

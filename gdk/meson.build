@@ -303,11 +303,24 @@ libgdk = static_library('gdk',
   link_whole: gdk_backends,
 )
 
+gdk_public_deps = [
+  libm,
+  glib_dep,
+  gobject_dep,
+  platform_gio_dep,
+  pixbuf_dep,
+  cairo_dep,
+  pango_dep,
+  pangocairo_dep,
+  graphene_dep,
+  libgtk_css_dep,
+]
+
 # We don't have link_with: to internal static libs here on purpose, just
 # list the dependencies and generated headers and such, for use in the
 # "public" libgtk_dep used by internal executables.
 libgdk_dep = declare_dependency(
   sources: ['gdk.h', gdk_gen_headers],
-  include_directories: [confinc, gdkx11_inc, wlinc],
-  dependencies: gdk_deps + [libgtk_css_dep],
+  include_directories: include_directories('..'),
+  dependencies: gdk_public_deps,
 )

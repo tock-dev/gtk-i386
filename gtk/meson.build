@@ -1328,18 +1328,28 @@ if build_gir
   gtk_dep_sources += gtk_gir
 endif
 
+gtk_public_deps = [
+  libm,
+  glib_dep,
+  gobject_dep,
+  platform_gio_dep,
+  graphene_dep,
+  pangocairo_dep,
+  libgtk_css_dep,
+  libgdk_dep,
+  libgsk_dep,
+]
+
 libgtk_dep = declare_dependency(sources: gtk_dep_sources,
-  include_directories: [confinc, gtkinc],
-  dependencies: gtk_deps + [libgtk_css_dep, libgdk_dep, libgsk_dep],
+  include_directories: include_directories('..'),
+  dependencies: gtk_public_deps,
   link_with: libgtk,
-  link_args: common_ldflags,
 )
 
 libgtk_static_dep = declare_dependency(sources: gtk_dep_sources,
   include_directories: [confinc, gtkinc],
-  dependencies: gtk_deps + [libgtk_css_dep, libgdk_dep, libgsk_dep],
+  dependencies: gtk_public_deps,
   link_with: [libgtk_static, libgtk_css, libgdk, libgsk ],
-  link_args: common_ldflags,
 )
 
 subdir('compose')

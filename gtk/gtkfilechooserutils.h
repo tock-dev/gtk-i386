@@ -54,8 +54,7 @@ gboolean        _gtk_file_has_native_path (GFile *file);
 gboolean        _gtk_file_consider_as_remote (GFile *file);
 GIcon *         _gtk_file_info_get_icon    (GFileInfo    *info,
                                             int           icon_size,
-                                            int           scale,
-                                            GtkIconTheme *icon_theme);
+                                            int           scale);
 
 GFile *         _gtk_file_info_get_file (GFileInfo *info);
 

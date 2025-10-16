@@ -72,7 +72,6 @@ copy_attribute (GFileInfo  *to,
 static gboolean
 update_image (GtkFileThumbnail *self)
 {
-  GtkIconTheme *icon_theme;
   GIcon *icon;
   int icon_size;
   int scale;
@@ -84,10 +83,9 @@ update_image (GtkFileThumbnail *self)
     }
 
   scale = gtk_widget_get_scale_factor (GTK_WIDGET (self));
-  icon_theme = gtk_icon_theme_get_for_display (gtk_widget_get_display (GTK_WIDGET (self)));
 
   icon_size = self->icon_size != -1 ? self->icon_size : ICON_SIZE;
-  icon = _gtk_file_info_get_icon (self->info, icon_size, scale, icon_theme);
+  icon = _gtk_file_info_get_icon (self->info, icon_size, scale);
 
   gtk_image_set_from_gicon (GTK_IMAGE (self->image), icon);
 

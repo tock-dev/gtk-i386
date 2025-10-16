@@ -455,8 +455,7 @@ _gtk_file_consider_as_remote (GFile *file)
 GIcon *
 _gtk_file_info_get_icon (GFileInfo    *info,
                          int           icon_size,
-                         int           scale,
-                         GtkIconTheme *icon_theme)
+                         int           scale)
 {
   GIcon *icon;
   const char *thumbnail_path;
@@ -477,7 +476,7 @@ _gtk_file_info_get_icon (GFileInfo    *info,
     }
 
   icon = g_file_info_get_icon (info);
-  if (icon && gtk_icon_theme_has_gicon (icon_theme, icon))
+  if (icon)
     return g_object_ref (icon);
 
   /* Use general fallback for all files without icon */

@@ -26,6 +26,7 @@
 #include "gtkbutton.h"
 #include "gtkenums.h"
 #include "gtkicontheme.h"
+#include "gtkiconprovider.h"
 #include "gtkimage.h"
 #include <glib/gi18n-lib.h>
 #include "gtkprivate.h"
@@ -176,19 +177,11 @@ get_layout (GtkWindowControls *self)
 static GdkPaintable *
 get_default_icon (GtkWidget *widget)
 {
-  GdkDisplay *display = gtk_widget_get_display (widget);
-  GtkIconPaintable *info;
-  int scale = gtk_widget_get_scale_factor (widget);
-
-  info = gtk_icon_theme_lookup_icon (gtk_icon_theme_get_for_display (display),
-                                     gtk_window_get_default_icon_name (),
-                                     NULL,
-                                     WINDOW_ICON_SIZE,
-                                     scale,
-                                     gtk_widget_get_direction (widget),
-                                     0);
-
-  return GDK_PAINTABLE (info);
+  return gtk_lookup_icon (gtk_widget_get_display (widget),
+                          gtk_window_get_default_icon_name (),
+                          WINDOW_ICON_SIZE,
+                          gtk_widget_get_scale_factor (widget),
+                          gtk_widget_get_direction (widget));
 }
 
 static gboolean

@@ -26,7 +26,7 @@
 #include "gtkdragsource.h"
 #include "gtkgestureclick.h"
 #include "gtkgesturelongpress.h"
-#include "gtkicontheme.h"
+#include "gtkiconprovider.h"
 #include "gtklistitem.h"
 #include "gtkselectionmodel.h"
 #include "gtkfilechooserutils.h"
@@ -112,11 +112,10 @@ drag_prepare_cb (GtkDragSource *source,
   GdkContentProvider *provider;
   GSList *selection;
   GtkFileChooserWidget *impl;
-  GtkIconTheme *icon_theme;
   GIcon *icon;
-  int scale;
-  GtkIconPaintable *paintable;
+  GdkPaintable *paintable;
   GtkFileChooserCell *self = user_data;
+  double scale;
 
   impl = GTK_FILE_CHOOSER_WIDGET (gtk_widget_get_ancestor (GTK_WIDGET (self),
                                                            GTK_TYPE_FILE_CHOOSER_WIDGET));
@@ -131,13 +130,25 @@ drag_prepare_cb (GtkDragSource *source,
     return NULL;
 
   scale = gtk_widget_get_scale_factor (GTK_WIDGET (self));
-  icon_theme = gtk_icon_theme_get_for_display (gtk_widget_get_display (GTK_WIDGET (self)));
+  icon = _gtk_file_info_get_icon (self->item, ICON_SIZE, scale);
+  if (GDK_IS_PAINTABLE (icon))
+    {
+      paintable = GDK_PAINTABLE (icon);
+    }
+  else if (G_IS_THEMED_ICON (icon))
+    {
+      paintable = gtk_lookup_icon (gtk_widget_get_display (GTK_WIDGET (self)),
+                                   g_themed_icon_get_names (G_THEMED_ICON (icon))[0],
+                                   ICON_SIZE,
+                                   scale,
+                                   gtk_widget_get_direction (GTK_WIDGET (self)));
+    }
+  else
+    {
+      paintable = NULL;
+    }
 
-  icon = _gtk_file_info_get_icon (self->item, ICON_SIZE, scale, icon_theme);
-
-  paintable = gtk_icon_theme_lookup_by_gicon (icon_theme,icon, ICON_SIZE, scale, GTK_TEXT_DIR_NONE, 0);
-
-  gtk_drag_source_set_icon (source, GDK_PAINTABLE (paintable), x, y);
+  gtk_drag_source_set_icon (source, paintable, x, y);
 
   provider = gdk_content_provider_new_typed (GDK_TYPE_FILE_LIST, selection);
   g_slist_free_full (selection, g_object_unref);

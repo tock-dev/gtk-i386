@@ -36,7 +36,7 @@ wayland_proto_req  = '>= 1.17'
 wayland_req        = '>= 1.14.91'
 epoxy_req          = '>= 1.4'
 cloudproviders_req = '>= 0.2.5'
-xkbcommon_req      = '>= 0.2.0'
+xkbcommon_req      = '>= 0.7.0'
 
 gnome = import('gnome')
 

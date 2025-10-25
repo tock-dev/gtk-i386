@@ -6706,6 +6706,29 @@ cups_printer_prepare_for_print (GtkPrinter       *printer,
 
   paper_size = gtk_page_setup_get_paper_size (page_setup);
   ppd_paper_name = gtk_paper_size_get_ppd_name (paper_size);
+
+  if (ppd_paper_name != NULL)
+    {
+      gboolean ppd_name_valid = FALSE;
+      ppd_file_t *ppd_file;
+
+      G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+      ppd_file = gtk_printer_cups_get_ppd (GTK_PRINTER_CUPS (printer));
+      if (ppd_file != NULL)
+        {
+          ppd_option_t *option = ppdFindOption (ppd_file, "PageSize");
+          if (option != NULL && ppdFindChoice (option, ppd_paper_name) != NULL)
+            ppd_name_valid = TRUE;
+        }
+      G_GNUC_END_IGNORE_DEPRECATIONS
+
+      if (!ppd_name_valid)
+        {
+          /* PPDName not in destination PPD - clear it to use dimension-based fallback */
+          ppd_paper_name = NULL;
+        }
+    }
+
   if (ppd_paper_name != NULL)
     gtk_print_settings_set (settings, "cups-PageSize", ppd_paper_name);
   else if (gtk_paper_size_is_ipp (paper_size))

@@ -96,6 +96,7 @@ struct _GtkGridView
   GtkListItemFactory *factory;
   guint min_columns;
   guint max_columns;
+  gboolean select_on_hover;
   gboolean single_click_activate;
   /* set in size_allocate */
   guint n_columns;
@@ -110,11 +111,13 @@ struct _GtkGridViewClass
 enum
 {
   PROP_0,
+  PROP_ACTIVATE_ON_SINGLE_CLICK,
   PROP_ENABLE_RUBBERBAND,
   PROP_FACTORY,
   PROP_MAX_COLUMNS,
   PROP_MIN_COLUMNS,
   PROP_MODEL,
+  PROP_SELECT_ON_HOVER,
   PROP_SINGLE_CLICK_ACTIVATE,
   PROP_TAB_BEHAVIOR,
 
@@ -319,6 +322,7 @@ gtk_grid_view_create_list_widget (GtkListBase *base)
                                      GTK_ACCESSIBLE_ROLE_GRID_CELL);
 
   gtk_list_factory_widget_set_single_click_activate (GTK_LIST_FACTORY_WIDGET (result), self->single_click_activate);
+  gtk_list_factory_widget_set_select_on_hover (GTK_LIST_FACTORY_WIDGET (result), self->select_on_hover);
 
   return GTK_LIST_ITEM_BASE (result);
 }
@@ -980,6 +984,10 @@ gtk_grid_view_get_property (GObject    *object,
 
   switch (property_id)
     {
+    case PROP_ACTIVATE_ON_SINGLE_CLICK:
+      g_value_set_boolean (value, self->single_click_activate);
+      break;
+
     case PROP_ENABLE_RUBBERBAND:
       g_value_set_boolean (value, gtk_list_base_get_enable_rubberband (GTK_LIST_BASE (self)));
       break;
@@ -998,6 +1006,10 @@ gtk_grid_view_get_property (GObject    *object,
 
     case PROP_MODEL:
       g_value_set_object (value, gtk_list_base_get_model (GTK_LIST_BASE (self)));
+      break;
+
+    case PROP_SELECT_ON_HOVER:
+      g_value_set_boolean (value, self->select_on_hover);
       break;
 
     case PROP_SINGLE_CLICK_ACTIVATE:
@@ -1024,6 +1036,10 @@ gtk_grid_view_set_property (GObject      *object,
 
   switch (property_id)
     {
+    case PROP_ACTIVATE_ON_SINGLE_CLICK:
+      gtk_grid_view_set_activate_on_single_click (self, g_value_get_boolean (value));
+      break;
+
     case PROP_ENABLE_RUBBERBAND:
       gtk_grid_view_set_enable_rubberband (self, g_value_get_boolean (value));
       break;
@@ -1044,8 +1060,14 @@ gtk_grid_view_set_property (GObject      *object,
       gtk_grid_view_set_model (self, g_value_get_object (value));
       break;
 
+    case PROP_SELECT_ON_HOVER:
+      gtk_grid_view_set_select_on_hover (self, g_value_get_boolean (value));
+      break;
+
     case PROP_SINGLE_CLICK_ACTIVATE:
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
       gtk_grid_view_set_single_click_activate (self, g_value_get_boolean (value));
+G_GNUC_END_IGNORE_DEPRECATIONS
       break;
 
     case PROP_TAB_BEHAVIOR:
@@ -1101,6 +1123,18 @@ gtk_grid_view_class_init (GtkGridViewClass *klass)
   gobject_class->dispose = gtk_grid_view_dispose;
   gobject_class->get_property = gtk_grid_view_get_property;
   gobject_class->set_property = gtk_grid_view_set_property;
+
+  /**
+   * GtkGridView:activate-on-single-click:
+   *
+   * Activates rows on single click.
+   *
+   * Since: 4.20
+   */
+  properties[PROP_ACTIVATE_ON_SINGLE_CLICK] =
+    g_param_spec_boolean ("activate-on-single-click", NULL, NULL,
+                          FALSE,
+                          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
 
   /**
    * GtkGridView:enable-rubberband:
@@ -1159,14 +1193,28 @@ gtk_grid_view_class_init (GtkGridViewClass *klass)
                          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
 
   /**
+   * GtkGridView:select-on-hover:
+   *
+   * Select rows on hover.
+   *
+   * Since: 4.20
+   */
+  properties[PROP_SELECT_ON_HOVER] =
+    g_param_spec_boolean ("select-on-hover", NULL, NULL,
+                          FALSE,
+                          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
+
+  /**
    * GtkGridView:single-click-activate:
    *
    * Activate rows on single click and select them on hover.
+   * Identical to setting [property@Gtk.GridView:select-on-hover] and
+   * [property@Gtk.GridView:activate-on-single-click]
    */
   properties[PROP_SINGLE_CLICK_ACTIVATE] =
     g_param_spec_boolean ("single-click-activate", NULL, NULL,
                           FALSE,
-                          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
+                          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_DEPRECATED);
 
   /**
    * GtkGridView:tab-behavior:
@@ -1453,53 +1501,139 @@ gtk_grid_view_set_min_columns (GtkGridView *self,
 }
 
 /**
- * gtk_grid_view_set_single_click_activate:
+ * gtk_grid_view_set_select_on_hover:
  * @self: a `GtkGridView`
- * @single_click_activate: %TRUE to activate items on single click
+ * @select_on_hover: %TRUE to select items on hover
  *
- * Sets whether items should be activated on single click and
- * selected on hover.
+ * Sets whether items should be selected on hover.
+ *
+ * Since: 4.20
  */
 void
-gtk_grid_view_set_single_click_activate (GtkGridView *self,
-                                         gboolean     single_click_activate)
+gtk_grid_view_set_select_on_hover (GtkGridView *self,
+                                   gboolean     select_on_hover)
 {
   GtkListTile *tile;
 
   g_return_if_fail (GTK_IS_GRID_VIEW (self));
 
-  if (single_click_activate == self->single_click_activate)
+  if (select_on_hover == self->select_on_hover)
     return;
 
-  self->single_click_activate = single_click_activate;
+  self->select_on_hover = select_on_hover;
 
   for (tile = gtk_list_item_manager_get_first (self->item_manager);
        tile != NULL;
        tile = gtk_rb_tree_node_get_next (tile))
     {
       if (tile->widget)
-        gtk_list_factory_widget_set_single_click_activate (GTK_LIST_FACTORY_WIDGET (tile->widget), single_click_activate);
+        gtk_list_factory_widget_set_select_on_hover (GTK_LIST_FACTORY_WIDGET (tile->widget), select_on_hover);
     }
 
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_SELECT_ON_HOVER]);
+}
 
+/**
+ * gtk_grid_view_get_select_on_hover:
+ * @self: a `GtkGridView`
+ *
+ * Returns whether items will be selected on hover.
+ *
+ * Returns: %TRUE if items are selected on hover
+ *
+ * Since: 4.20
+ */
+gboolean
+gtk_grid_view_get_select_on_hover (GtkGridView *self)
+{
+  g_return_val_if_fail (GTK_IS_GRID_VIEW (self), FALSE);
+
+  return self->select_on_hover;
+}
+
+/**
+ * gtk_grid_view_set_activate_on_single_click:
+ * @self: a `GtkGridView`
+ * @activate_on_single_click: %TRUE to activate items on single click
+ *
+ * Sets whether items should be activated on single click.
+ *
+ * Since: 4.20
+ */
+void
+gtk_grid_view_set_activate_on_single_click (GtkGridView *self,
+                                            gboolean     activate_on_single_click)
+{
+  GtkListTile *tile;
+
+  g_return_if_fail (GTK_IS_GRID_VIEW (self));
+
+  if (activate_on_single_click == self->single_click_activate)
+    return;
+
+  self->single_click_activate = activate_on_single_click;
+
+  for (tile = gtk_list_item_manager_get_first (self->item_manager);
+       tile != NULL;
+       tile = gtk_rb_tree_node_get_next (tile))
+    {
+      if (tile->widget)
+        gtk_list_factory_widget_set_single_click_activate (GTK_LIST_FACTORY_WIDGET (tile->widget), activate_on_single_click);
+    }
+
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_ACTIVATE_ON_SINGLE_CLICK]);
   g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_SINGLE_CLICK_ACTIVATE]);
+}
+
+/**
+ * gtk_grid_view_get_activate_on_single_click:
+ * @self: a `GtkGridView`
+ *
+ * Returns whether items will be activated on single click.
+ *
+ * Returns: %TRUE if items are activated on single click
+ *
+ * Since: 4.20
+ */
+gboolean
+gtk_grid_view_get_activate_on_single_click (GtkGridView *self)
+{
+  g_return_val_if_fail (GTK_IS_GRID_VIEW (self), FALSE);
+
+  return self->single_click_activate;
+}
+
+/**
+ * gtk_grid_view_set_single_click_activate:
+ * @self: a `GtkGridView`
+ * @single_click_activate: %TRUE to activate items on single click
+ *
+ * Activate rows on single click and select them on hover.
+ * Identical to setting [property@Gtk.GridView:select-on-hover] and
+ * [property@Gtk.GridView:activate-on-single-click]
+ */
+void
+gtk_grid_view_set_single_click_activate (GtkGridView *self,
+                                         gboolean     single_click_activate)
+{
+  g_return_if_fail (GTK_IS_GRID_VIEW (self));
+
+  gtk_grid_view_set_select_on_hover (self, single_click_activate);
+  gtk_grid_view_set_activate_on_single_click (self, single_click_activate);
 }
 
 /**
  * gtk_grid_view_get_single_click_activate:
  * @self: a `GtkGridView`
  *
- * Returns whether items will be activated on single click and
- * selected on hover.
+ * Returns whether items will be activated on single click.
  *
  * Returns: %TRUE if items are activated on single click
  */
 gboolean
 gtk_grid_view_get_single_click_activate (GtkGridView *self)
 {
-  g_return_val_if_fail (GTK_IS_GRID_VIEW (self), FALSE);
-
-  return self->single_click_activate;
+  return gtk_grid_view_get_activate_on_single_click (self);
 }
 
 /**

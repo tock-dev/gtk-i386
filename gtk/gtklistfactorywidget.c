@@ -35,6 +35,7 @@ struct _GtkListFactoryWidgetPrivate
 
   gpointer object;
   gboolean single_click_activate;
+  gboolean select_on_hover;
   gboolean selectable;
   gboolean activatable;
 };
@@ -43,6 +44,7 @@ enum {
   PROP_0,
   PROP_ACTIVATABLE,
   PROP_FACTORY,
+  PROP_SELECT_ON_HOVER,
   PROP_SELECTABLE,
   PROP_SINGLE_CLICK_ACTIVATE,
 
@@ -224,6 +226,10 @@ gtk_list_factory_widget_set_property (GObject      *object,
       gtk_list_factory_widget_set_factory (self, g_value_get_object (value));
       break;
 
+    case PROP_SELECT_ON_HOVER:
+      gtk_list_factory_widget_set_select_on_hover (self, g_value_get_boolean (value));
+      break;
+
     case PROP_SELECTABLE:
       gtk_list_factory_widget_set_selectable (self, g_value_get_boolean (value));
       break;
@@ -319,6 +325,11 @@ gtk_list_factory_widget_class_init (GtkListFactoryWidgetClass *klass)
     g_param_spec_object ("factory", NULL, NULL,
                          GTK_TYPE_LIST_ITEM_FACTORY,
                          G_PARAM_WRITABLE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
+
+  properties[PROP_SELECT_ON_HOVER] =
+    g_param_spec_boolean ("select-on-hover", NULL, NULL,
+                          FALSE,
+                          G_PARAM_WRITABLE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
 
   properties[PROP_SELECTABLE] =
     g_param_spec_boolean ("selectable", NULL, NULL,
@@ -442,39 +453,34 @@ gtk_list_factory_widget_click_gesture_released (GtkGestureClick      *gesture,
                                                 GtkListFactoryWidget *self)
 {
   GtkListFactoryWidgetPrivate *priv = gtk_list_factory_widget_get_instance_private (self);
+  GdkModifierType state;
+  GdkEvent *event;
+  gboolean extend, modify;
 
-  if (priv->activatable)
-    {
-      if (n_press == 1 && priv->single_click_activate)
-        {
-          gtk_gesture_set_state (GTK_GESTURE (gesture), GTK_EVENT_SEQUENCE_CLAIMED);
-          gtk_widget_activate_action (GTK_WIDGET (self),
-                                      "list.activate-item",
-                                      "u",
-                                      gtk_list_item_base_get_position (GTK_LIST_ITEM_BASE (self)));
-          return;
-        }
-    }
-
-  if (priv->selectable)
-    {
-      GdkModifierType state;
-      GdkEvent *event;
-      gboolean extend, modify;
-
-      event = gtk_gesture_get_last_event (GTK_GESTURE (gesture),
-                                          gtk_gesture_single_get_current_sequence (GTK_GESTURE_SINGLE (gesture)));
-      state = gdk_event_get_modifier_state (event);
-      extend = (state & GDK_SHIFT_MASK) != 0;
-      modify = (state & GDK_CONTROL_MASK) != 0;
+  event = gtk_gesture_get_last_event (GTK_GESTURE (gesture),
+                                      gtk_gesture_single_get_current_sequence (GTK_GESTURE_SINGLE (gesture)));
+  state = gdk_event_get_modifier_state (event);
+  extend = (state & GDK_SHIFT_MASK) != 0;
+  modify = (state & GDK_CONTROL_MASK) != 0;
 #ifdef __APPLE__
-      modify = modify | ((state & GDK_META_MASK) != 0);
+  modify = modify | ((state & GDK_META_MASK) != 0);
 #endif
 
+  if (priv->selectable && !priv->select_on_hover)
+    {
       gtk_widget_activate_action (GTK_WIDGET (self),
                                   "list.select-item",
                                   "(ubb)",
                                   gtk_list_item_base_get_position (GTK_LIST_ITEM_BASE (self)), modify, extend);
+    }
+
+  if (priv->activatable && n_press == 1 && priv->single_click_activate && !modify && !extend)
+    {
+      gtk_gesture_set_state (GTK_GESTURE (gesture), GTK_EVENT_SEQUENCE_CLAIMED);
+      gtk_widget_activate_action (GTK_WIDGET (self),
+                                  "list.activate-item",
+                                  "u",
+                                  gtk_list_item_base_get_position (GTK_LIST_ITEM_BASE (self)));
     }
 }
 
@@ -486,7 +492,7 @@ gtk_list_factory_widget_hover_cb (GtkEventControllerMotion *controller,
 {
   GtkListFactoryWidgetPrivate *priv = gtk_list_factory_widget_get_instance_private (self);
 
-  if (!priv->single_click_activate)
+  if (!priv->select_on_hover)
     return;
 
   if (priv->selectable)
@@ -551,6 +557,28 @@ gtk_list_factory_widget_set_factory (GtkListFactoryWidget *self,
     }
 
   g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_FACTORY]);
+}
+
+void
+gtk_list_factory_widget_set_select_on_hover (GtkListFactoryWidget *self,
+                                             gboolean              select_on_hover)
+{
+  GtkListFactoryWidgetPrivate *priv = gtk_list_factory_widget_get_instance_private (self);
+
+  if (priv->select_on_hover == select_on_hover)
+    return;
+
+  priv->select_on_hover = select_on_hover;
+
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_SELECT_ON_HOVER]);
+}
+
+gboolean
+gtk_list_factory_widget_get_select_on_hover (GtkListFactoryWidget *self)
+{
+  GtkListFactoryWidgetPrivate *priv = gtk_list_factory_widget_get_instance_private (self);
+
+  return priv->select_on_hover;
 }
 
 void

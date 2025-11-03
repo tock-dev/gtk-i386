@@ -1661,4 +1661,87 @@ _gtk_css_text_transform_value_get (const GtkCssValue *value)
 }
 
 /* }}} */
+/* {{{ Icon state */
+
+static void
+gtk_css_value_icon_state_print (const GtkCssValue *value,
+                                GString           *string)
+{
+  if (value->name)
+    g_string_append (string, value->name);
+  else
+    g_string_append_printf (string, "%d", value->value);
+}
+
+static const GtkCssValueClass GTK_CSS_VALUE_ICON_STATE = {
+  "GtkCssIconStateValue",
+  gtk_css_value_enum_free,
+  gtk_css_value_enum_compute,
+  NULL,
+  gtk_css_value_enum_equal,
+  gtk_css_value_enum_transition,
+  NULL,
+  NULL,
+  gtk_css_value_icon_state_print
+};
+
+static GtkCssValue icon_state_values[] = {
+  { &GTK_CSS_VALUE_ICON_STATE, 1, 1, 0, 0, -2, "as-is" },
+  { &GTK_CSS_VALUE_ICON_STATE, 1, 1, 0, 0, -1, "empty" },
+  { &GTK_CSS_VALUE_ICON_STATE, 1, 1, 0, 0, 0, "0" },
+  { &GTK_CSS_VALUE_ICON_STATE, 1, 1, 0, 0, 1, "1" },
+};
+
+GtkCssValue *
+gtk_css_icon_state_value_new (int state)
+{
+  GtkCssValue *value;
+
+  g_return_val_if_fail (state >= -2 && state <= 63, NULL);
+
+  for (unsigned int i = 0; i < G_N_ELEMENTS (icon_state_values); i++)
+    {
+      if (state == icon_state_values[i].value)
+        return gtk_css_value_ref (&icon_state_values[i]);
+    }
+
+  value = gtk_css_value_alloc (&GTK_CSS_VALUE_ICON_STATE, sizeof (GtkCssValue));
+  value->value = state;
+  value->name = NULL;
+
+  return value;
+}
+
+GtkCssValue *
+gtk_css_icon_state_value_try_parse (GtkCssParser *parser)
+{
+  guint i;
+  int state;
+
+  g_return_val_if_fail (parser != NULL, NULL);
+
+  for (i = 0; i < G_N_ELEMENTS (icon_state_values); i++)
+    {
+      if (gtk_css_parser_try_ident (parser, icon_state_values[i].name))
+        return gtk_css_value_ref (&icon_state_values[i]);
+    }
+
+  if (gtk_css_parser_consume_integer (parser, &state) &&
+      -1 <= state && state <= 63)
+    {
+      return gtk_css_icon_state_value_new (state);
+    }
+
+  return NULL;
+}
+
+int
+gtk_css_icon_state_value_get (const GtkCssValue *value)
+{
+  g_return_val_if_fail (value->class == &GTK_CSS_VALUE_ICON_STATE, -2);
+
+  return value->value;
+}
+
+/* }}} */
 /* vim:set foldmethod=marker: */

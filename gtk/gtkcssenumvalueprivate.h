@@ -119,3 +119,7 @@ GtkCssValue *          _gtk_css_text_transform_value_try_parse (GtkCssParser    
 GtkTextTransform       _gtk_css_text_transform_value_get       (const GtkCssValue      *value);
 G_END_DECLS
 
+GtkCssValue *           gtk_css_icon_state_value_new       (int           state);
+GtkCssValue *           gtk_css_icon_state_value_try_parse (GtkCssParser *parser);
+int                     gtk_css_icon_state_value_get       (const GtkCssValue *value);
+

@@ -335,6 +335,18 @@ icon_weight_parse (GtkCssStyleProperty *property,
 }
 
 static GtkCssValue *
+icon_state_parse (GtkCssStyleProperty *property,
+                  GtkCssParser        *parser)
+{
+  GtkCssValue *value = gtk_css_icon_state_value_try_parse (parser);
+
+  if (value == NULL)
+    gtk_css_parser_error_syntax (parser, "unsupported icon state value");
+
+  return value;
+}
+
+static GtkCssValue *
 parse_letter_spacing (GtkCssStyleProperty *property,
                       GtkCssParser        *parser)
 {
@@ -1313,6 +1325,12 @@ _gtk_css_style_property_init_properties (void)
                                           GTK_CSS_AFFECTS_ICON_REDRAW_SYMBOLIC,
                                           icon_weight_parse,
                                           gtk_css_number_value_new (PANGO_WEIGHT_NORMAL, GTK_CSS_NUMBER));
+  gtk_css_style_property_register        ("-gtk-icon-state",
+                                          GTK_CSS_PROPERTY_ICON_STATE,
+                                          GTK_STYLE_PROPERTY_INHERIT | GTK_STYLE_PROPERTY_ANIMATED,
+                                          GTK_CSS_AFFECTS_ICON_REDRAW_SYMBOLIC,
+                                          icon_state_parse,
+                                          gtk_css_icon_state_value_new (-2));
   gtk_css_style_property_register        ("border-spacing",
                                           GTK_CSS_PROPERTY_BORDER_SPACING,
                                           GTK_STYLE_PROPERTY_ANIMATED,

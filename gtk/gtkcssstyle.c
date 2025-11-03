@@ -300,6 +300,8 @@ gtk_css_style_get_computed_value (GtkCssStyle *style,
       return style->other->icon_filter;
     case GTK_CSS_PROPERTY_ICON_WEIGHT:
       return style->icon->icon_weight;
+    case GTK_CSS_PROPERTY_ICON_STATE:
+      return style->icon->icon_state;
     case GTK_CSS_PROPERTY_BORDER_SPACING:
       return style->size->border_spacing;
     case GTK_CSS_PROPERTY_TRANSFORM:

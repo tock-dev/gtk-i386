@@ -23,6 +23,7 @@
 
 #include "gtkcssnodeprivate.h"
 #include "gtkcssnumbervalueprivate.h"
+#include "gtkcssenumvalueprivate.h"
 #include "gtkcssstyleprivate.h"
 #include "gtkprivate.h"
 #include "gtksnapshot.h"
@@ -31,6 +32,7 @@
 #include "gdktextureutilsprivate.h"
 #include "gtksymbolicpaintable.h"
 #include "gtkrendericonprivate.h"
+#include "gtksvg.h"
 
 /**
  * GtkPicture:
@@ -394,6 +396,20 @@ gtk_picture_css_changed (GtkWidget         *widget,
       self->paintable && GTK_IS_SYMBOLIC_PAINTABLE (self->paintable))
     {
       gtk_widget_queue_draw (widget);
+    }
+
+  if (gtk_css_style_change_changes_property (change, GTK_CSS_PROPERTY_ICON_STATE) &&
+      self->paintable && GTK_IS_SVG (self->paintable))
+    {
+      GtkCssStyle *style;
+      GtkCssValue *value;
+      int state;
+
+      style = gtk_css_node_get_style (gtk_widget_get_css_node (widget));
+      value = gtk_css_style_get_used_value (style, GTK_CSS_PROPERTY_ICON_STATE);
+      state = gtk_css_icon_state_value_get (value);
+      if (state >= -1)
+        gtk_svg_set_state (GTK_SVG (self->paintable), (unsigned int) state);
     }
 }
 

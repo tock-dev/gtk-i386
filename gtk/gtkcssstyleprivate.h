@@ -136,6 +136,7 @@ struct _GtkCssIconValues {
   GtkCssValue *icon_shadow;
   GtkCssValue *icon_style;
   GtkCssValue *icon_weight;
+  GtkCssValue *icon_state;
 };
 
 

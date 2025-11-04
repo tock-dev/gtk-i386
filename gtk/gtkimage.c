@@ -32,6 +32,8 @@
 #include "gtktypebuiltins.h"
 #include "gtkwidgetprivate.h"
 #include "gdktextureutilsprivate.h"
+#include "gtksvg.h"
+#include "gtkcssenumvalueprivate.h"
 
 #include <math.h>
 #include <string.h>
@@ -1208,12 +1210,28 @@ gtk_image_css_changed (GtkWidget         *widget,
                        GtkCssStyleChange *change)
 {
   GtkImage *image = GTK_IMAGE (widget);
+  GdkPaintable *paintable;
 
   gtk_icon_helper_invalidate_for_change (image->icon_helper, change);
 
   GTK_WIDGET_CLASS (gtk_image_parent_class)->css_changed (widget, change);
 
   image->baseline_align = 0.0;
+
+  paintable = _gtk_icon_helper_peek_paintable (image->icon_helper);
+  if (gtk_css_style_change_changes_property (change, GTK_CSS_PROPERTY_ICON_STATE) &&
+      paintable && GTK_IS_SVG (paintable))
+    {
+      GtkCssStyle *style;
+      GtkCssValue *value;
+      int state;
+
+      style = gtk_css_node_get_style (gtk_widget_get_css_node (widget));
+      value = gtk_css_style_get_used_value (style, GTK_CSS_PROPERTY_ICON_STATE);
+      state = gtk_css_icon_state_value_get (value);
+      if (state >= -1)
+        gtk_svg_set_state (GTK_SVG (paintable), (unsigned int) state);
+    }
 }
 
 static void

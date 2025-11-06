@@ -1339,6 +1339,10 @@ gtk_tool_item_group_remove (GtkContainer *container,
 
       if ((GtkWidget *)child_info->item == child)
         {
+          g_signal_handlers_disconnect_by_func (child,
+                                                G_CALLBACK (gtk_widget_queue_resize),
+                                                group);
+
           g_object_unref (child);
           gtk_widget_unparent (child);
 
@@ -2135,6 +2139,12 @@ gtk_tool_item_group_insert (GtkToolItemGroup *group,
   child->new_row = FALSE;
 
   group->priv->children = g_list_insert (group->priv->children, child, position);
+  g_signal_connect_object (item, "notify::visible-horizontal",
+                           G_CALLBACK (gtk_widget_queue_resize),
+                           group, G_CONNECT_SWAPPED);
+  g_signal_connect_object (item, "notify::visible-vertical",
+                           G_CALLBACK (gtk_widget_queue_resize),
+                           group, G_CONNECT_SWAPPED);
 
   if (GTK_IS_TOOL_PALETTE (parent))
     _gtk_tool_palette_child_set_drag_source (GTK_WIDGET (item), parent);

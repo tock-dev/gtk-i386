@@ -98,8 +98,8 @@ struct _GtkGridView
   guint max_columns;
   gboolean single_click_activate;
   /* set in size_allocate */
+  guint size_columns;
   guint n_columns;
-  double column_width;
 };
 
 struct _GtkGridViewClass
@@ -161,11 +161,17 @@ dump (GtkGridView *self)
 }
 
 static int
+ceil_div (int dividend, int divisor)
+{
+  return (dividend + divisor - 1) / divisor;
+}
+
+static int
 column_index (GtkGridView *self,
               int          spacing,
               int          x)
 {
-  return (x + spacing / 2.0) / (self->column_width + spacing);
+  return (x * 2 + spacing) * self->n_columns / ((self->size_columns + spacing) * 2);
 }
 
 static int
@@ -173,7 +179,7 @@ column_start (GtkGridView *self,
               int          spacing,
               int          col)
 {
-  return ceil ((self->column_width + spacing) * col);
+  return ceil_div ((self->size_columns + spacing) * col, self->n_columns);
 }
 
 static int
@@ -181,7 +187,7 @@ column_end (GtkGridView *self,
             int          spacing,
             int          col)
 {
-  return ceil (self->column_width * (col + 1) + (spacing * col));
+  return column_start (self, spacing, col + 1) - spacing;
 }
 
 static GtkListTile *
@@ -752,7 +758,7 @@ gtk_grid_view_size_allocate (GtkWidget *widget,
   GtkGridView *self = GTK_GRID_VIEW (widget);
   GtkListTile *tile, *start, *footer;
   GArray *heights;
-  int min_row_height, unknown_row_height, row_height, col_min, col_nat;
+  int min_row_height, unknown_row_height, row_height, col_min, col_nat, col_width;
   GtkOrientation orientation;
   GtkScrollablePolicy scroll_policy;
   int y, xspacing, yspacing;
@@ -760,7 +766,7 @@ gtk_grid_view_size_allocate (GtkWidget *widget,
 
   orientation = gtk_list_base_get_orientation (GTK_LIST_BASE (self));
   scroll_policy = gtk_list_base_get_scroll_policy (GTK_LIST_BASE (self), orientation);
-  min_row_height = ceil ((double) height / GTK_GRID_VIEW_MAX_VISIBLE_ROWS);
+  min_row_height = ceil_div (height, GTK_GRID_VIEW_MAX_VISIBLE_ROWS);
   gtk_list_base_get_border_spacing (GTK_LIST_BASE (self), &xspacing, &yspacing);
 
   gtk_list_item_manager_gc_tiles (self->item_manager);
@@ -773,14 +779,16 @@ gtk_grid_view_size_allocate (GtkWidget *widget,
       return;
     }
 
-  /* step 1: determine width of the list */
+  /* step 1: determine size of columns & number of columns that can fit for that size */
   gtk_grid_view_measure_column_size (self, &col_min, &col_nat);
+  self->size_columns = orientation == GTK_ORIENTATION_VERTICAL ? width : height;
   self->n_columns = gtk_grid_view_compute_n_columns (self,
-                                                     orientation == GTK_ORIENTATION_VERTICAL ? width : height,
+                                                     self->size_columns,
                                                      xspacing,
                                                      col_min, col_nat);
-  self->column_width = ((orientation == GTK_ORIENTATION_VERTICAL ? width : height) + xspacing) / self->n_columns - xspacing;
-  self->column_width = MAX (self->column_width, col_min);
+
+  /* column widths can differ by at most 1 pixel, col_width is the size of the largest column */
+  col_width = ceil_div (self->size_columns + xspacing, self->n_columns) - xspacing;
 
   /* step 2: determine height of known rows */
   heights = g_array_new (FALSE, FALSE, sizeof (int));
@@ -809,7 +817,7 @@ gtk_grid_view_size_allocate (GtkWidget *widget,
               int min, nat, size;
               gtk_widget_measure (tile->widget,
                                   gtk_list_base_get_orientation (GTK_LIST_BASE (self)),
-                                  self->column_width,
+                                  col_width,
                                   &min, &nat, NULL, NULL);
               if (scroll_policy == GTK_SCROLL_MINIMUM)
                 size = min;

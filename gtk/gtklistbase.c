@@ -2367,7 +2367,8 @@ gtk_list_base_set_model (GtkListBase       *self,
     {
       priv->model = g_object_ref (model);
       gtk_list_item_manager_set_model (priv->item_manager, model);
-      gtk_list_base_set_anchor (self, 0, 0.0, GTK_PACK_START, 0.0, GTK_PACK_START);
+      // Align to maximum when assigning a model to keep the header visible
+      gtk_list_base_set_anchor (self, 0, DBL_MAX, GTK_PACK_START, DBL_MAX, GTK_PACK_START);
     }
   else
     {

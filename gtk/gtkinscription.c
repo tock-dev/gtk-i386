@@ -310,18 +310,36 @@ gtk_inscription_direction_changed (GtkWidget        *widget,
   update_pango_alignment (self);
 }
 
+static PangoLanguage *
+gtk_inscription_get_text_language (GtkInscription *self)
+{
+  gunichar first;
+  GUnicodeScript script;
+
+  first = g_utf8_get_char (self->text);
+  if (!first)
+    return NULL;
+
+  script = g_unichar_get_script (first);
+
+  return pango_script_get_sample_language ((PangoScript) script);
+}
+
 static PangoFontMetrics *
 gtk_inscription_get_font_metrics (GtkInscription *self)
 {
   PangoContext *context;
+  PangoLanguage *language;
 
   context = gtk_widget_get_pango_context (GTK_WIDGET (self));
 
-  return pango_context_get_metrics (context, NULL, NULL);
+  language = gtk_inscription_get_text_language (self);
+
+  return pango_context_get_metrics (context, NULL, language);
 }
 
 static int
-get_char_pixels (GtkInscription *self)
+get_char_width (GtkInscription *self)
 {
   int char_width, digit_width;
   PangoFontMetrics *metrics;
@@ -339,7 +357,7 @@ gtk_inscription_measure_width (GtkInscription *self,
                                int            *minimum,
                                int            *natural)
 {
-  int char_pixels = get_char_pixels (self);
+  int char_pixels = get_char_width (self);
 
   if (self->min_chars == 0 && self->nat_chars == 0)
     return;
@@ -349,7 +367,7 @@ gtk_inscription_measure_width (GtkInscription *self,
 }
 
 static int
-get_line_pixels (GtkInscription *self,
+get_line_height (GtkInscription *self,
                  int            *baseline)
 {
   PangoFontMetrics *metrics;
@@ -378,7 +396,7 @@ gtk_inscription_measure_height (GtkInscription *self,
   if (self->min_lines == 0 && self->nat_lines == 0)
     return;
 
-  line_pixels = get_line_pixels (self, &baseline);
+  line_pixels = get_line_height (self, &baseline);
 
   *minimum = self->min_lines * line_pixels;
   *natural = MAX (self->min_lines, self->nat_lines) * line_pixels;

@@ -187,10 +187,7 @@ gsk_deps = [
   pango_dep,
   cairo_dep,
   cairo_csi_dep,
-  cairogobj_dep,
-  epoxy_dep,
   libgdk_dep,
-  libdrm_dep,
 ]
 
 libgsk_f16c = static_library('gsk_f16c',
@@ -213,7 +210,7 @@ libgsk = static_library('gsk',
     gsk_private_vulkan_shader_headers,
     gsk_private_gpu_shader_headers,
   ],
-  dependencies: gsk_deps,
+  dependencies: gsk_deps + gdk_deps,
   include_directories: [ confinc, gdkinc, ],
   c_args: [
     '-DGTK_COMPILATION',

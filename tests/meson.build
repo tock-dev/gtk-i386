@@ -48,7 +48,7 @@ gtk_tests = [
   ['testglarea', [], [ libgtk_dep, libm, epoxy_dep, ], ],
   ['testglblending', ['gtkgears.c'], [ libgtk_dep, libm, epoxy_dep, ], ],
   ['testgrid'],
-  ['testgtk'],
+  ['testgtk', [], [ libgtk_dep, libm, gdk_deps, ], ],
   ['testheaderbar'],
   ['testheightforwidth'],
   ['testhover'],
@@ -131,7 +131,7 @@ gtk_tests = [
 if os_unix
   gtk_tests += [
     ['testfontchooserdialog', [], [ libgtk_static_dep, fontconfig_dep, ], ],
-    ['parallel', [], [ libgtk_static_dep, libm ] ],
+    ['parallel', [], [ libgtk_static_dep, libm, gdk_deps, ] ],
     ['testsymbolic', [], [ libgtk_static_dep ] ],
   ]
 endif

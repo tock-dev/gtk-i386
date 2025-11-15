@@ -249,7 +249,7 @@ gtkdemo_deps += [ profile_conf_h ]
 executable('gtk4-demo',
   sources: [demos, demos_h, extra_demo_sources, gtkdemo_resources],
   c_args: demo_cflags,
-  dependencies: gtkdemo_deps,
+  dependencies: gtkdemo_deps + gtk_deps,
   include_directories: [ confinc, gtkinc, ],
   win_subsystem: 'windows',
   link_args: extra_demo_ldflags,

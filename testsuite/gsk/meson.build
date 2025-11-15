@@ -1,6 +1,6 @@
 compare_render = executable('compare-render',
   ['compare-render.c', '../reftests/reftest-compare.c', 'replay-node.c', '../gdk/udmabuf.c'],
-  dependencies: [ libgtk_static_dep, libdrm_dep, ],
+  dependencies: [ libgtk_static_dep, libdrm_dep, ] + gdk_deps,
   c_args: common_cflags + ['-DGTK_COMPILATION'],
 )
 
@@ -675,7 +675,7 @@ foreach t : internal_tests
 
   test_exe = executable(test_name,
     sources: test_srcs,
-    dependencies : [ libgtk_static_dep, ] + gsk_deps,
+    dependencies : [ libgtk_static_dep, ] + gdk_deps + gsk_deps,
     c_args : test_cargs + common_cflags + ['-DGTK_COMPILATION'],
   )
 

@@ -214,7 +214,7 @@ foreach t : internal_tests
     sources: test_srcs,
     c_args: test_cargs + test_extra_cargs + ['-DGTK_COMPILATION'],
     link_args: test_extra_ldflags,
-    dependencies: [ libgtk_static_dep, ] + gtk_deps,
+    dependencies: [ libgtk_static_dep, ] + gdk_deps + gsk_deps + gtk_deps,
     include_directories: [ confinc, gdkinc, gskinc, gtkinc ],
   )
 

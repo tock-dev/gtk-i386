@@ -101,7 +101,7 @@ foreach t : internal_tests
     sources: test_srcs,
     c_args: test_cargs + test_extra_cargs + ['-DGTK_COMPILATION'],
     link_args: test_extra_ldflags,
-    dependencies: libgtk_static_dep,
+    dependencies: [ libgtk_static_dep, ] + gtk_deps,
   )
 
   if test_extra_suites.contains('slow')

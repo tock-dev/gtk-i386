@@ -1,10 +1,10 @@
 compare_render = executable('compare-render',
   ['compare-render.c', '../reftests/reftest-compare.c', 'replay-node.c', '../gdk/udmabuf.c'],
-  dependencies: libgtk_static_dep,
+  dependencies: [ libgtk_static_dep, libdrm_dep, ],
   c_args: common_cflags + ['-DGTK_COMPILATION'],
 )
 
-node_parser = executable('node-parser', 
+node_parser = executable('node-parser',
   [ 'node-parser.c', '../testutils.c' ],
   dependencies: libgtk_dep,
   c_args: common_cflags,
@@ -675,7 +675,7 @@ foreach t : internal_tests
 
   test_exe = executable(test_name,
     sources: test_srcs,
-    dependencies : libgtk_static_dep,
+    dependencies : [ libgtk_static_dep, ] + gsk_deps,
     c_args : test_cargs + common_cflags + ['-DGTK_COMPILATION'],
   )
 

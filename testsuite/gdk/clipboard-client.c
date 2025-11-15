@@ -1,7 +1,7 @@
 #include <gtk/gtk.h>
 
 #ifdef GDK_WINDOWING_WAYLAND
-#include "wayland/gdkwayland.h"
+#include "gdk/wayland/gdkwayland.h"
 #endif
 
 #ifdef G_OS_WIN32

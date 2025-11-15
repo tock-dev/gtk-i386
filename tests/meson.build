@@ -45,8 +45,8 @@ gtk_tests = [
   ['testfontoptions'],
   ['testframe'],
   ['testfullscreen'],
-  ['testglarea'],
-  ['testglblending', ['gtkgears.c']],
+  ['testglarea', [], [ libgtk_dep, libm, epoxy_dep, ], ],
+  ['testglblending', ['gtkgears.c'], [ libgtk_dep, libm, epoxy_dep, ], ],
   ['testgrid'],
   ['testgtk'],
   ['testheaderbar'],
@@ -130,7 +130,7 @@ gtk_tests = [
 
 if os_unix
   gtk_tests += [
-    ['testfontchooserdialog'],
+    ['testfontchooserdialog', [], [ libgtk_static_dep, fontconfig_dep, ], ],
     ['parallel', [], [ libgtk_static_dep, libm ] ],
     ['testsymbolic', [], [ libgtk_static_dep ] ],
   ]
@@ -138,12 +138,14 @@ endif
 
 if os_linux
   gtk_tests += [
-    ['svg-compare', ['svgpaintable.c' ],[ libgtk_static_dep ]],
+    ['svg-compare', ['svgpaintable.c' ],[ libgtk_static_dep, rsvg_dep, ]],
   ]
 endif
 
 if x11_enabled
-  gtk_tests += [['testerrors']]
+  gtk_tests += [
+    ['testerrors', [], [ libgtk_dep, xi_dep, x11_dep, ], ],
+  ]
 endif
 
 # Pass the source dir here so programs can change into the source directory
@@ -159,7 +161,7 @@ foreach t: gtk_tests
   endif
   executable(test_name,
     sources: test_srcs,
-    include_directories: [confinc, gdkinc],
+    include_directories: [confinc, gdkinc, gtkinc, ],
     c_args: test_args + common_cflags,
     dependencies: test_libs,
   )

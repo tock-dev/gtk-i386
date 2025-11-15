@@ -111,7 +111,7 @@ demos = files([
   'video_player.c',
 ])
 
-gtkdemo_deps = [ libgtk_dep, gmodule_headers_dep ]
+gtkdemo_deps = [ libgtk_dep, gmodule_headers_dep, epoxy_dep, ]
 
 extra_demo_sources = files([
   'bluroverlay.c',
@@ -250,7 +250,7 @@ executable('gtk4-demo',
   sources: [demos, demos_h, extra_demo_sources, gtkdemo_resources],
   c_args: demo_cflags,
   dependencies: gtkdemo_deps,
-  include_directories: confinc,
+  include_directories: [ confinc, gtkinc, ],
   win_subsystem: 'windows',
   link_args: extra_demo_ldflags,
   install: true,

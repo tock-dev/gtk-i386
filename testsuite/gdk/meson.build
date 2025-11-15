@@ -1,8 +1,8 @@
 clipboard_client = executable('clipboard-client',
   sources: ['clipboard-client.c'],
-  include_directories: [confinc],
+  include_directories: [ confinc, gdkinc ],
   c_args: common_cflags,
-  dependencies: [ libgtk_dep ],
+  dependencies: [ libgtk_dep, ] + gdk_deps,
   install: false,
 )
 

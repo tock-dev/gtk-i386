@@ -60,6 +60,10 @@ gdk_macos_deps = [
   dependency('appleframeworks', modules: gdk_macos_frameworks)
 ]
 
+gdk_macos_public_deps = [
+  dependency('appleframeworks', modules: gdk_macos_frameworks)
+]
+
 libgdk_c_args += ['-xobjective-c']
 
 libgdk_macos = static_library('gdk-macos',

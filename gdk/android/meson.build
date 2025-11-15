@@ -43,6 +43,8 @@ gdk_android_deps = [
   cc.find_library('nativewindow')
 ]
 
+gdk_android_public_deps = []
+
 android_runtime = get_option('android-runtime')
 if android_runtime.allowed()
   gdk_android_sources += files(['gdkandroidruntime.c'])

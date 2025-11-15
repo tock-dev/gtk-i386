@@ -187,6 +187,8 @@ gsk_deps = [
   pango_dep,
   cairo_dep,
   cairo_csi_dep,
+  cairogobj_dep,
+  epoxy_dep,
   libgdk_dep,
   libdrm_dep,
 ]

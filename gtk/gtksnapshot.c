@@ -2761,6 +2761,7 @@ gtk_snapshot_append_conic_gradient (GtkSnapshot            *snapshot,
 
   gtk_snapshot_add_conic_gradient (snapshot, bounds,
                                    center, rotation,
+                                   0, 360,
                                    gradient);
 
   gsk_gradient_free (gradient);
@@ -2773,6 +2774,10 @@ gtk_snapshot_append_conic_gradient (GtkSnapshot            *snapshot,
  * @center: the center point of the conic gradient
  * @rotation: the clockwise rotation in degrees of the starting angle.
  *   0 means the starting angle is the top.
+ * @start: the angle that 0 on the gradient line
+ *   is mapped to, relative to @rotation
+ * @end: the angle that 1 on the gradient line
+ *   is mapped to, relative to @rotation
  * @gradient: the gradient specification
  *
  * Appends a conic gradient node with the given stops to @snapshot.
@@ -2782,6 +2787,8 @@ gtk_snapshot_add_conic_gradient (GtkSnapshot            *snapshot,
                                  const graphene_rect_t  *bounds,
                                  const graphene_point_t *center,
                                  float                   rotation,
+                                 float                   start,
+                                 float                   end,
                                  const GskGradient      *gradient)
 {
   GskRenderNode *node;
@@ -2803,6 +2810,7 @@ gtk_snapshot_add_conic_gradient (GtkSnapshot            *snapshot,
                                            center->y + dy
                                          ),
                                          rotation,
+                                         start, end,
                                          gradient);
   else
     node = gsk_color_node_new2 (color, &real_bounds);

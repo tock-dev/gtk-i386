@@ -42,6 +42,7 @@ gtk_css_image_conic_snapshot (GtkCssImage        *image,
   int i, last;
   double offset, hint;
   GskGradient *gradient;
+  double start, end;
 
   stops = g_newa (GskGradientStop, self->n_stops);
 
@@ -101,9 +102,12 @@ gtk_css_image_conic_snapshot (GtkCssImage        *image,
       last = i;
     }
 
+  start = stops[0].offset;
+  end = stops[self->n_stops - 1].offset;
+
   gradient = gsk_gradient_new ();
   for (i = 0; i < self->n_stops; i++)
-    gsk_gradient_add_stop (gradient, stops[i].offset, stops[i].transition_hint, &stops[i].color);
+    gsk_gradient_add_stop (gradient, (stops[i].offset - start)/(end - start), stops[i].transition_hint, &stops[i].color);
 
   if (self->color_space != GTK_CSS_COLOR_SPACE_SRGB)
     g_warning_once ("Gradient interpolation color spaces are not supported yet");
@@ -117,6 +121,7 @@ gtk_css_image_conic_snapshot (GtkCssImage        *image,
           &GRAPHENE_POINT_INIT (_gtk_css_position_value_get_x (self->center, width),
                                 _gtk_css_position_value_get_y (self->center, height)),
           gtk_css_number_value_get (self->rotation, 360),
+          start * 360, end * 360,
           gradient);
 
   for (i = 0; i < self->n_stops; i++)

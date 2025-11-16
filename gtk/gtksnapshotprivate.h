@@ -91,6 +91,8 @@ void                    gtk_snapshot_add_conic_gradient         (GtkSnapshot    
                                                                  const graphene_rect_t   *bounds,
                                                                  const graphene_point_t  *center,
                                                                  float                    rotation,
+                                                                 float                    start,
+                                                                 float                    end,
                                                                  const GskGradient       *gradient);
 void                    gtk_snapshot_append_node_scaled         (GtkSnapshot             *snapshot,
                                                                  GskRenderNode           *node,

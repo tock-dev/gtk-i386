@@ -1,8 +1,10 @@
 #define GSK_N_TEXTURES 0
 
 #include "common.glsl"
+#include "enums.glsl"
 
 #define VARIATION_SUPERSAMPLING ((GSK_VARIATION & (1u << 0)) == (1u << 0))
+#define GSK_REPEAT ((GSK_VARIATION >> 1) & GSK_REPEAT_MASK)
 
 PASS(0) vec2 _pos;
 PASS_FLAT(1) Rect _rect;
@@ -18,7 +20,7 @@ PASS_FLAT(10) vec3 _offsets1;
 PASS_FLAT(11) vec4 _hints0;
 PASS_FLAT(12) vec3 _hints1;
 PASS_FLAT(13) vec2 _center;
-PASS_FLAT(14) float _angle;
+PASS_FLAT(14) vec3 _angles;
 
 
 #ifdef GSK_VERTEX_SHADER
@@ -36,7 +38,7 @@ IN(9) vec3 in_offsets1;
 IN(10) vec4 in_hints0;
 IN(11) vec3 in_hints1;
 IN(12) vec2 in_center;
-IN(13) float in_angle;
+IN(13) vec3 in_angles;
 
 void
 run (out vec2 pos)
@@ -49,7 +51,7 @@ run (out vec2 pos)
   _rect = r;
 
   _center = in_center;
-  _angle = in_angle;
+  _angles = in_angles;
 
   _color0 = color_premultiply (in_color0);
   _color1 = color_premultiply (in_color1);
@@ -155,9 +157,37 @@ get_gradient_color (float offset)
 vec4
 get_gradient_color_at (vec2 pos)
 {
-  float offset = atan (pos.y, pos.x);
-  offset = degrees (offset + _angle) / 360.0;
+  float angle = (90.0 - _angles.x) * radians (180.0) / 180.0;
+  float start = _angles.y / 360.0;
+  float end = _angles.z / 360.0;
+  float offset = degrees (atan (pos.y, pos.x) + angle) / 360.0;
+
   offset = fract (offset);
+  offset = (offset - start) / (end - start);
+
+  switch (GSK_REPEAT)
+    {
+    case GSK_REPEAT_NONE:
+      if (offset < 0.0 || offset > 1.0)
+        return vec4(0.0, 0.0, 0.0, 0.0);
+      break;
+    case GSK_REPEAT_REPEAT:
+      offset = fract (offset);
+      break;
+    case GSK_REPEAT_REFLECT:
+      if (int (floor (offset)) % 2 == 0)
+        offset = fract (offset);
+      else
+        offset = 1.0 - fract (offset);
+      break;
+    case GSK_REPEAT_PAD:
+      if (offset < 0.0)
+        return output_color_from_alt (_color0);
+      else if (offset > 1.0)
+        return output_color_from_alt (_color6);
+      break;
+    }
+
   return output_color_from_alt (get_gradient_color (offset));
 }
 

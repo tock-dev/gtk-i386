@@ -2731,16 +2731,22 @@ parse_conic_gradient_node (GtkCssParser *parser,
   graphene_rect_t bounds = GRAPHENE_RECT_INIT (0, 0, 50, 50);
   graphene_point_t center = GRAPHENE_POINT_INIT (25, 25);
   double rotation = 0.0;
+  double start = 0.0;
+  double end = 360.0;
   GArray *stops = NULL;
   GdkColorState *interpolation = NULL;
   GskHueInterpolation hue_interpolation = GSK_HUE_INTERPOLATION_SHORTER;
+  GskRepeat repeat = GSK_REPEAT_PAD;
   const Declaration declarations[] = {
     { "bounds", parse_rect, NULL, &bounds },
     { "center", parse_point, NULL, &center },
     { "rotation", parse_double, NULL, &rotation },
+    { "start", parse_double, NULL, &start },
+    { "end", parse_double, NULL, &end },
     { "stops", parse_stops, clear_stops, &stops },
     { "interpolation", parse_color_state, &clear_color_state, &interpolation },
     { "hue-interpolation", parse_hue_interpolation, NULL, &hue_interpolation },
+    { "repeat", parse_repeat, NULL, &repeat },
   };
   GskGradient *gradient;
   GskRenderNode *result;
@@ -2775,9 +2781,9 @@ parse_conic_gradient_node (GtkCssParser *parser,
     }
   gsk_gradient_set_interpolation (gradient, interpolation);
   gsk_gradient_set_hue_interpolation (gradient, hue_interpolation);
-  gsk_gradient_set_repeat (gradient, GSK_REPEAT_PAD);
+  gsk_gradient_set_repeat (gradient, repeat);
 
-  result = gsk_conic_gradient_node_new2 (&bounds, &center, rotation, gradient);
+  result = gsk_conic_gradient_node_new2 (&bounds, &center, rotation, start, end, gradient);
 
   gsk_gradient_free (gradient);
   clear_stops (&stops);
@@ -5666,6 +5672,8 @@ render_node_print (Printer       *p,
         append_rect_param (p, "bounds", &node->bounds);
         append_point_param (p, "center", gsk_conic_gradient_node_get_center (node));
         append_float_param (p, "rotation", gsk_conic_gradient_node_get_rotation (node), 0.0f);
+        append_float_param (p, "start", gsk_conic_gradient_node_get_start (node), 0.0f);
+        append_float_param (p, "end", gsk_conic_gradient_node_get_end (node), 360.0f);
 
         append_stops_param (p, "stops", gradient);
 

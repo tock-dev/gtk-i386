@@ -77,9 +77,11 @@ replay_conic_gradient_node (GskRenderNode *node, GtkSnapshot *snapshot)
   gsk_render_node_get_bounds (node, &bounds);
   const graphene_point_t *center = gsk_conic_gradient_node_get_center (node);
   float rotation = gsk_conic_gradient_node_get_rotation (node);
+  float start = gsk_conic_gradient_node_get_start (node);
+  float end = gsk_conic_gradient_node_get_end (node);
   const GskGradient *gradient = gsk_gradient_node_get_gradient (node);
 
-  gtk_snapshot_add_conic_gradient (snapshot, &bounds, center, rotation, gradient);
+  gtk_snapshot_add_conic_gradient (snapshot, &bounds, center, rotation, start, end, gradient);
 }
 
 static void

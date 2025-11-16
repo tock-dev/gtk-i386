@@ -191,11 +191,6 @@ GskRenderNode * gsk_radial_gradient_node_new2           (const graphene_rect_t  
                                                          float                    aspect_ratio,
                                                          const GskGradient       *gradient);
 
-GskRenderNode * gsk_conic_gradient_node_new2            (const graphene_rect_t   *bounds,
-                                                         const graphene_point_t  *center,
-                                                         float                    rotation,
-                                                         const GskGradient       *gradient);
-
 const GskGradient * gsk_gradient_node_get_gradient      (const GskRenderNode *node);
 
 const graphene_point_t *gsk_radial_gradient_node_get_start_center     (const GskRenderNode *node) G_GNUC_PURE;
@@ -208,5 +203,15 @@ gboolean gsk_radial_gradient_fills_plane (const graphene_point_t *c1,
                                           float                   r1,
                                           const graphene_point_t *c2,
                                           float                   r2);
+
+GskRenderNode * gsk_conic_gradient_node_new2            (const graphene_rect_t   *bounds,
+                                                         const graphene_point_t  *center,
+                                                         float                    rotations,
+                                                         float                    start,
+                                                         float                    end,
+                                                         const GskGradient       *gradient);
+
+float                   gsk_conic_gradient_node_get_start (const GskRenderNode *node) G_GNUC_PURE;
+float                   gsk_conic_gradient_node_get_end   (const GskRenderNode *node) G_GNUC_PURE;
 
 G_END_DECLS

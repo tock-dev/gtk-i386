@@ -10,6 +10,7 @@
 #include "gpu/shaders/gskgpuconicgradientinstance.h"
 
 #define VARIATION_SUPERSAMPLING (1 << 0)
+#define VARIATION_REPEAT(repeat) ((repeat) << 1)
 
 typedef struct _GskGpuConicGradientOp GskGpuConicGradientOp;
 
@@ -24,7 +25,9 @@ gsk_gpu_conic_gradient_op_print_instance (GskGpuShaderOp *shader,
                                           GString        *string)
 {
   GskGpuConicgradientInstance *instance = (GskGpuConicgradientInstance *) instance_;
+  const char *repeat_modes[] = { "none", "pad", "repeat", "reflect" };
 
+  gsk_gpu_print_string (string, repeat_modes[shader->variation >> 2]);
   gsk_gpu_print_rect (string, instance->rect);
 }
 
@@ -58,9 +61,12 @@ gsk_gpu_conic_gradient_op (GskGpuFrame            *frame,
                            const graphene_point_t *offset,
                            GdkColorState          *ics,
                            GskHueInterpolation     hue_interp,
+                           GskRepeat               repeat,
                            const graphene_rect_t  *rect,
                            const graphene_point_t *center,
-                           float                   angle,
+                           float                   rotation,
+                           float                   start,
+                           float                   end,
                            const GskGradientStop  *stops,
                            gsize                   n_stops)
 {
@@ -76,6 +82,7 @@ gsk_gpu_conic_gradient_op (GskGpuFrame            *frame,
                            &GSK_GPU_CONIC_GRADIENT_OP_CLASS,
                            ccs ? gsk_gpu_color_states_create (ccs, TRUE, ics, TRUE)
                                : gsk_gpu_color_states_create_equal (TRUE, TRUE),
+                           VARIATION_REPEAT (repeat) |
                            (gsk_gpu_frame_should_optimize (frame, GSK_GPU_OPTIMIZE_GRADIENTS) ? VARIATION_SUPERSAMPLING : 0),
                            clip,
                            NULL,
@@ -84,7 +91,9 @@ gsk_gpu_conic_gradient_op (GskGpuFrame            *frame,
 
   gsk_gpu_rect_to_float (rect, offset, instance->rect);
   gsk_gpu_point_to_float (center, offset, instance->center);
-  instance->angle = angle;
+  instance->angles[0] = rotation;
+  instance->angles[1] = start;
+  instance->angles[2] = end;
   gsk_gpu_color_to_float (&stops[MIN (n_stops - 1, 6)].color, ics, opacity, instance->color6);
   instance->offsets1[2] = stops[MIN (n_stops - 1, 6)].offset;
   instance->hints1[2] = stops[MIN (n_stops - 1, 6)].transition_hint;

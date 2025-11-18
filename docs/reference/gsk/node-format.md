@@ -274,6 +274,9 @@ Possible values for the transfer propertes are:
 | center            | `<point>`       | 25, 25         | always      |
 | rotation          | `<number>`      | 0              | always      |
 | stops             | `<color-stops>` | 0 #AF0, 1 #F0C | always      |
+| start             | `<number>`      | 0              | non-default |
+| end               | `<number>`      | 360            | non-default |
+| repeat            | `<repeat>`      | pad            | non-default |
 | interpolation     | `<color-state>` | srgb           | non-default |
 | hue-interpolation | `<hue-interp>`  | shorter        | non-default |
 
@@ -291,6 +294,14 @@ The syntax for color stops is:
     transition-hint: <number>
 
 The default value for transition hints is 0.5.
+
+The `rotation` property determines where the gradient starts, with 0
+being at the top and angles increasing clockwise.
+
+The `start` and `end` values determine the sweep of angles that is covered
+by the [0, 1] range of the gradient line, relative to the the start of the
+gradient. Angles outside this area will be handled according to the `repeat`
+property.
 
 ### cross-fade
 

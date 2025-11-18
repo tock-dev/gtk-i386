@@ -42,6 +42,7 @@ gtk_css_image_conic_snapshot (GtkCssImage        *image,
   int i, last;
   double offset, hint;
   GskGradient *gradient;
+  double start, end;
 
   stops = g_newa (GskGradientStop, self->n_stops);
 
@@ -101,15 +102,19 @@ gtk_css_image_conic_snapshot (GtkCssImage        *image,
       last = i;
     }
 
+  start = stops[0].offset;
+  end = stops[self->n_stops - 1].offset;
+
   gradient = gsk_gradient_new ();
   for (i = 0; i < self->n_stops; i++)
-    gsk_gradient_add_stop (gradient, stops[i].offset, stops[i].transition_hint, &stops[i].color);
+    gsk_gradient_add_stop (gradient, (stops[i].offset - start)/(end - start), stops[i].transition_hint, &stops[i].color);
 
   if (self->color_space != GTK_CSS_COLOR_SPACE_SRGB)
     g_warning_once ("Gradient interpolation color spaces are not supported yet");
 
   gsk_gradient_set_interpolation (gradient, gtk_css_color_space_get_color_state (self->color_space));
   gsk_gradient_set_hue_interpolation (gradient, gtk_css_hue_interpolation_to_hue_interpolation (self->hue_interp));
+  gsk_gradient_set_repeat (gradient, self->repeating ? GSK_REPEAT_REPEAT : GSK_REPEAT_PAD);
 
   gtk_snapshot_add_conic_gradient (
           snapshot,
@@ -117,6 +122,7 @@ gtk_css_image_conic_snapshot (GtkCssImage        *image,
           &GRAPHENE_POINT_INIT (_gtk_css_position_value_get_x (self->center, width),
                                 _gtk_css_position_value_get_y (self->center, height)),
           gtk_css_number_value_get (self->rotation, 360),
+          start * 360, end * 360,
           gradient);
 
   for (i = 0; i < self->n_stops; i++)
@@ -273,13 +279,17 @@ gtk_css_image_conic_parse_arg (GtkCssParser *parser,
 
 static gboolean
 gtk_css_image_conic_parse (GtkCssImage  *image,
-                            GtkCssParser *parser)
+                           GtkCssParser *parser)
 {
   GtkCssImageConic *self = GTK_CSS_IMAGE_CONIC (image);
   ParseData parse_data;
   gboolean success;
 
-  if (!gtk_css_parser_has_function (parser, "conic-gradient"))
+  if (gtk_css_parser_has_function (parser, "repeating-conic-gradient"))
+    self->repeating = TRUE;
+  else if (gtk_css_parser_has_function (parser, "conic-gradient"))
+    self->repeating = FALSE;
+  else
     {
       gtk_css_parser_error_syntax (parser, "Not a conic gradient");
       return FALSE;
@@ -311,7 +321,10 @@ gtk_css_image_conic_print (GtkCssImage *image,
   gboolean written = FALSE;
   guint i;
 
-  g_string_append (string, "conic-gradient(");
+  if (self->repeating)
+    g_string_append (string, "repeating-conic-gradient(");
+  else
+    g_string_append (string, "conic-gradient(");
 
   if (self->center)
     {
@@ -390,6 +403,7 @@ gtk_css_image_conic_compute (GtkCssImage          *image,
   copy->rotation = gtk_css_value_compute (self->rotation, property_id, context);
   copy->color_space = self->color_space;
   copy->hue_interp = self->hue_interp;
+  copy->repeating = self->repeating;
 
   copy->n_stops = self->n_stops;
   copy->color_stops = g_new (GtkCssImageConicColorStop, self->n_stops);
@@ -448,6 +462,7 @@ gtk_css_image_conic_transition (GtkCssImage *start_image,
 
   result->color_space = start->color_space;
   result->hue_interp = start->hue_interp;
+  result->repeating = start->repeating;
 
   result->color_stops = g_malloc (sizeof (GtkCssImageConicColorStop) * start->n_stops);
   result->n_stops = 0;
@@ -523,7 +538,8 @@ gtk_css_image_conic_equal (GtkCssImage *image1,
   if (!gtk_css_value_equal (conic1->center, conic2->center) ||
       !gtk_css_value_equal (conic1->rotation, conic2->rotation) ||
       conic1->color_space != conic2->color_space ||
-      conic1->hue_interp != conic2->hue_interp)
+      conic1->hue_interp != conic2->hue_interp ||
+      conic1->repeating != conic2->repeating)
     return FALSE;
 
   for (i = 0; i < conic1->n_stops; i++)
@@ -632,6 +648,9 @@ gtk_css_image_conic_resolve (GtkCssImage          *image,
 
   resolved->center = gtk_css_value_ref (self->center);
   resolved->rotation = gtk_css_value_ref (self->rotation);
+  resolved->color_space = self->color_space;
+  resolved->hue_interp = self->hue_interp;
+  resolved->repeating = self->repeating;
 
   resolved->n_stops = self->n_stops;
   resolved->color_stops = g_new (GtkCssImageConicColorStop, self->n_stops);

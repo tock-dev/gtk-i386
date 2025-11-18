@@ -2755,9 +2755,12 @@ gsk_gpu_node_processor_conic_gradient_op (GskGpuNodeProcessor   *self,
                              &self->offset,
                              gsk_gradient_get_interpolation (gradient),
                              gsk_gradient_get_hue_interpolation (gradient),
+                             gsk_gradient_get_repeat (gradient),
                              &node->bounds,
                              gsk_conic_gradient_node_get_center (node),
-                             gsk_conic_gradient_node_get_angle (node),
+                             gsk_conic_gradient_node_get_rotation (node),
+                             gsk_conic_gradient_node_get_start (node),
+                             gsk_conic_gradient_node_get_end (node),
                              stops,
                              n_stops);
 }

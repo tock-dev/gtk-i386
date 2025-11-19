@@ -74,7 +74,7 @@ foreach tool: gtk_tools
 
   exe = executable(tool_name,
     sources: tool_srcs,
-    include_directories: [confinc, gdkinc, gtkinc],
+    include_directories: [confinc],
     c_args: common_cflags + [ '-DBUILD_TOOLS' ],
     dependencies: tool_deps,
     install: true,

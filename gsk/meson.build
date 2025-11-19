@@ -211,7 +211,7 @@ libgsk = static_library('gsk',
     gsk_private_gpu_shader_headers,
   ],
   dependencies: gsk_deps + gdk_deps,
-  include_directories: [ confinc, gdkinc, ],
+  include_directories: [ confinc, ],
   c_args: [
     '-DGTK_COMPILATION',
     '-DG_LOG_DOMAIN="Gsk"',
@@ -234,8 +234,7 @@ gsk_public_deps = [
 # We don't have link_with: to internal static libs here on purpose, just
 # list the dependencies and generated headers and such, for use in the
 # "public" libgtk_dep used by internal executables.
-libgsk_dep = declare_dependency(
-  include_directories: include_directories('..'),
+libgsk_dep = declare_dependency(include_directories: [ confinc, ],
   sources: [ gskenum_h, ],
   dependencies: gsk_public_deps,
 )

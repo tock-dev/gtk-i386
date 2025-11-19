@@ -1176,7 +1176,6 @@ if build_gir
     includes: gdk_gir_inc,
     header: 'gdk/gdk.h',
     install: true,
-    include_directories: [confinc, gdkinc, gskinc, gtkinc, ],
     dependencies: [ libgdk_dep, ] + gdk_deps + gsk_deps + gtk_deps,
     extra_args: gir_args,
     fatal_warnings: false,
@@ -1193,7 +1192,6 @@ if build_gir
       export_packages: 'gtk4-x11',
       includes: [ gdk_gir[0], 'xlib-2.0', ],
       install: true,
-      include_directories: [confinc, gdkinc, gskinc, gtkinc, ],
       dependencies: [ libgdk_dep, ] + gdk_deps + gsk_deps + gtk_deps,
       header: 'gdk/x11/gdkx.h',
       extra_args: gir_args,
@@ -1212,7 +1210,6 @@ if build_gir
       export_packages: 'gtk4-wayland',
       includes: [ gdk_gir[0], ],
       install: true,
-      include_directories: [confinc, gdkinc, gskinc, gtkinc, ],
       dependencies: [ libgdk_dep, ] + gdk_deps + gsk_deps + gtk_deps,
       header: 'gdk/wayland/gdkwayland.h',
       extra_args: gir_args,
@@ -1231,7 +1228,6 @@ if build_gir
       export_packages: 'gtk4-win32',
       includes: [ gdk_gir[0], 'win32-1.0', ],
       install: true,
-      include_directories: [confinc, gdkinc, gskinc, gtkinc, ],
       dependencies: [ libgdk_dep, ] + gdk_deps + gsk_deps + gtk_deps,
       header: 'gdk/win32/gdkwin32.h',
       extra_args: gir_args,
@@ -1250,7 +1246,6 @@ if build_gir
       export_packages: 'gtk4-macos',
       includes: [ gdk_gir[0], ],
       install: true,
-      include_directories: [confinc, gdkinc, gskinc, gtkinc, ],
       dependencies: [ libgdk_dep, ] + gdk_deps + gsk_deps + gtk_deps,
       header: 'gdk/macos/gdkmacos.h',
       extra_args: gir_args,
@@ -1269,7 +1264,6 @@ if build_gir
       export_packages: 'gtk4-android',
       includes: [ gdk_gir[0], ],
       install: true,
-      include_directories: [confinc, gdkinc, gskinc, gtkinc, ],
       dependencies: [ libgdk_dep, ] + gdk_deps + gsk_deps + gtk_deps,
       header: 'gdk/android/gdkandroid.h',
       extra_args: gir_args,
@@ -1290,7 +1284,6 @@ if build_gir
     includes: gsk_gir_inc,
     header: 'gsk/gsk.h',
     install: true,
-    include_directories: [confinc, gdkinc, gskinc, gtkinc, ],
     dependencies: [ libgdk_dep, ] + gdk_deps + gsk_deps + gtk_deps,
     extra_args: gir_args,
     fatal_warnings: false,
@@ -1348,15 +1341,17 @@ gtk_public_deps = [
 ]
 
 libgtk_dep = declare_dependency(sources: gtk_dep_sources,
-  include_directories: include_directories('..'),
+  include_directories: [confinc, gtkinc],
   dependencies: gtk_public_deps,
   link_with: libgtk,
+  link_args: common_ldflags,
 )
 
 libgtk_static_dep = declare_dependency(sources: gtk_dep_sources,
   include_directories: [confinc, gtkinc],
   dependencies: gtk_public_deps,
   link_with: [libgtk_static, libgtk_css, libgdk, libgsk ],
+  link_args: common_ldflags,
 )
 
 subdir('compose')

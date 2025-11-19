@@ -215,7 +215,6 @@ foreach t : internal_tests
     c_args: test_cargs + test_extra_cargs + ['-DGTK_COMPILATION'],
     link_args: test_extra_ldflags,
     dependencies: [ libgtk_static_dep, ] + gdk_deps + gsk_deps + gtk_deps,
-    include_directories: [ confinc, gdkinc, gskinc, gtkinc ],
   )
 
   if test_extra_suites.contains('slow')

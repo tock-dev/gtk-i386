@@ -161,7 +161,7 @@ foreach t: gtk_tests
   endif
   executable(test_name,
     sources: test_srcs,
-    include_directories: [confinc, gdkinc, gtkinc, ],
+    include_directories: [confinc, gdkinc],
     c_args: test_args + common_cflags,
     dependencies: test_libs,
   )

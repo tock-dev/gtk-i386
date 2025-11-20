@@ -33,6 +33,8 @@
 
 #include <string.h>
 
+#include <pango/pango.h>
+
 #ifdef GDK_WINDOWING_X11
 #include "x11/gdkx.h"
 #include <pango/pangofc-fontmap.h>
@@ -2106,4 +2108,22 @@ gtk_settings_get_font_size_is_absolute (GtkSettings *settings)
   settings_update_font_name (settings);
 
   return settings->font_size_absolute;
+}
+
+void
+gtk_settings_init_fallback_language (GtkSettings *settings,
+                                     GtkWidget   *widget)
+{
+  g_return_if_fail (GTK_IS_WIDGET (widget));
+
+  GSettings *gsettings = g_settings_new ("org.gtk.Settings.Pango");
+  const gchar *fallback = g_settings_get_string (gsettings, "fallback-language-order");
+
+  if (fallback && *fallback != '\0')
+    {
+      PangoContext *context = gtk_widget_get_pango_context (widget);
+      pango_context_set_language_fallback (context, fallback);
+    }
+
+  g_object_unref (gsettings);
 }

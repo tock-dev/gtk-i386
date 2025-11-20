@@ -1108,6 +1108,7 @@ gtk_settings_schemas = [
   'org.gtk.gtk4.Settings.EmojiChooser.gschema.xml',
   'org.gtk.gtk4.Settings.Debug.gschema.xml',
   'org.gtk.gtk4.Inspector.gschema.xml',
+  'org.gtk.gtk4.Settings.Pango.gschema.xml',
 ]
 
 install_data(gtk_settings_schemas, install_dir: gtk_schemasdir, install_tag: 'runtime')

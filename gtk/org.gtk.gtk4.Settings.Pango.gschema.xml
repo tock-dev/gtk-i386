@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gtk.Settings.Pango" path="/org/gtk/settings/pango/">
+    <key name="fallback-language-order" type="s">
+      <default>""</default>
+      <summary>Fallback Language Order</summary>
+      <description>
+        A comma-separated list of language codes to be used as fallback when rendering text.
+      </description>
+    </key>
+  </schema>
+</schemalist>

@@ -854,22 +854,27 @@ gdk_x11_selection_output_streams_request (GdkDisplay                   *display,
 
   if (mime_type)
     {
-      if (gdk_content_formats_contain_mime_type (formats, mime_type))
+      if (gdk_content_formats_contain_mime_type (formats, target))
         {
+          const char *target_interned = g_intern_string (target);
           GOutputStream *stream;
 
           stream = gdk_x11_selection_output_stream_new (display,
                                                         notify,
                                                         requestor,
                                                         selection,
-                                                        target,
+                                                        target_interned,
                                                         property,
-                                                        target,
+                                                        target_interned,
                                                         8,
                                                         timestamp);
-          handler (stream, mime_type, user_data);
+          handler (stream, target_interned, user_data);
           return TRUE;
         }
+
+      GDK_DISPLAY_DEBUG (display, SELECTION,
+                         "Requested target not available %s",
+                         target);
     }
   else if (g_str_equal (target, "MULTIPLE"))
     {

@@ -640,6 +640,7 @@ tests = [
   [ 'path', [ 'path-utils.c' ], [ 'flaky'] ],
   [ 'path-special-cases' ],
   ['path-intersect'],
+  ['path-ops', [ 'path-utils.c' ] ],
 ]
 
 test_cargs = []

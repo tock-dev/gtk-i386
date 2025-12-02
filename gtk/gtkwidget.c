@@ -10638,9 +10638,8 @@ gtk_widget_get_allocated_height (GtkWidget *widget)
  *
  * Returns the baseline that has currently been allocated to the widget.
  *
- * This function is intended to be used when implementing handlers
- * for the `GtkWidget`Class.snapshot() function, and when allocating
- * child widgets in `GtkWidget`Class.size_allocate().
+ * To learn more about widget sizes, see the coordinate
+ * system [overview](coordinates.html).
  *
  * Returns: the baseline of the @widget, or -1 if none
  *
@@ -10649,7 +10648,11 @@ gtk_widget_get_allocated_height (GtkWidget *widget)
 int
 gtk_widget_get_allocated_baseline (GtkWidget *widget)
 {
-  return gtk_widget_get_baseline (widget);
+  GtkWidgetPrivate *priv = gtk_widget_get_instance_private (widget);
+
+  g_return_val_if_fail (GTK_IS_WIDGET (widget), 0);
+
+  return priv->allocated_baseline;
 }
 
 /**
@@ -10659,8 +10662,8 @@ gtk_widget_get_allocated_baseline (GtkWidget *widget)
  * Returns the baseline that has currently been allocated to the widget.
  *
  * This function is intended to be used when implementing handlers
- * for the `GtkWidgetClass.snapshot()` function, and when allocating
- * child widgets in `GtkWidgetClass.size_allocate()`.
+ * for the [vfunc@Gtk.Widget.snapshot] function, and when allocating
+ * child widgets in [vfunc@Gtk.Widget.size_allocate].
  *
  * Returns: the baseline of the @widget, or -1 if none
  *
@@ -10670,20 +10673,10 @@ int
 gtk_widget_get_baseline (GtkWidget *widget)
 {
   GtkWidgetPrivate *priv = gtk_widget_get_instance_private (widget);
-  GtkCssStyle *style;
-  GtkBorder margin, border, padding;
 
   g_return_val_if_fail (GTK_IS_WIDGET (widget), 0);
 
-  if (priv->baseline == -1)
-    return -1;
-
-  style = gtk_css_node_get_style (priv->cssnode);
-  get_box_margin (style, &margin);
-  get_box_border (style, &border);
-  get_box_padding (style, &padding);
-
-  return priv->baseline - margin.top - border.top - padding.top;
+  return priv->baseline;
 }
 
 /**

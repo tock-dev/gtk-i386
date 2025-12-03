@@ -1919,7 +1919,25 @@ _gdk_quartz_screen_get_setting (GdkScreen   *screen,
 
       return TRUE;
     }
-  
+#if MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
+  else if (strcmp (name, "gtk-enable-animations") == 0)
+    {
+      gboolean setting;
+
+      GDK_QUARTZ_ALLOC_POOL;
+
+      setting = [[NSWorkspace sharedWorkspace] accessibilityDisplayShouldReduceMotion];
+      /* If the Apple property is YES, it means the user prefers reduced
+       * animations, so the value should be set to FALSE and vice versa.
+       */
+      g_value_set_boolean (value, ! setting);
+
+      GDK_QUARTZ_RELEASE_POOL;
+
+      return TRUE;
+    }
+#endif
+
   /* FIXME: Add more settings */
 
   return FALSE;

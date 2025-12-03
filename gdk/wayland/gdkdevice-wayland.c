@@ -216,6 +216,7 @@ struct _GdkWaylandSeat
   GdkKeymap *keymap;
 
   GHashTable *touches;
+  guint32 last_touch_serial;
   GList *tablets;
   GList *tablet_tools;
   GList *tablet_pads;
@@ -2612,7 +2613,7 @@ touch_handle_down (void              *data,
   touch = gdk_wayland_seat_add_touch (seat, id, wl_surface);
   touch->x = wl_fixed_to_double (x);
   touch->y = wl_fixed_to_double (y);
-  touch->touch_down_serial = serial;
+  seat->last_touch_serial = touch->touch_down_serial = serial;
 
   event = _create_touch_event (seat, touch, GDK_TOUCH_BEGIN, time);
 
@@ -2646,6 +2647,7 @@ touch_handle_up (void            *data,
   touch = gdk_wayland_seat_get_touch (seat, id);
   if (!touch)
     return;
+  seat->last_touch_serial = serial;
 
   event = _create_touch_event (seat, touch, GDK_TOUCH_END, time);
 
@@ -5601,6 +5603,9 @@ _gdk_wayland_seat_get_last_implicit_grab_serial (GdkSeat           *seat,
           serial = touch->touch_down_serial;
         }
     }
+
+  if (wayland_seat->last_touch_serial > serial)
+    serial = wayland_seat->last_touch_serial;
 
   return serial;
 }

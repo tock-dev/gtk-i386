@@ -257,6 +257,16 @@ test_a11y_tree_focus (void)
   accessible = gtk_widget_get_accessible (GTK_WIDGET (tv));
   g_signal_connect (accessible, "active_descendant_changed",
                     G_CALLBACK (active_descendant_changed), &data);
+
+  GdkEvent *focus_event = gdk_event_new (GDK_FOCUS_CHANGE);
+  focus_event->focus_change.type = GDK_FOCUS_CHANGE;
+  focus_event->focus_change.in = TRUE;
+  focus_event->focus_change.window = gtk_widget_get_window (GTK_WIDGET (tv));
+  g_object_ref (focus_event->focus_change.window);
+  gtk_widget_send_focus_change (GTK_WIDGET (tv), focus_event);
+  gdk_event_free (focus_event);
+  g_assert(gtk_widget_has_focus (GTK_WIDGET (tv)));
+
   gtk_tree_view_set_cursor (tv, path, focus_column, FALSE);
   /* hack: active_descendant_change gets fired in an idle handler */
   process_pending_idles ();

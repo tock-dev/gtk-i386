@@ -9,6 +9,7 @@ setup=$2
 suite=$3
 multiplier=${MESON_TEST_TIMEOUT_MULTIPLIER:-1}
 n_processes=${MESON_TEST_MAX_PROCESSES:-$(nproc)}
+max_fail=${MESON_TEST_MAX_FAIL:-0}
 
 # Ignore memory leaks lower in dependencies
 export LSAN_OPTIONS=suppressions=$srcdir/lsan.supp:print_suppressions=0:detect_leaks=0:allocator_may_return_null=1:symbolize=1
@@ -23,6 +24,7 @@ case "${setup}" in
                 --quiet \
                 --timeout-multiplier "${multiplier}" \
                 --num-processes "${n_processes}" \
+                --maxfail "${max_fail}" \
                 --print-errorlogs \
                 --setup=${setup} \
                 --suite=${suite//,/ --suite=} \
@@ -46,6 +48,7 @@ case "${setup}" in
                 --quiet \
                 --timeout-multiplier "${multiplier}" \
                 --num-processes "${n_processes}" \
+                --maxfail "${max_fail}" \
                 --print-errorlogs \
                 --setup=${setup} \
                 --suite=${suite//,/ --suite=} \
@@ -69,6 +72,7 @@ case "${setup}" in
                 --quiet \
                 --timeout-multiplier "${multiplier}" \
                 --num-processes "${n_processes}" \
+                --maxfail "${max_fail}" \
                 --print-errorlogs \
                 --setup=${setup} \
                 --suite=${suite//,/ --suite=} \
@@ -79,6 +83,26 @@ case "${setup}" in
                 --no-suite=gsk-compare-opengl
 
     kill ${server}
+    ;;
+
+  win32*)
+    meson test -C ${builddir} \
+          --quiet \
+          --timeout-multiplier "${multiplier}" \
+          --num-processes "${n_processes}" \
+          --maxfail "${max_fail}" \
+          --print-errorlogs \
+          --setup=${setup} \
+          --suite=${suite//,/ --suite=} \
+          --no-suite=failing \
+          --no-suite=${setup}_failing \
+          --no-suite=flaky \
+          --no-suite=headless \
+          --no-suite=gsk-compare-gl \
+          --no-suite=gsk-compare-ngl \
+          --no-suite=gsk-compare-vulkan \
+          --no-suite=gsk-compare-broadway
+    exit_code=$?
     ;;
 
   *)

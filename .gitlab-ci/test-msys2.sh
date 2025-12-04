@@ -18,6 +18,7 @@ pacman --noconfirm -S --needed \
     ${MINGW_PACKAGE_PREFIX}-atk \
     ${MINGW_PACKAGE_PREFIX}-cairo \
     ${MINGW_PACKAGE_PREFIX}-directx-headers \
+    ${MINGW_PACKAGE_PREFIX}-gdb \
     ${MINGW_PACKAGE_PREFIX}-gdk-pixbuf2 \
     ${MINGW_PACKAGE_PREFIX}-glib2 \
     ${MINGW_PACKAGE_PREFIX}-graphene \
@@ -42,6 +43,7 @@ ccache --show-stats
 export CCACHE_DISABLE=true
 meson setup \
     ${COMMON_MESON_CFLAGS} \
+    --force-fallback-for=harfbuzz,pango \
     -Dx11-backend=false \
     -Dwayland-backend=false \
     -Dwin32-backend=true \

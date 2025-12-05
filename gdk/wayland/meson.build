@@ -49,6 +49,10 @@ gdk_wayland_deps = [
   wlegldep,
 ]
 
+gdk_wayland_public_deps = [
+  wlclientdep,
+]
+
 # Fields:
 #  - name: protocol name
 #  - stability: protocol stability ('private', 'stable' or 'unstable')

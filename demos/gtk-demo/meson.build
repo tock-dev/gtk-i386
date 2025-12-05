@@ -111,7 +111,7 @@ demos = files([
   'video_player.c',
 ])
 
-gtkdemo_deps = [ libgtk_dep, gmodule_headers_dep ]
+gtkdemo_deps = [ libgtk_dep, gmodule_headers_dep, epoxy_dep, ]
 
 extra_demo_sources = files([
   'demochild.c',
@@ -248,7 +248,7 @@ gtkdemo_deps += [ profile_conf_h ]
 executable('gtk4-demo',
   sources: [demos, demos_h, extra_demo_sources, gtkdemo_resources],
   c_args: demo_cflags,
-  dependencies: gtkdemo_deps,
+  dependencies: gtkdemo_deps + gtk_deps,
   include_directories: confinc,
   win_subsystem: 'windows',
   link_args: extra_demo_ldflags,

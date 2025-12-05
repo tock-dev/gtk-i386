@@ -72,6 +72,10 @@ gdk_x11_deps = [
   xinerama_dep,
 ]
 
+gdk_x11_public_deps = [
+  x11_dep,
+]
+
 libgdk_x11 = static_library('gdk-x11',
   sources: [ gdk_gen_headers, gdk_x11_sources ],
   include_directories: [ confinc, gdkinc, ],

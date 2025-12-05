@@ -275,12 +275,26 @@ libgdk_c_args = [
   '-DG_LOG_DOMAIN="Gdk"',
 ]
 
+gdk_public_deps = [
+  libm,
+  glib_dep,
+  gobject_dep,
+  platform_gio_dep,
+  pixbuf_dep,
+  cairo_dep,
+  pango_dep,
+  pangocairo_dep,
+  graphene_dep,
+  libgtk_css_dep,
+]
+
 gdk_backends = []
 gdk_backends_gen_headers = []  # non-public generated headers
 foreach backend : ['android', 'broadway', 'wayland', 'win32', 'x11', 'macos']
   if get_variable('@0@_enabled'.format(backend))
     subdir(backend)
     gdk_deps += get_variable('gdk_@0@_deps'.format(backend))
+    gdk_public_deps += get_variable('gdk_@0@_public_deps'.format(backend))
     gdk_backends += get_variable('libgdk_@0@'.format(backend))
     # Special-case this for now to work around Meson bug with get_variable()
     # fallback being an empty array, or any array (#1481)
@@ -309,5 +323,5 @@ libgdk = static_library('gdk',
 libgdk_dep = declare_dependency(
   sources: ['gdk.h', gdk_gen_headers],
   include_directories: [confinc, gdkx11_inc, wlinc],
-  dependencies: gdk_deps + [libgtk_css_dep],
+  dependencies: gdk_public_deps,
 )

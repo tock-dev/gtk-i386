@@ -11,7 +11,7 @@ endforeach
 
 libgtkreftestprivate = library('gtkreftestprivate',
   sources: [ 'reftest-compare.c', 'reftest-module.c', 'reftest-snapshot.c', ],
-  dependencies: libgtk_dep,
+  dependencies: [ libgtk_dep, gmodule_dep, ],
   c_args: reftest_cflags)
 
 libreftest = library('reftest',
@@ -28,7 +28,7 @@ libreftest = library('reftest',
   ],
   link_with: libgtkreftestprivate,
   c_args: reftest_cflags,
-  dependencies : libgtk_dep)
+  dependencies : [ libgtk_dep, epoxy_dep, ])
 
 tcdata = configuration_data()
 tcdata.set('libexecdir', join_paths(get_option('prefix'), get_option('libexecdir')))

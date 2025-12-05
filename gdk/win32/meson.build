@@ -75,6 +75,10 @@ gdk_win32_deps = [
   d3d12_dep,
 ]
 
+gdk_win32_public_deps = [
+  d3d12_dep,
+]
+
 libgdk_win32 = static_library('gdk-win32',
   sources: [ gdk_win32_sources, gdk_gen_headers ],
   include_directories: [ confinc, gdkinc ],

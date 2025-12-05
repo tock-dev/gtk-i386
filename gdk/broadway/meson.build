@@ -27,6 +27,8 @@ install_headers(gdk_broadway_public_headers, 'gdkbroadway.h', subdir: 'gtk-4.0/g
 
 gdk_broadway_deps = [shmlib]
 
+gdk_broadway_public_deps = []
+
 gen_c_array = find_program('gen-c-array.py')
 
 clienthtml_h = custom_target('clienthtml.h',

@@ -45,10 +45,10 @@ gtk_tests = [
   ['testfontoptions'],
   ['testframe'],
   ['testfullscreen'],
-  ['testglarea'],
-  ['testglblending', ['gtkgears.c']],
+  ['testglarea', [], [ libgtk_dep, libm, epoxy_dep, ], ],
+  ['testglblending', ['gtkgears.c'], [ libgtk_dep, libm, epoxy_dep, ], ],
   ['testgrid'],
-  ['testgtk'],
+  ['testgtk', [], [ libgtk_dep, libm, gdk_deps, ], ],
   ['testheaderbar'],
   ['testheightforwidth'],
   ['testhover'],
@@ -130,20 +130,22 @@ gtk_tests = [
 
 if os_unix
   gtk_tests += [
-    ['testfontchooserdialog'],
-    ['parallel', [], [ libgtk_static_dep, libm ] ],
+    ['testfontchooserdialog', [], [ libgtk_static_dep, fontconfig_dep, ], ],
+    ['parallel', [], [ libgtk_static_dep, libm, gdk_deps, ] ],
     ['testsymbolic', [], [ libgtk_static_dep ] ],
   ]
 endif
 
 if os_linux
   gtk_tests += [
-    ['svg-compare', ['svgpaintable.c' ],[ libgtk_static_dep ]],
+    ['svg-compare', ['svgpaintable.c' ],[ libgtk_static_dep, rsvg_dep, ]],
   ]
 endif
 
 if x11_enabled
-  gtk_tests += [['testerrors']]
+  gtk_tests += [
+    ['testerrors', [], [ libgtk_dep, xi_dep, x11_dep, ], ],
+  ]
 endif
 
 # Pass the source dir here so programs can change into the source directory

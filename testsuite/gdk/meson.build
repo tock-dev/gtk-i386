@@ -2,7 +2,7 @@ clipboard_client = executable('clipboard-client',
   sources: ['clipboard-client.c'],
   include_directories: [confinc],
   c_args: common_cflags,
-  dependencies: [ libgtk_dep ],
+  dependencies: [ libgtk_dep, ] + gdk_deps,
   install: false,
 )
 
@@ -54,7 +54,7 @@ foreach t : tests
   test_exe = executable(test_name,
     sources: [ '@0@.c'.format(test_name) ] + t.get('sources', []),
     c_args: common_cflags,
-    dependencies: libgtk_dep,
+    dependencies: [ libgtk_dep, ] + gdk_deps,
     install: false,
   )
 
@@ -96,7 +96,7 @@ foreach t : internal_tests
   test_exe = executable(test_name,
     sources: [ '@0@.c'.format(test_name) ] + t.get('sources', []),
     c_args: common_cflags + ['-DGTK_COMPILATION'],
-    dependencies: libgtk_static_dep,
+    dependencies: [ libgtk_static_dep, ] + gdk_deps,
     install: false,
   )
 

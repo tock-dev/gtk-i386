@@ -2762,13 +2762,9 @@ _gdk_x11_display_error_event (GdkDisplay  *display,
                                                       error->request_code),
                          error->minor_code);
 
-#ifdef G_ENABLE_DEBUG
-      g_error ("%s", msg);
-#else /* !G_ENABLE_DEBUG */
-      g_warning ("%s", msg);
 
-      _exit (1);
-#endif /* G_ENABLE_DEBUG */
+      g_warning ("%s", msg);
+      g_free (msg);
     }
 }
 

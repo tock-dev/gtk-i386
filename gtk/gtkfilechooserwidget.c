@@ -4260,7 +4260,7 @@ name_sort_func (GtkTreeModel *model,
   if (result == 0)
     result = compare_name (fs_model, a, b, impl);
 
-  return result;
+  return -result;
 }
 
 /* Sort callback for the size column */
@@ -4279,7 +4279,7 @@ size_sort_func (GtkTreeModel *model,
   if (result == 0)
     result = compare_size (fs_model, a, b, impl);
 
-  return result;
+  return -result;
 }
 
 /* Sort callback for the type column */
@@ -4298,7 +4298,7 @@ type_sort_func (GtkTreeModel *model,
   if (result == 0)
     result = compare_type (fs_model, a, b, impl);
 
-  return result;
+  return -result;
 }
 
 /* Sort callback for the time column */
@@ -4317,7 +4317,7 @@ time_sort_func (GtkTreeModel *model,
   if (result == 0)
     result = compare_time (fs_model, a, b, impl);
 
-  return result;
+  return -result;
 }
 
 static gint

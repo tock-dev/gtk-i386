@@ -2005,6 +2005,7 @@ real_choose_icon (GtkIconTheme      *self,
   IconTheme *theme = NULL;
   int i;
   IconKey key;
+  gboolean is_symbolic_preferred = FALSE;
 
   if (!ensure_valid_themes (self))
     return NULL;
@@ -2025,6 +2026,8 @@ real_choose_icon (GtkIconTheme      *self,
   if (icon)
     return icon;
 
+  is_symbolic_preferred = icon_name_is_symbolic (icon_names[0], -1);
+
   /* For symbolic icons, do a search in all registered themes first;
    * a theme that inherits them from a parent theme might provide
    * an alternative full-color version, but still expect the symbolic icon
@@ -2036,14 +2039,17 @@ real_choose_icon (GtkIconTheme      *self,
   for (l = self->themes; l; l = l->next)
     {
       theme = l->data;
-      for (i = 0; icon_names[i] && icon_name_is_symbolic (icon_names[i], -1); i++)
+      for (i = 0; icon_names[i]; i++)
         {
-          icon_name = gtk_string_set_lookup (&self->icons, icon_names[i]);
-          if (icon_name)
+          if (icon_name_is_symbolic (icon_names[i], -1) == is_symbolic_preferred)
             {
-              icon = theme_lookup_icon (theme, icon_name, size, scale);
-              if (icon)
-                goto out;
+              icon_name = gtk_string_set_lookup (&self->icons, icon_names[i]);
+              if (icon_name)
+                {
+                  icon = theme_lookup_icon (theme, icon_name, size, scale);
+                  if (icon)
+                    goto out;
+                }
             }
         }
     }
@@ -2054,12 +2060,15 @@ real_choose_icon (GtkIconTheme      *self,
 
       for (i = 0; icon_names[i]; i++)
         {
-          icon_name = gtk_string_set_lookup (&self->icons, icon_names[i]);
-          if (icon_name)
+          if (icon_name_is_symbolic (icon_names[i], -1) != is_symbolic_preferred)
             {
-              icon = theme_lookup_icon (theme, icon_name, size, scale);
-              if (icon)
-                goto out;
+              icon_name = gtk_string_set_lookup (&self->icons, icon_names[i]);
+              if (icon_name)
+                {
+                  icon = theme_lookup_icon (theme, icon_name, size, scale);
+                  if (icon)
+                    goto out;
+                }
             }
         }
     }

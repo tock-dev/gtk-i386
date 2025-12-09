@@ -757,6 +757,7 @@ path_paintable_get_compatibility (PathPaintable *self)
         case SHAPE_LINEAR_GRADIENT:
         case SHAPE_RADIAL_GRADIENT:
         case SHAPE_PATTERN:
+        case SHAPE_VIEW:
           compat = MAX (compat, GTK_4_22);
           continue;
         default:
@@ -835,6 +836,7 @@ path_paintable_get_path_by_id (PathPaintable *self,
         case SHAPE_LINEAR_GRADIENT:
         case SHAPE_RADIAL_GRADIENT:
         case SHAPE_PATTERN:
+        case SHAPE_VIEW:
           break;
         default:
           g_assert_not_reached ();
@@ -1029,6 +1031,7 @@ shape_is_graphical (Shape *shape)
     case SHAPE_LINEAR_GRADIENT:
     case SHAPE_RADIAL_GRADIENT:
     case SHAPE_PATTERN:
+    case SHAPE_VIEW:
       return FALSE;
     default:
       g_assert_not_reached ();
@@ -1057,6 +1060,7 @@ shape_is_group (Shape *shape)
     case SHAPE_LINEAR_GRADIENT:
     case SHAPE_RADIAL_GRADIENT:
     case SHAPE_PATTERN:
+    case SHAPE_VIEW:
       return FALSE;
     default:
       g_assert_not_reached ();
@@ -1088,6 +1092,37 @@ path_paintable_get_shape_by_id (PathPaintable *self,
                                 const char    *id)
 {
   return get_shape_by_id (self->svg->content, id);
+}
+
+GListModel *
+path_paintable_get_views (PathPaintable *self)
+{
+  GtkStringList *list;
+  const char **ids;
+
+  list = gtk_string_list_new (NULL);
+  ids = (const char **) g_hash_table_get_keys_as_array (self->svg->views, NULL);
+  for (unsigned int i = 0; ids[i]; i++)
+    gtk_string_list_append (list, ids[i]);
+  g_free (ids);
+
+  return G_LIST_MODEL (list);
+}
+
+const char *
+path_paintable_get_view (PathPaintable *self)
+{
+  return gtk_svg_get_view (self->svg);
+}
+
+void
+path_paintable_set_view (PathPaintable *self,
+                         const char    *id)
+{
+  gtk_svg_set_view (self->svg, id);
+
+  if (self->render_paintable)
+    gtk_svg_set_view (GTK_SVG (self->render_paintable), id);
 }
 
 /* }}} */

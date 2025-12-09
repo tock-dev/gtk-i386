@@ -2995,6 +2995,8 @@ gdk_surface_handle_event (GdkEvent *event)
   if (check_autohide (event))
     return TRUE;
 
+  if (!GDK_SURFACE_IS_MAPPED (surface))
+    return FALSE;
 
   if (gdk_event_get_event_type (event) == GDK_MOTION_NOTIFY)
     surface->request_motion = FALSE;

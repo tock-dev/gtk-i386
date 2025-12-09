@@ -5943,6 +5943,12 @@ struct {
     .has_gpa_attrs = 0,
     .has_color_stops = 0,
   },
+  { .name = "view",
+    .has_shapes = 0,
+    .never_rendered = 1,
+    .has_gpa_attrs = 0,
+    .has_color_stops = 0,
+  },
 };
 
 static gboolean
@@ -6154,7 +6160,7 @@ shape_has_attr (ShapeType type,
       return type == SHAPE_RADIAL_GRADIENT;
     case SHAPE_ATTR_VIEW_BOX:
     case SHAPE_ATTR_CONTENT_FIT:
-      return type == SHAPE_PATTERN;
+      return type == SHAPE_PATTERN || type == SHAPE_VIEW;
     default:
       return type != SHAPE_LINEAR_GRADIENT && type != SHAPE_RADIAL_GRADIENT;
     }
@@ -6298,6 +6304,7 @@ shape_get_path (Shape                 *shape,
     case SHAPE_LINEAR_GRADIENT:
     case SHAPE_RADIAL_GRADIENT:
     case SHAPE_PATTERN:
+    case SHAPE_VIEW:
       g_error ("Attempt to get the path of a %s", shape_types[shape->type].name);
       break;
     default:
@@ -6383,6 +6390,7 @@ shape_get_current_path (Shape                 *shape,
         case SHAPE_LINEAR_GRADIENT:
         case SHAPE_RADIAL_GRADIENT:
         case SHAPE_PATTERN:
+        case SHAPE_VIEW:
           g_error ("Attempt to get the path of a %s", shape_types[shape->type].name);
           break;
         default:
@@ -6442,6 +6450,7 @@ shape_get_current_path (Shape                 *shape,
         case SHAPE_LINEAR_GRADIENT:
         case SHAPE_RADIAL_GRADIENT:
         case SHAPE_PATTERN:
+        case SHAPE_VIEW:
         default:
           g_assert_not_reached ();
         }
@@ -6523,6 +6532,7 @@ shape_get_current_bounds (Shape                 *shape,
     case SHAPE_DEFS:
     case SHAPE_LINEAR_GRADIENT:
     case SHAPE_RADIAL_GRADIENT:
+    case SHAPE_VIEW:
       g_error ("Attempt to get the bounds of a %s", shape_types[shape->type].name);
       break;
     default:
@@ -11147,7 +11157,11 @@ start_element_cb (GMarkupParseContext  *context,
   data->current_shape = shape;
 
   if (shape->id)
-    g_hash_table_insert (data->shapes, shape->id, shape);
+    {
+      g_hash_table_insert (data->shapes, shape->id, shape);
+      if (shape->type == SHAPE_VIEW)
+        g_hash_table_insert (data->svg->views, shape->id, shape);
+    }
 }
 
 static void
@@ -13378,8 +13392,20 @@ gtk_svg_snapshot_with_weight (GtkSymbolicPaintable  *paintable,
   PaintContext paint_context;
   graphene_rect_t view_box;
   double sx, sy, tx, ty;
-  SvgViewBox *vb = (SvgViewBox *) self->view_box;
-  SvgContentFit *cf = (SvgContentFit *) self->content_fit;
+  SvgViewBox *vb;
+  SvgContentFit *cf;
+
+  if (self->view)
+    {
+      g_print ("using view %s\n", self->view->id);
+      vb = (SvgViewBox *) self->view->current[SHAPE_ATTR_VIEW_BOX];
+      cf = (SvgContentFit *) self->view->current[SHAPE_ATTR_CONTENT_FIT];
+    }
+  else
+    {
+      vb = (SvgViewBox *) self->view_box;
+      cf = (SvgContentFit *) self->content_fit;
+    }
 
   if (vb->unset)
     graphene_rect_init (&view_box, 0, 0, self->width, self->height);
@@ -13417,7 +13443,11 @@ gtk_svg_snapshot_with_weight (GtkSymbolicPaintable  *paintable,
   paint_context.current_time = self->current_time;
   paint_context.depth = 0;
 
+  /* FIXME: check overflow attribute */
+  gtk_snapshot_push_clip (snapshot, &self->viewport);
+
   gtk_snapshot_save (snapshot);
+
   gtk_snapshot_translate (snapshot, &GRAPHENE_POINT_INIT (tx, ty));
   gtk_snapshot_scale (snapshot, sx, sy);
 
@@ -13428,6 +13458,8 @@ gtk_svg_snapshot_with_weight (GtkSymbolicPaintable  *paintable,
   gtk_snapshot_pop (snapshot);
 
   gtk_snapshot_restore (snapshot);
+
+  gtk_snapshot_pop (snapshot);
 
   if (self->advance_after_snapshot)
     {
@@ -13982,7 +14014,12 @@ void
 gtk_svg_set_view (GtkSvg     *svg,
                   const char *id)
 {
-  Shape *view = g_hash_table_lookup (svg->views, id);
+  Shape *view;
+
+  if (!id)
+    return;
+
+  view = g_hash_table_lookup (svg->views, id);
 
   if (view)
     {

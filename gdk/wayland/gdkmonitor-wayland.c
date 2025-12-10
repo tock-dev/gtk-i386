@@ -43,9 +43,26 @@ gdk_wayland_monitor_finalize (GObject *object)
 }
 
 static void
+gdk_wayland_monitor_get_workarea (GdkMonitor   *monitor,
+                                  GdkRectangle *dest)
+{
+  gdk_monitor_get_geometry (monitor, dest);
+
+  /**
+   * Widgets rely on work area in numerous functions and
+   * fallback to geometry if missing leading to them rendered
+   * outside of the main window on multi-monitor systems, thus
+   * set the work area as it meant to be, to the current monitor.
+   */
+  dest->x = 0;
+  dest->y = 0;
+}
+
+static void
 gdk_wayland_monitor_class_init (GdkWaylandMonitorClass *class)
 {
   G_OBJECT_CLASS (class)->finalize = gdk_wayland_monitor_finalize;
+  GDK_MONITOR_CLASS (class)->get_workarea = gdk_wayland_monitor_get_workarea;
 }
 
 /**

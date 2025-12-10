@@ -1041,14 +1041,14 @@ if os_unix
 endif
 
 
-if not meson.is_cross_build()
+if meson.can_run_host_binaries()
   gnome.post_install(
     glib_compile_schemas: true,
     gtk_update_icon_cache: get_option('build-demos'),
     update_mime_database: os_linux,
   )
 else
-  message('Not executing post-install steps automatically when cross compiling')
+  message('Not executing post-install steps when unable to run host binaries')
 endif
 
 if not meson.is_subproject()

@@ -2174,7 +2174,8 @@ gsk_texture_scale_node_get_filter (const GskRenderNode *node)
  *
  * Note that further scaling and other transformations which are
  * applied to the node will apply linear filtering to the resulting
- * texture, as usual.
+ * texture, as usual. This includes surface scale factor, which you
+ * can compensate by applying inverse scale transformation.
  *
  * This node is intended for tight control over scaling applied
  * to a texture, such as in image editors and requires the

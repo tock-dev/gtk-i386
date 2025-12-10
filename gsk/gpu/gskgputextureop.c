@@ -68,4 +68,15 @@ gsk_gpu_texture_op (GskGpuFrame             *frame,
 
   gsk_gpu_rect_to_float (image->coverage ? image->coverage : image->bounds, offset, instance->rect);
   gsk_gpu_rect_to_float (image->bounds, offset, instance->tex_rect);
+
+  if (image->sampler == GSK_GPU_SAMPLER_NEAREST)
+    {
+      /* In case of nearest filtering, snap positions to pixel grid
+       * to avoid artifacts on borders
+       */
+      instance->rect[0] = roundf (instance->rect[0]);
+      instance->rect[1] = roundf (instance->rect[1]);
+      instance->tex_rect[0] = roundf (instance->tex_rect[0]);
+      instance->tex_rect[1] = roundf (instance->tex_rect[1]);
+    }
 }

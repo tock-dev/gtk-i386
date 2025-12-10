@@ -2347,7 +2347,7 @@ gsk_gpu_node_processor_add_texture_scale_node (GskGpuNodeProcessor *self,
   image = gsk_gpu_lookup_texture (self->frame, self->ccs, texture, need_mipmap, &image_cs);
 
   need_offscreen = image == NULL ||
-                   self->modelview != NULL ||
+                   gsk_transform_get_fine_category (self->modelview) < GSK_FINE_TRANSFORM_CATEGORY_2D_DIHEDRAL ||
                    !graphene_vec2_equal (&self->scale, graphene_vec2_one ());
 
   if (need_offscreen)

@@ -6806,9 +6806,14 @@ gtk_window_update_pointer_focus_on_state_change (GtkWindow *window,
           gtk_pointer_focus_unref (focus);
           g_list_free (l);
         }
-      else if (focus->target == widget ||
-               gtk_widget_is_ancestor (focus->target, widget))
+      else if (_gtk_widget_get_mapped (GTK_WIDGET (gtk_widget_get_native (widget))) &&
+               (focus->target == widget ||
+                gtk_widget_is_ancestor (focus->target, widget)))
         {
+          /* If the widget's native surface is also getting unmapped,
+           * delay crossing events to the actual surface leave/enter events;
+           * otherwise, synthesize a crossing event now.
+           */
           GtkWidget *old_target;
 
           old_target = g_object_ref (focus->target);

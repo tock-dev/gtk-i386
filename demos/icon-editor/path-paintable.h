@@ -148,5 +148,10 @@ const graphene_rect_t *
 void            path_paintable_changed             (PathPaintable   *self);
 void            path_paintable_paths_changed       (PathPaintable   *self);
 
+GListModel     *path_paintable_get_views           (PathPaintable   *self);
+const char     *path_paintable_get_view            (PathPaintable   *self);
+void            path_paintable_set_view            (PathPaintable   *self,
+                                                    const char      *id);
+
 Shape *         shape_duplicate                    (Shape *shape);
 gboolean        shape_is_graphical                 (Shape *shape);

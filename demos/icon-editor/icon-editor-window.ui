@@ -749,6 +749,34 @@
                                       <object class="GtkLabel">
                                         <property name="xalign">1</property>
                                         <property name="valign">baseline</property>
+                                        <property name="label" translatable="yes">_View</property>
+                                        <property name="use-underline">1</property>
+                                        <property name="mnemonic-widget">view</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkDropDown" id="view">
+                                        <property name="halign">end</property>
+                                        <property name="valign">baseline</property>
+                                        <property name="hexpand">1</property>
+                                        <property name="model">
+                                          <object class="GtkStringList">
+                                            <items>
+                                              <item>Empty</item>
+                                            </items>
+                                          </object>
+                                        </property>
+                                        <signal name="notify::selected" handler="view_changed" swapped="yes"/>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkBox">
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <property name="xalign">1</property>
+                                        <property name="valign">baseline</property>
                                         <property name="label" translatable="yes">_State</property>
                                         <property name="use-underline">1</property>
                                         <property name="mnemonic-widget">state</property>

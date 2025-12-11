@@ -59,6 +59,7 @@ struct _IconEditorWindow
     };
   };
   PaintableEditor *paintable_editor;
+  GtkDropDown *view;
 };
 
 struct _IconEditorWindowClass
@@ -250,6 +251,17 @@ show_error (IconEditorWindow *self,
   gtk_alert_dialog_show (alert, GTK_WINDOW (self));
 }
 
+static void
+view_changed (IconEditorWindow *self)
+{
+  GtkStringObject *obj;
+
+  obj = (GtkStringObject *) gtk_drop_down_get_selected_item (self->view);
+
+  if (obj)
+    path_paintable_set_view (self->paintable, gtk_string_object_get_string (obj));
+}
+
 /* }}} */
 /* {{{ Opening/Importing */
 
@@ -400,6 +412,9 @@ icon_editor_window_set_paintable (IconEditorWindow *self,
 
   if (self->paintable)
     {
+      GListModel *views;
+      const char *view;
+
       icon_editor_window_set_state (self, path_paintable_get_state (paintable));
       icon_editor_window_set_initial_state (self, path_paintable_get_state (paintable));
 
@@ -410,6 +425,26 @@ icon_editor_window_set_paintable (IconEditorWindow *self,
 
       if (path_paintable_get_n_paths (self->paintable) > 0)
         icon_editor_window_set_show_controls (self, TRUE);
+
+      views = path_paintable_get_views (self->paintable);
+      gtk_drop_down_set_model (self->view, views);
+      view = path_paintable_get_view (self->paintable);
+
+      if (view)
+        {
+          for (unsigned int i = 0; i < g_list_model_get_n_items (views); i++)
+            {
+              GtkStringObject *obj = (GtkStringObject *) g_list_model_get_item (views, i);
+
+              if (strcmp (view, gtk_string_object_get_string (obj)) == 0)
+                {
+                  gtk_drop_down_set_selected (self->view, i);
+                  break;
+                }
+            }
+        }
+
+      g_object_unref (views);
     }
 
   g_clear_object (&self->orig_paintable);
@@ -1203,9 +1238,11 @@ icon_editor_window_class_init (IconEditorWindowClass *class)
   gtk_widget_class_bind_template_child (widget_class, IconEditorWindow, image24_14);
   gtk_widget_class_bind_template_child (widget_class, IconEditorWindow, image24_15);
   gtk_widget_class_bind_template_child (widget_class, IconEditorWindow, paintable_editor);
+  gtk_widget_class_bind_template_child (widget_class, IconEditorWindow, view);
 
   gtk_widget_class_bind_template_callback (widget_class, show_open_filechooser);
   gtk_widget_class_bind_template_callback (widget_class, toggle_controls);
+  gtk_widget_class_bind_template_callback (widget_class, view_changed);
 }
 
 /* }}} */

@@ -11261,6 +11261,16 @@ get_auto_child_hash (GtkWidget *widget,
   return auto_child_hash;
 }
 
+static void
+destroy_auto_child_hash (GtkWidget *widget,
+                         GType      type)
+{
+  GHashTable *auto_children;
+
+  auto_children = (GHashTable *) g_object_get_qdata (G_OBJECT (widget), quark_auto_children);
+  g_hash_table_remove (auto_children, GSIZE_TO_POINTER (type));
+}
+
 /**
  * gtk_widget_init_template:
  * @widget: a widget
@@ -11442,6 +11452,9 @@ gtk_widget_dispose_template (GtkWidget *widget,
           (* (gpointer *) field_p) = NULL;
         }
     }
+
+  if (auto_child_hash)
+    destroy_auto_child_hash (widget, widget_type);
 }
 
 /**

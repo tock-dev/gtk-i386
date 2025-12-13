@@ -358,6 +358,7 @@ update_window_buttons (GtkWindowControls *self)
           gtk_widget_set_can_focus (button, FALSE);
           gtk_actionable_set_action_name (GTK_ACTIONABLE (button),
                                           "window.minimize");
+          gtk_widget_set_tooltip_text (button, _("Minimize"));
           gtk_accessible_update_property (GTK_ACCESSIBLE (button),
                                           GTK_ACCESSIBLE_PROPERTY_LABEL, _("Minimize"),
                                           GTK_ACCESSIBLE_PROPERTY_DESCRIPTION,
@@ -368,9 +369,10 @@ update_window_buttons (GtkWindowControls *self)
                resizable &&
                is_sovereign_window)
         {
-          const char *icon_name;
+          const char *icon_name, *tooltip_text;
 
           icon_name = maximized ? "window-restore-symbolic" : "window-maximize-symbolic";
+          tooltip_text = maximized ? _("Restore") : _("Maximize");
           button = gtk_button_new ();
           gtk_widget_add_css_class (button, "maximize");
           /* The icon is not relevant for accessibility purposes */
@@ -385,6 +387,7 @@ update_window_buttons (GtkWindowControls *self)
           gtk_widget_set_can_focus (button, FALSE);
           gtk_actionable_set_action_name (GTK_ACTIONABLE (button),
                                           "window.toggle-maximized");
+          gtk_widget_set_tooltip_text (button, tooltip_text);
           gtk_accessible_update_property (GTK_ACCESSIBLE (button),
                                           GTK_ACCESSIBLE_PROPERTY_LABEL, _("Maximize"),
                                           GTK_ACCESSIBLE_PROPERTY_DESCRIPTION,
@@ -408,6 +411,7 @@ update_window_buttons (GtkWindowControls *self)
           gtk_widget_set_can_focus (button, FALSE);
           gtk_actionable_set_action_name (GTK_ACTIONABLE (button),
                                           "window.close");
+          gtk_widget_set_tooltip_text (button, _("Close"));
           gtk_accessible_update_property (GTK_ACCESSIBLE (button),
                                           GTK_ACCESSIBLE_PROPERTY_LABEL, _("Close"),
                                           GTK_ACCESSIBLE_PROPERTY_DESCRIPTION,

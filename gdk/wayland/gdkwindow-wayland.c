@@ -2227,6 +2227,10 @@ G_GNUC_END_IGNORE_DEPRECATIONS
   if (impl->hint == GDK_WINDOW_TYPE_HINT_DIALOG)
     _gdk_wayland_screen_add_orphan_dialog (window);
 
+  gdk_window_set_geometry_hints (window,
+                                 &impl->geometry_hints,
+                                 impl->geometry_mask);
+
   wl_surface_commit (impl->display_server.wl_surface);
 }
 

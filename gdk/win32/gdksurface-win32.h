@@ -63,65 +63,6 @@ struct _GdkRectangleDouble
 
 typedef struct _GdkRectangleDouble GdkRectangleDouble;
 
-enum _GdkW32WindowDragOp
-{
-  GDK_WIN32_DRAGOP_NONE = 0,
-  GDK_WIN32_DRAGOP_RESIZE,
-  GDK_WIN32_DRAGOP_MOVE,
-  GDK_WIN32_DRAGOP_COUNT
-};
-
-typedef enum _GdkW32WindowDragOp GdkW32WindowDragOp;
-
-struct _GdkW32DragMoveResizeContext
-{
-  /* The surface that is being moved/resized */
-  GdkSurface         *surface;
-
-  /* The kind of drag-operation going on. */
-  GdkW32WindowDragOp op;
-
-  /* The edge that was grabbed for resizing. Not used for moving. */
-  GdkSurfaceEdge      edge;
-
-  /* The device used to initiate the op.
-   * We grab it at the beginning and ungrab it at the end.
-   */
-  GdkDevice         *device;
-
-  /* The button pressed down to initiate the op.
-   * The op will be canceled only when *this* button
-   * is released.
-   */
-  int                button;
-
-  /* Initial cursor position when the operation began.
-   * Current cursor position is subtracted from it to find how far
-   * to move surface border(s).
-   */
-  int                start_root_x;
-  int                start_root_y;
-
-  /* Last processed cursor position. Values are divided by the surface
-   * scale.
-   */
-  int                current_root_x;
-  int                current_root_y;
-
-  /* Initial surface HWND rectangle (position and size).
-   * The surface is resized/moved relative to this (see start_root_*).
-   */
-  RECT               start_rect;
-
-  /* Not used */
-  guint32            timestamp;
-
-  /* The cursor we should use while the operation is running. */
-  GdkCursor         *cursor;
-};
-
-typedef struct _GdkW32DragMoveResizeContext GdkW32DragMoveResizeContext;
-
 /* defined in gdkdrop-win32.c */
 typedef struct _drop_target_context drop_target_context;
 
@@ -161,27 +102,11 @@ struct _GdkWin32Surface
 
   guint inhibit_configure : 1;
 
-  /* If TRUE, the @temp_styles is set to the styles that were temporarily
-   * added to this surface.
-   */
-  guint have_temp_styles : 1;
-
-  /* If TRUE, the surface is in the process of being maximized.
-   * This is set by WM_SYSCOMMAND and by gdk_win32_surface_maximize (),
-   * and is unset when WM_WINDOWPOSCHANGING is handled.
-   */
-  guint maximizing : 1;
-
-  GdkW32DragMoveResizeContext drag_move_resize_context;
+  /* Enable shadow decorations? */
+  guint shadow_decorated : 1;
 
   /* Enable all decorations? */
   gboolean decorate_all;
-
-  /* Temporary styles that this HWND got for the purpose of
-   * handling WM_SYSMENU.
-   * They are removed at the first opportunity (usually WM_INITMENU).
-   */
-  LONG_PTR temp_styles;
 
   /* scale of surface on HiDPI */
   int surface_scale;

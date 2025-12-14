@@ -3130,6 +3130,26 @@ gtk_window_is_composited (GtkWindow *window)
   return gdk_display_is_rgba (display) && gdk_display_is_composited (display);
 }
 
+gboolean
+_gtk_is_solid_csd (GtkWindow *window)
+{
+  GtkWindowPrivate *priv = gtk_window_get_instance_private (window);
+  const char *csd_env;
+
+  if (!priv->decorated)
+    return FALSE;
+
+  csd_env = g_getenv ("GTK_SOLID_CSD");
+
+#ifdef GDK_WINDOWING_WIN32
+  if (g_strcmp0 (csd_env, "0") != 0 &&
+      GDK_IS_WIN32_DISPLAY (gtk_widget_get_display (GTK_WIDGET (window))))
+    return TRUE;
+#endif
+
+  return (g_strcmp0 (csd_env, "1") == 0);
+}
+
 static gboolean
 gtk_window_supports_client_shadow (GtkWindow *window)
 {
@@ -3138,7 +3158,7 @@ gtk_window_supports_client_shadow (GtkWindow *window)
 
   display = priv->display;
 
-  return gdk_display_supports_shadow_width (display);
+  return !_gtk_is_solid_csd(window) && gdk_display_supports_shadow_width (display);
 }
 
 static void
@@ -3148,7 +3168,7 @@ gtk_window_enable_csd (GtkWindow *window)
   GtkWidget *widget = GTK_WIDGET (window);
 
   /* We need a visual with alpha for rounded corners */
-  if (gtk_window_is_composited (window))
+  if (gtk_window_is_composited (window) && !_gtk_is_solid_csd(window))
     {
       gtk_widget_add_css_class (widget, "csd");
     }
@@ -4518,6 +4538,8 @@ gtk_window_realize (GtkWidget *widget)
   if (priv->renderer == NULL)
     priv->renderer = gsk_renderer_new_for_surface_full (surface, TRUE);
 
+  if (_gtk_is_solid_csd (window))
+    gdk_toplevel_set_shadow_decorated (GDK_TOPLEVEL (priv->surface), TRUE);
   g_signal_connect_swapped (surface, "notify::state", G_CALLBACK (surface_state_changed), widget);
   g_signal_connect_swapped (surface, "notify::mapped", G_CALLBACK (surface_state_changed), widget);
   g_signal_connect_swapped (surface, "notify::capabilities", G_CALLBACK (update_window_actions), widget);

@@ -3928,18 +3928,11 @@ paned {
   }
 
   &.horizontal > separator {
+    margin: 0 -8px 0 -8px;
+    padding: 0 8px 0 8px;
     background-repeat: repeat-y;
-
-    &:dir(ltr) {
-      margin: 0 -8px 0 0;
-      padding: 0 8px 0 0;
-      background-position: left;
-    }
-    &:dir(rtl) {
-      margin: 0 0 0 -8px;
-      padding: 0 0 0 8px;
-      background-position: right;
-    }
+    background-position: left;
+    border: 1px solid pink;
 
     &.wide {
       margin: 0;
@@ -3950,10 +3943,11 @@ paned {
   }
 
   &.vertical > separator {
-    margin: 0 0 -8px 0;
-    padding: 0 0 8px 0;
+    margin: -8px 0 -8px 0;
+    padding: 8px 0 8px 0;
     background-repeat: repeat-x;
     background-position: top;
+    border: 1px solid pink;
 
     &.wide {
       margin: 0;

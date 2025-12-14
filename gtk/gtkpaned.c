@@ -40,6 +40,8 @@
 #include "gtkbuildable.h"
 #include "gtkbuilderprivate.h"
 
+#include "gsk/gsktransformprivate.h"
+
 #include <math.h>
 
 /**
@@ -127,8 +129,6 @@
  * gtk_widget_set_size_request (frame2, 50, -1);
  * ```
  */
-
-#define HANDLE_EXTRA_SIZE 6
 
 typedef struct _GtkPanedClass   GtkPanedClass;
 
@@ -301,18 +301,30 @@ add_move_binding (GtkWidgetClass  *widget_class,
 }
 
 static void
-get_handle_area (GtkPaned        *paned,
-                 graphene_rect_t *area)
+get_handle_input_area (GtkPaned        *paned,
+                       graphene_rect_t *area)
 {
-  int extra = 0;
-
   if (!gtk_widget_compute_bounds (paned->handle_widget, GTK_WIDGET (paned), area))
-    return;
+    graphene_rect_init_from_rect (area, graphene_rect_zero ());
+}
 
-  if (!gtk_paned_get_wide_handle (paned))
-    extra = HANDLE_EXTRA_SIZE;
+static void
+get_handle_layout_area (GtkPaned        *paned,
+                        graphene_rect_t *area)
+{
+  graphene_matrix_t transform;
+  GtkCssBoxes boxes;
 
-  graphene_rect_inset (area, - extra, - extra);
+  if (!gtk_widget_compute_transform (paned->handle_widget, GTK_WIDGET (paned), &transform))
+    {
+      graphene_rect_init_from_rect (area, graphene_rect_zero ());
+      return;
+    }
+
+  gtk_css_boxes_init (&boxes, paned->handle_widget);
+  gsk_matrix_transform_bounds (&transform,
+                               gtk_css_boxes_get_margin_rect (&boxes),
+                               area);
 }
 
 static void
@@ -887,7 +899,7 @@ initiates_touch_drag (GtkPaned *paned,
   graphene_rect_t handle_area;
 
 #define TOUCH_EXTRA_AREA_WIDTH 50
-  get_handle_area (paned, &handle_area);
+  get_handle_input_area (paned, &handle_area);
 
   if (paned->orientation == GTK_ORIENTATION_HORIZONTAL)
     {
@@ -939,7 +951,7 @@ gesture_drag_begin_cb (GtkGestureDrag *gesture,
   is_touch = (gdk_event_get_event_type (event) == GDK_TOUCH_BEGIN ||
               gdk_device_get_source (device) == GDK_SOURCE_TOUCHSCREEN);
 
-  get_handle_area (paned, &handle_area);
+  get_handle_input_area (paned, &handle_area);
 
   if ((is_touch && GTK_GESTURE (gesture) == paned->drag_gesture) ||
       (!is_touch && GTK_GESTURE (gesture) == paned->pan_gesture))
@@ -952,13 +964,14 @@ gesture_drag_begin_cb (GtkGestureDrag *gesture,
   if (graphene_rect_contains_point (&handle_area, &(graphene_point_t){start_x, start_y}) ||
       (is_touch && initiates_touch_drag (paned, start_x, start_y)))
     {
-      if (paned->orientation == GTK_ORIENTATION_HORIZONTAL)
-        paned->drag_pos = start_x - handle_area.origin.x;
-      else
-        paned->drag_pos = start_y - handle_area.origin.y;
+      graphene_rect_t area;
 
-      if (!gtk_paned_get_wide_handle (paned))
-        paned->drag_pos -= HANDLE_EXTRA_SIZE;
+      get_handle_layout_area (paned, &area);
+
+      if (paned->orientation == GTK_ORIENTATION_HORIZONTAL)
+        paned->drag_pos = start_x - area.origin.x;
+      else
+        paned->drag_pos = start_y - area.origin.y;
 
       paned->panning = TRUE;
 

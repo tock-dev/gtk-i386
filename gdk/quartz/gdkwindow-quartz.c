@@ -1194,8 +1194,41 @@ gdk_window_quartz_show (GdkWindow *window, gboolean already_mapped)
         }
 
       _gdk_quartz_events_send_map_event (window);
+
+      /* Fix for menu height scaling on standard DPI monitors in mixed DPI environments */
+      if (window->window_type == GDK_WINDOW_TEMP && impl->toplevel)
+        {
+          GdkDisplay *display = gdk_window_get_display(window);
+          GdkMonitor *monitor = gdk_display_get_monitor_at_window(display, window);
+          gint scale_factor = gdk_monitor_get_scale_factor(monitor);
+
+          /* Only fix on low-DPI monitors */
+          if (scale_factor == 1)
+            {
+              if (!g_object_get_data (G_OBJECT (window), "quartz-menu-height-fixed"))
+                {
+                  NSWindow *nswindow = impl->toplevel;
+                  NSRect frame = [nswindow frame];
+                  NSView *contentView = [nswindow contentView];
+
+                  /* Apply a modest adjustment to compensate for the 1/4 height issue */
+                  /* Using a tiny multiplier is enough since macOS corrects itself after first display */
+                  frame.size.height *= 1.01;
+
+                  /* Resize the window with animation disabled */
+                  [nswindow setFrame:frame display:YES animate:NO];
+
+                  /* Force layout update */
+                  [contentView setNeedsDisplay:YES];
+
+                  /* Mark as fixed */
+                  g_object_set_data (G_OBJECT (window), "quartz-menu-height-fixed",
+                                    GINT_TO_POINTER (TRUE));
+                }
+            }
+        }
     }
-  else
+    else
     {
       [impl->view setHidden:NO];
     }

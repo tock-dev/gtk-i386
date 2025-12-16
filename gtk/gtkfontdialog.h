@@ -133,4 +133,13 @@ gboolean        gtk_font_dialog_choose_font_and_features_finish
                                                 PangoLanguage        **language,
                                                 GError               **error);
 
+GDK_AVAILABLE_IN_4_20
+void		gtk_font_dialog_set_language_filter
+                                             	(GtkFontDialog *dialog, 
+                                              	 PangoLanguage *lang);
+
+GDK_AVAILABLE_IN_4_20
+PangoLanguage *	gtk_font_dialog_get_language_filter (
+                                              	 GtkFontDialog *dialog);
+                                              	
 G_END_DECLS

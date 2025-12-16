@@ -961,6 +961,49 @@ gtk_font_dialog_choose_font_and_features_finish (GtkFontDialog         *self,
   return font_result != NULL;
 }
 
+/**
+ * gtk_font_dialog_set_language_filter:
+ * @self: a font dialog
+ * @lang: (nullable): the language
+ *
+ * Sets the language for which the font features are selected.
+ *
+ * This is an alias for [method@Gtk.FontDialog.set_language].
+ *
+ * Since: 4.20
+ */
+void
+gtk_font_dialog_set_language_filter (GtkFontDialog *dialog,
+				     PangoLanguage *lang)
+{
+  g_return_if_fail (GTK_IS_FONT_DIALOG (dialog));
+  
+  if (lang && pango_language_to_string(lang)[0] == '\0')
+    lang = NULL;
+    
+  gtk_font_dialog_set_language (dialog, lang);
+}
+
+/**
+ * gtk_font_dialog_get_language_filter:
+ * @self: a font dialog
+ *
+ * Returns the language for which font features are applied.
+ *
+ * This is an alias for [method@Gtk.FontDialog.get_language].
+ *
+ * Returns: (nullable): the language for font features
+ *
+ * Since: 4.20
+ */
+PangoLanguage *
+gtk_font_dialog_get_language_filter (GtkFontDialog *dialog)
+{
+  g_return_val_if_fail (GTK_IS_FONT_DIALOG (dialog), NULL);
+  return gtk_font_dialog_get_language (dialog);
+}
+
+
 /* }}} */
 
 /* vim:set foldmethod=marker: */

@@ -284,6 +284,10 @@ gtk_file_filter_class_init (GtkFileFilterClass *class)
                           G_TYPE_STRV,
                           G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
+  gtk_builder_set_strv_serialization (props[PROP_PATTERNS],
+                                      GTK_BUILDER_STRV_SERIALIZATION_WORDS);
+
+
   /**
    * GtkFileFilter:mime-types:
    *
@@ -296,6 +300,9 @@ gtk_file_filter_class_init (GtkFileFilterClass *class)
                           G_TYPE_STRV,
                           G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
+  gtk_builder_set_strv_serialization (props[PROP_MIME_TYPES],
+                                      GTK_BUILDER_STRV_SERIALIZATION_WORDS);
+
   /**
    * GtkFileFilter:suffixes:
    *
@@ -307,6 +314,9 @@ gtk_file_filter_class_init (GtkFileFilterClass *class)
       g_param_spec_boxed ("suffixes", NULL, NULL,
                           G_TYPE_STRV,
                           G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
+
+  gtk_builder_set_strv_serialization (props[PROP_SUFFIXES],
+                                      GTK_BUILDER_STRV_SERIALIZATION_WORDS);
 
   g_object_class_install_properties (gobject_class, NUM_PROPERTIES, props);
 }

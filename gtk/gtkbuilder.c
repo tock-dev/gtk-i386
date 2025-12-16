@@ -399,6 +399,7 @@
 #include "gtktypebuiltins.h"
 #include "gtkiconthemeprivate.h"
 #include "gtkdebug.h"
+#include "gtkfilefilter.h"
 
 
 static void gtk_builder_finalize       (GObject         *object);
@@ -2161,6 +2162,111 @@ _gtk_builder_finish (GtkBuilder  *builder,
          gtk_builder_connect_signals (builder, error);
 }
 
+static char **
+split_words (const char *value)
+{
+  const char *start = NULL;
+  GPtrArray *result;
+  const char *s;
+
+  result = g_ptr_array_new ();
+
+  for (s = value; *s; s = g_utf8_next_char (s))
+    {
+      gunichar c = g_utf8_get_char (s);
+
+      if (start == NULL)
+        {
+          if (g_unichar_isalnum (c) || g_unichar_ismark (c))
+            start = s;
+        }
+      else
+        {
+          if (!g_unichar_isalnum (c) && !g_unichar_ismark (c))
+            {
+              g_ptr_array_add (result, g_strndup (start, s - start));
+              start = NULL;
+            }
+        }
+    }
+
+  if (start)
+    g_ptr_array_add (result, g_strndup (start, s - start));
+
+  g_ptr_array_add (result, NULL);
+
+  return (char **) g_ptr_array_free (result, FALSE);
+}
+
+static
+G_DEFINE_QUARK (gtk-builder-strv-serialization, gtk_builder_strv_serialization);
+
+static GtkBuilderStrvSerialization
+gtk_builder_get_strv_serialization (GParamSpec *pspec)
+{
+  return (GtkBuilderStrvSerialization)
+      GPOINTER_TO_UINT (g_param_spec_get_qdata (pspec, gtk_builder_strv_serialization_quark ()));
+}
+
+/**
+ * GtkBuilderStrvSerialization:
+ * @GTK_BUILDER_STRV_SERIALIZATION_LINES: Values are separated by newlines,
+ *   with no whitespace trimming. This is the default behavior.
+ * @GTK_BUILDER_STRV_SERIALIZATION_WORDS: The string is split into words
+ *   and whitespace between values is trimmed. This is suitable for
+ *   properties where individual values cannot contain whitespace.
+ *
+ * The possible ways for GtkBuilder to parse `GStrv` property values.
+ *
+ * With @GTK_BUILDER_STRV_SERIALIZATION_WORDS, this ui file fragment:
+ *
+ *       <property name="prop">value1 value2 value3</property>
+ *
+ * or
+ *
+ *       <property name="prop">
+ *         value1
+ *         value2
+ *         value3
+ *       </property>
+ *
+ *  will both yield the following property value: `["value1", "value2", "value3"]`.
+ *
+ *  With @GTK_BUILDER_STRV_SERIALIZATION_LINES, the ui file would need
+ *  to look like this:
+ *
+ *        <property name="prop">value1
+ *      value2
+ *      value3</property>
+ *
+ *  to achieve the same result.
+ *
+ * Since: 4.18
+ */
+
+/**
+ * gtk_builder_set_strv_serialization:
+ * @pspec: a paramspec for a `GStrv` property
+ * @serialization: the desired serialization
+ *
+ * Instructs `GtkBuilder` how to parse `GStrv` property values.
+ *
+ * This function must be called in class_init when registering
+ * properties.
+ *
+ * Since: 4.18
+ */
+void
+gtk_builder_set_strv_serialization (GParamSpec                  *pspec,
+                                    GtkBuilderStrvSerialization  serialization)
+{
+  g_return_if_fail (G_IS_PARAM_SPEC_BOXED (pspec));
+  g_return_if_fail (G_PARAM_SPEC_VALUE_TYPE (pspec) == G_TYPE_STRV);
+
+  g_param_spec_set_qdata (pspec, gtk_builder_strv_serialization_quark (),
+                          GUINT_TO_POINTER (serialization));
+}
+
 /**
  * gtk_builder_value_from_string:
  * @builder: a `GtkBuilder`
@@ -2233,6 +2339,28 @@ gtk_builder_value_from_string (GtkBuilder   *builder,
         return FALSE;
       g_value_take_variant (value, variant);
       return TRUE;
+    }
+
+  if (G_IS_PARAM_SPEC_BOXED (pspec))
+    {
+      if (G_PARAM_SPEC_VALUE_TYPE (pspec) == G_TYPE_STRV)
+        {
+          g_value_init (value, G_TYPE_STRV);
+
+          switch (gtk_builder_get_strv_serialization (pspec))
+            {
+            case GTK_BUILDER_STRV_SERIALIZATION_LINES:
+              g_value_take_boxed (value, g_strsplit (string, "\n", 0));
+              break;
+            case GTK_BUILDER_STRV_SERIALIZATION_WORDS:
+              g_value_take_boxed (value, split_words (string));
+              break;
+            default:
+              g_assert_not_reached ();
+            }
+
+          return TRUE;
+        }
     }
 
   return gtk_builder_value_from_string_type (builder,
@@ -2518,11 +2646,6 @@ gtk_builder_value_from_string_type (GtkBuilder   *builder,
                            string);
               ret = FALSE;
             }
-        }
-      else if (G_VALUE_HOLDS (value, G_TYPE_STRV))
-        {
-          char **vector = g_strsplit (string, "\n", 0);
-          g_value_take_boxed (value, vector);
         }
       else if (G_VALUE_HOLDS (value, G_TYPE_BYTES))
         {

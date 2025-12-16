@@ -1640,6 +1640,9 @@ gtk_widget_class_init (GtkWidgetClass *klass)
                           G_TYPE_STRV,
                           GTK_PARAM_READWRITE);
 
+  gtk_builder_set_strv_serialization (widget_props[PROP_CSS_CLASSES],
+                                      GTK_BUILDER_STRV_SERIALIZATION_WORDS);
+
   /**
    * GtkWidget:layout-manager:
    *

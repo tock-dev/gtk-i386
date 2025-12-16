@@ -88,6 +88,135 @@ window (void)
   g_assert_true (finalized);
 }
 
+typedef struct
+{
+  GtkNotebook *notebook;
+  GtkWidget *child;
+  GtkWidget *tab_label;
+  GtkWidget *menu_label;
+
+  gboolean notebook_finalized;
+  gboolean child_finalized;
+  gboolean tab_label_finalized;
+  gboolean menu_label_finalized;
+} NotebookPageTest;
+
+static void
+notebook_page_test_setup (NotebookPageTest *data)
+{
+  data->notebook = GTK_NOTEBOOK (gtk_notebook_new ());
+  g_assert_true (g_object_is_floating (data->notebook));
+  g_object_ref_sink (data->notebook);
+
+  data->notebook_finalized = FALSE;
+  g_object_weak_ref (G_OBJECT (data->notebook), check_finalized, &data->notebook_finalized);
+
+  data->child = gtk_label_new ("child");
+  g_assert_true (g_object_is_floating (data->child));
+  g_object_ref_sink (data->child);
+
+  data->child_finalized = FALSE;
+  g_object_weak_ref (G_OBJECT (data->child), check_finalized, &data->child_finalized);
+
+  data->tab_label = gtk_label_new ("tab label");
+  g_assert_true (g_object_is_floating (data->tab_label));
+  g_object_ref_sink (data->tab_label);
+
+  data->tab_label_finalized = FALSE;
+  g_object_weak_ref (G_OBJECT (data->tab_label), check_finalized, &data->tab_label_finalized);
+
+  data->menu_label = gtk_label_new ("menu label");
+  g_assert_true (g_object_is_floating (data->menu_label));
+  g_object_ref_sink (data->menu_label);
+
+  data->menu_label_finalized = FALSE;
+  g_object_weak_ref (G_OBJECT (data->menu_label), check_finalized, &data->menu_label_finalized);
+}
+
+static void
+notebook_append_page (void)
+{
+  NotebookPageTest data;
+  notebook_page_test_setup (&data);
+
+  gtk_notebook_append_page_menu (data.notebook, data.child, data.tab_label, data.menu_label);
+
+  g_object_unref (data.child);
+  g_assert_false (data.child_finalized);
+
+  g_object_unref (data.tab_label);
+  g_assert_false (data.tab_label_finalized);
+
+  g_object_unref (data.menu_label);
+  g_assert_false (data.menu_label_finalized);
+
+  gtk_notebook_remove_page (data.notebook, -1);
+
+  g_assert_true (data.child_finalized);
+  g_assert_true (data.tab_label_finalized);
+  g_assert_true (data.menu_label_finalized);
+
+  g_object_unref (data.notebook);
+  g_assert_true (data.notebook_finalized);
+}
+
+static void
+notebook_set_labels (void)
+{
+  NotebookPageTest data;
+  notebook_page_test_setup (&data);
+
+  gtk_notebook_append_page (data.notebook, data.child, NULL);
+  gtk_notebook_set_tab_label (data.notebook, data.child, data.tab_label);
+  gtk_notebook_set_menu_label (data.notebook, data.child, data.menu_label);
+
+  g_object_unref (data.child);
+  g_assert_false (data.child_finalized);
+
+  g_object_unref (data.tab_label);
+  g_assert_false (data.tab_label_finalized);
+
+  g_object_unref (data.menu_label);
+  g_assert_false (data.menu_label_finalized);
+
+  gtk_notebook_remove_page (GTK_NOTEBOOK (data.notebook), -1);
+
+  g_assert_true (data.child_finalized);
+  g_assert_true (data.tab_label_finalized);
+  g_assert_true (data.menu_label_finalized);
+
+  g_object_unref (data.notebook);
+  g_assert_true (data.notebook_finalized);
+}
+
+static void
+notebook_unset_labels (void)
+{
+  NotebookPageTest data;
+  notebook_page_test_setup (&data);
+
+  gtk_notebook_append_page_menu (data.notebook, data.child, data.tab_label, data.menu_label);
+
+  g_object_unref (data.child);
+  g_assert_false (data.child_finalized);
+
+  g_object_unref (data.tab_label);
+  g_assert_false (data.tab_label_finalized);
+
+  g_object_unref (data.menu_label);
+  g_assert_false (data.menu_label_finalized);
+
+  gtk_notebook_set_tab_label (data.notebook, data.child, NULL);
+  g_assert_true (data.tab_label_finalized);
+
+  gtk_notebook_set_menu_label (data.notebook, data.child, NULL);
+  g_assert_true (data.menu_label_finalized);
+
+  g_object_unref (data.notebook);
+  g_assert_true (data.notebook_finalized);
+  g_assert_true (data.child_finalized);
+}
+
 int
 main (int argc, char **argv)
 {
@@ -98,6 +227,9 @@ main (int argc, char **argv)
   g_test_add_func ("/gtk/widget-refcount/popover2", popover2);
   g_test_add_func ("/gtk/widget-refcount/filechoosewidget", filechooserwidget);
   g_test_add_func ("/gtk/widget-refcount/window", window);
+  g_test_add_func ("/gtk/widget-refcount/notebook-append-page", notebook_append_page);
+  g_test_add_func ("/gtk/widget-refcount/notebook-set-labels", notebook_set_labels);
+  g_test_add_func ("/gtk/widget-refcount/notebook-unset-labels", notebook_unset_labels);
 
   return g_test_run ();
 }

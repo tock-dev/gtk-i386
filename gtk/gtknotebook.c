@@ -4310,7 +4310,7 @@ gtk_notebook_remove_tab_label (GtkNotebook     *notebook,
           gtk_widget_unparent (page->tab_label);
         }
 
-      page->tab_label = NULL;
+      g_clear_object (&page->tab_label);
     }
 }
 
@@ -6256,7 +6256,7 @@ gtk_notebook_set_show_tabs (GtkNotebook *notebook,
           if (page->default_tab)
             {
               gtk_widget_unparent (page->tab_label);
-              page->tab_label = NULL;
+              g_clear_object (&page->tab_label);
             }
           else
             gtk_widget_set_visible (page->tab_label, FALSE);
@@ -6621,13 +6621,13 @@ gtk_notebook_set_tab_label (GtkNotebook *notebook,
     {
       page->default_tab = FALSE;
       page->tab_label = tab_label;
+      g_object_ref_sink (tab_label);
       g_object_set_data (G_OBJECT (page->tab_label), "notebook", notebook);
       gtk_widget_set_parent (page->tab_label, page->tab_widget);
     }
   else
     {
       page->default_tab = TRUE;
-      page->tab_label = NULL;
 
       if (notebook->show_tabs)
         {
@@ -6636,6 +6636,7 @@ gtk_notebook_set_tab_label (GtkNotebook *notebook,
           g_snprintf (string, sizeof(string), _("Page %u"),
                       g_list_position (notebook->children, list));
           page->tab_label = gtk_label_new (string);
+          g_object_ref_sink (page->tab_label);
           gtk_widget_set_parent (page->tab_label, page->tab_widget);
           g_object_set_data (G_OBJECT (page->tab_label), "notebook", notebook);
         }

@@ -38,6 +38,8 @@ struct _GdkAppLaunchContext
   guint32 timestamp;
   GIcon *icon;
   char *icon_name;
+
+  guint timestamp_set : 1;
 };
 
 G_END_DECLS

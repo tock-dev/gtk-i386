@@ -127,6 +127,13 @@ struct _ButtonData
   guint file_is_hidden : 1;
   GMount *mount;
 };
+
+typedef struct
+{
+  ButtonData *button_data;
+  GtkPathBar *path_bar;
+} ButtonDataFreeData;
+
 /* This macro is used to check if a button can be used as a fake root.
  * All buttons in front of a fake root are automatically hidden when in a
  * directory below a fake root and replaced with the "<" arrow button.
@@ -514,12 +521,20 @@ set_button_image (GtkPathBar *path_bar,
 }
 
 static void
-button_data_free (ButtonData *button_data)
+button_data_free (ButtonDataFreeData *free_data)
 {
+  ButtonData *button_data = free_data->button_data;
+  GtkPathBar *path_bar    = free_data->path_bar;
+
+  if (button_data->cancellable &&
+      ! g_cancellable_is_cancelled (button_data->cancellable))
+    cancel_cancellable (path_bar, button_data->cancellable);
+
   g_clear_object (&button_data->file);
   g_clear_object (&button_data->mount);
   g_free (button_data->dir_name);
   g_free (button_data);
+  g_free (free_data);
 }
 
 static const char *
@@ -607,6 +622,7 @@ make_directory_button (GtkPathBar  *path_bar,
 {
   GtkWidget *child = NULL;
   ButtonData *button_data;
+  ButtonDataFreeData *button_data_free_data;
   GdkContentProvider *content;
   GtkDragSource *source;
 
@@ -661,8 +677,13 @@ make_directory_button (GtkPathBar  *path_bar,
   g_signal_connect (button_data->button, "clicked",
 		    G_CALLBACK (button_clicked_cb),
 		    button_data);
+
+  button_data_free_data = g_new0 (ButtonDataFreeData, 1);
+  button_data_free_data->button_data = button_data;
+  button_data_free_data->path_bar    = path_bar;
   g_object_weak_ref (G_OBJECT (button_data->button),
-		     (GWeakNotify) button_data_free, button_data);
+                     (GWeakNotify) button_data_free,
+                     button_data_free_data);
 
   source = gtk_drag_source_new ();
   content = gdk_content_provider_new_typed (G_TYPE_FILE, button_data->file);

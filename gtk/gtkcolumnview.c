@@ -1935,6 +1935,11 @@ gtk_column_view_get_sorter (GtkColumnView *self)
  * This function should be used to set up the initial sorting.
  * At runtime, users can change the sorting of a column view
  * by clicking on the list headers.
+ * 
+ * Can be called multiple times to sort by multiple columns,
+ * and is called in reverse priority order. The last call
+ * will be the primary sort column. See [class@Gtk.ColumnViewSorter]
+ * for more information and a code example.
  *
  * This call only has an effect if the sorter returned by
  * [method@Gtk.ColumnView.get_sorter] is set on a sort model,
@@ -1955,9 +1960,9 @@ gtk_column_view_sort_by_column (GtkColumnView       *self,
   if (column == NULL)
     gtk_column_view_sorter_clear (GTK_COLUMN_VIEW_SORTER (self->sorter));
   else
-    gtk_column_view_sorter_set_column (GTK_COLUMN_VIEW_SORTER (self->sorter),
-                                       column,
-                                       direction == GTK_SORT_DESCENDING);
+  gtk_column_view_sorter_add_sort_column (GTK_COLUMN_VIEW_SORTER (self->sorter),
+                                          column,
+                                          direction == GTK_SORT_DESCENDING);
 }
 
 /**

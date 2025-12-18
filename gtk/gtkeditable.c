@@ -600,16 +600,9 @@ void
 gtk_editable_set_text (GtkEditable *editable,
                        const char  *text)
 {
-  int pos;
-
   g_return_if_fail (GTK_IS_EDITABLE (editable));
-  g_return_if_fail (text != NULL);
 
-  g_object_freeze_notify (G_OBJECT (editable));
-  gtk_editable_delete_text (editable, 0, -1);
-  pos = 0;
-  gtk_editable_insert_text (editable, text, -1, &pos);
-  g_object_thaw_notify (G_OBJECT (editable));
+  g_object_set (editable, "text", text, NULL);
 }
 
 /**

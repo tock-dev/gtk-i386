@@ -1290,6 +1290,7 @@ gdk_wayland_surface_map_popup (GdkWaylandPopup *wayland_popup,
   wayland_popup->unconstrained_width = width;
   wayland_popup->unconstrained_height = height;
   wayland_surface->mapped = TRUE;
+  gdk_surface_set_is_mapped (surface, TRUE);
 }
 
 static void

@@ -30,6 +30,7 @@
 #include "gdkseat-wayland.h"
 #include "gdkdevice-wayland-private.h"
 #include "gdkapplaunchcontextprivate.h"
+#include "gdkprivate.h"
 #include <glib/gi18n-lib.h>
 
 typedef struct {
@@ -76,7 +77,7 @@ gdk_wayland_app_launch_context_get_startup_notify_id (GAppLaunchContext *context
 
   g_object_get (context, "display", &display, NULL);
 
-  existing_token = g_getenv ("XDG_ACTIVATION_TOKEN");
+  existing_token = gdk_get_startup_notification_id ();
   if (existing_token)
     return g_strdup (existing_token);
 

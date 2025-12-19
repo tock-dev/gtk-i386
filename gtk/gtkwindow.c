@@ -4900,22 +4900,22 @@ maybe_unset_focus_and_default (GtkWindow *window)
 
   if (priv->move_focus)
     {
-      GtkWidget *parent;
+      GtkWidget *new_focus_candidate;
 
-      parent = _gtk_widget_get_parent (priv->move_focus_widget);
+      new_focus_candidate = priv->move_focus_widget;
 
-      while (parent)
+      while (new_focus_candidate)
         {
-          if (_gtk_widget_get_visible (parent))
+          if (_gtk_widget_get_visible (new_focus_candidate))
             {
-              if (gtk_widget_grab_focus (parent))
+              if (gtk_widget_grab_focus (new_focus_candidate))
                 break;
             }
 
-          parent = _gtk_widget_get_parent (parent);
+          new_focus_candidate = _gtk_widget_get_parent (new_focus_candidate);
         }
 
-      if (!parent)
+      if (!new_focus_candidate)
         gtk_widget_child_focus (GTK_WIDGET (window), GTK_DIR_TAB_FORWARD);
 
       priv->move_focus = FALSE;
@@ -5377,8 +5377,8 @@ _gtk_window_unset_focus_and_default (GtkWindow *window,
   child = priv->focus_widget;
   if (child && (child == widget || gtk_widget_is_ancestor (child, widget)))
     {
-      priv->move_focus_widget = g_object_ref (widget);
       priv->move_focus = TRUE;
+      g_set_object (&priv->move_focus_widget, _gtk_widget_get_parent (widget));
     }
 
   child = priv->default_widget;

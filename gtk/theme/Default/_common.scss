@@ -3931,33 +3931,23 @@ paned {
     background-repeat: repeat-y;
 
     &:dir(ltr) {
-      margin: 0 -8px 0 0;
-      padding: 0 8px 0 0;
       background-position: left;
     }
     &:dir(rtl) {
-      margin: 0 0 0 -8px;
-      padding: 0 0 0 8px;
       background-position: right;
     }
 
     &.wide {
-      margin: 0;
-      padding: 0;
       background-repeat: repeat-y, repeat-y;
       background-position: left, right;
     }
   }
 
   &.vertical > separator {
-    margin: 0 0 -8px 0;
-    padding: 0 0 8px 0;
     background-repeat: repeat-x;
     background-position: top;
 
     &.wide {
-      margin: 0;
-      padding: 0;
       background-repeat: repeat-x, repeat-x;
       background-position: bottom, top;
     }

@@ -2261,3 +2261,63 @@ gtk_column_view_scroll_to (GtkColumnView       *self,
   else
     g_clear_pointer (&scroll, gtk_scroll_info_unref);
 }
+
+
+/**
+ * gtk_column_view_get_column_at_pointer:
+ * @self: a GtkColumnView
+ * @x: the x coordinate to check, relative to the column view's origin
+ * @y: the y coordinate to check, relative to the column view's origin
+ *
+ * Gets the index of the column at the given coordinates.
+ * The coordinates are relative to the column view's origin.
+ *
+ * Returns: the index of the column at the given coordinates,
+ *     or -1 if no column exists at that position
+ * 
+ * Since: 4.18
+ */
+gint
+gtk_column_view_get_column_at_pointer (GtkColumnView *self,
+                                       double         x,
+                                        double        y)
+{
+  graphene_point_t p;
+  gboolean rtl, visible;
+  guint i, n;
+  gint pos, width;
+  GtkColumnViewColumn *column;
+
+  g_return_val_if_fail (GTK_IS_COLUMN_VIEW (self), -1);
+
+  /* Convert coordinates to header-relative coordinates */
+  if (!gtk_widget_compute_point (GTK_WIDGET (self),
+                                self->header,
+                                &GRAPHENE_POINT_INIT (x, y),
+                                &p))
+    return -1;
+
+  rtl = gtk_widget_get_direction (GTK_WIDGET (self)) == GTK_TEXT_DIR_RTL;
+  n = g_list_model_get_n_items (G_LIST_MODEL (self->columns));
+
+  for (i = 0; i < n; i++)
+    {
+      column = g_list_model_get_item (G_LIST_MODEL (self->columns), i);
+      visible = gtk_column_view_column_get_visible (column);
+
+      if (visible)
+        {
+          gtk_column_view_column_get_allocation (column, &pos, &width);
+          if ((!rtl && p.x >= pos && p.x < pos + width) ||
+              (rtl && p.x >= (pos - width) && p.x < pos))
+            {
+              g_object_unref (column);
+              return i;  /* Return found column index */
+            }
+        }
+
+      g_object_unref (column);
+    }
+
+  return -1;  /* Return -1 if no column found */
+}

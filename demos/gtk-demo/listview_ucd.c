@@ -354,6 +354,60 @@ selection_changed (GObject    *object,
   gtk_label_set_text (GTK_LABEL (label), buffer);
 }
 
+static void
+pressed_cb (GtkGestureClick* self,
+            gint n_press,
+            gdouble x,
+            gdouble y,
+            GtkColumnView *view)
+{
+ char *text;
+ GtkRoot *root;
+ gint column_index;
+ const char *column_name;
+ GtkAlertDialog *dialog;
+ GtkWindow *parent = NULL;
+ /* Get column index at current mouse position */
+ column_index = gtk_column_view_get_column_at_pointer (view, x, y);
+ g_return_if_fail (column_index != -1);
+ /* Update status text based on column index */
+ switch (column_index)
+   {
+   case 0: // COLUMN_CODE:
+     column_name = "Code";
+     break;
+   case 1: // COLUMN_CHARACTER:
+     column_name = "Character";
+     break;
+   case 2: // COLUMN_NAME:
+     column_name = "Name";
+     break;
+   case 3: // COLUMN_TYPE:
+     column_name = "Type";
+     break;
+   case 4: // COLUMN_BREAK:
+     column_name = "Break";
+     break;
+   case 5: // COLUMN_CLASS:
+     column_name = "Class";
+     break;
+   case 6: // COLUMN_SCRIPT:
+     column_name = "Script";
+     break;
+   default:
+     column_name = "Unknown";
+     break;
+   }
+ root = gtk_widget_get_root (GTK_WIDGET (view));
+ if (GTK_IS_WINDOW (root))
+   parent = GTK_WINDOW (root);
+ dialog = gtk_alert_dialog_new ("Characters");
+ text = g_strdup_printf ("Clicked column: %d -> %s", column_index, column_name);
+ gtk_alert_dialog_set_detail (dialog, text);
+ gtk_alert_dialog_show (dialog, parent);
+ g_object_unref (dialog);
+}
+
 GtkWidget *
 create_ucd_view (GtkWidget *label)
 {
@@ -362,6 +416,7 @@ create_ucd_view (GtkWidget *label)
   GtkSingleSelection *selection;
   GtkListItemFactory *factory;
   GtkColumnViewColumn *column;
+  GtkGesture *gesture;
 
   ucd_model = ucd_model_new ();
 
@@ -373,6 +428,12 @@ create_ucd_view (GtkWidget *label)
 
   cv = gtk_column_view_new (GTK_SELECTION_MODEL (selection));
   gtk_column_view_set_show_column_separators (GTK_COLUMN_VIEW (cv), TRUE);
+
+  /* Add motion controller to track mouse position */
+  gesture = gtk_gesture_click_new ();
+  gtk_gesture_single_set_button (GTK_GESTURE_SINGLE (gesture), GDK_BUTTON_SECONDARY);
+  g_signal_connect (gesture, "pressed", G_CALLBACK (pressed_cb), cv);
+  gtk_widget_add_controller (cv, GTK_EVENT_CONTROLLER (gesture));
 
   factory = gtk_signal_list_item_factory_new ();
   g_signal_connect (factory, "setup", G_CALLBACK (setup_centered_label), NULL);

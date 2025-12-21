@@ -37,6 +37,7 @@
 #include <glib/gi18n-lib.h>
 #include <gtk/gtk.h>
 #include "gtkwindowprivate.h"
+#include "gdkprivate.h"
 
 #include "gtkprintoperation-private.h"
 #include "gtkprintoperation-portal.h"
@@ -620,6 +621,7 @@ call_prepare_print (GtkPrintOperation *op,
   GtkPrintOperationPrivate *priv = op->priv;
   GVariantBuilder opt_builder;
   char *token;
+  GdkDisplay *display;
 
   portal->prepare_print_handle =
       get_portal_request_path (g_dbus_proxy_get_connection (portal->proxy), &token);
@@ -638,6 +640,18 @@ call_prepare_print (GtkPrintOperation *op,
   g_variant_builder_init (&opt_builder, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&opt_builder, "{sv}", "handle_token", g_variant_new_string (token));
   g_free (token);
+
+  if (portal->parent)
+    display = gtk_widget_get_display (GTK_WIDGET (portal->parent));
+  else
+    display = gdk_display_get_default ();
+
+  if (gdk_display_should_use_portal (display, PORTAL_PRINT_INTERFACE, 4))
+    {
+      g_variant_builder_add (&opt_builder, "{sv}", "has_current_page", g_variant_new_boolean (priv->current_page != -1));
+      g_variant_builder_add (&opt_builder, "{sv}", "has_selected_pages", g_variant_new_boolean (priv->support_selection && priv->has_selection));
+    }
+
   portal->options = g_variant_builder_end (&opt_builder);
 
   if (priv->print_settings)

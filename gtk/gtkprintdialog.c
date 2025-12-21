@@ -248,6 +248,8 @@ struct _GtkPrintDialog
   char *title;
 
   unsigned int modal : 1;
+  unsigned int has_current_page : 1;
+  unsigned int has_selected_pages : 1;
 };
 
 enum
@@ -257,6 +259,8 @@ enum
   PROP_MODAL,
   PROP_PRINT_SETTINGS,
   PROP_TITLE,
+  PROP_HAS_CURRENT_PAGE,
+  PROP_HAS_SELECTED_PAGES,
 
   NUM_PROPERTIES
 };
@@ -315,6 +319,14 @@ gtk_print_dialog_get_property (GObject      *object,
       g_value_set_string (value, self->title);
       break;
 
+    case PROP_HAS_CURRENT_PAGE:
+      g_value_set_boolean (value, self->has_current_page);
+      break;
+
+    case PROP_HAS_SELECTED_PAGES:
+      g_value_set_boolean (value, self->has_selected_pages);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -349,6 +361,14 @@ gtk_print_dialog_set_property (GObject      *object,
 
     case PROP_TITLE:
       gtk_print_dialog_set_title (self, g_value_get_string (value));
+      break;
+
+    case PROP_HAS_CURRENT_PAGE:
+      gtk_print_dialog_set_has_current_page (self, g_value_get_boolean (value));
+      break;
+
+    case PROP_HAS_SELECTED_PAGES:
+      gtk_print_dialog_set_has_selected_pages (self, g_value_get_boolean (value));
       break;
 
     default:
@@ -427,6 +447,30 @@ gtk_print_dialog_class_init (GtkPrintDialogClass *class)
       g_param_spec_string ("title", NULL, NULL,
                            NULL,
                            G_PARAM_READWRITE|G_PARAM_STATIC_STRINGS|G_PARAM_EXPLICIT_NOTIFY);
+
+  /**
+   * GtkPrintDialog:has-current-page:
+   *
+   * Whether there is a current page that can be printed.
+   *
+   * Since: 4.22
+   */
+  properties[PROP_HAS_CURRENT_PAGE] =
+      g_param_spec_boolean ("has-current-page", NULL, NULL,
+                            FALSE,
+                            G_PARAM_READWRITE|G_PARAM_STATIC_STRINGS|G_PARAM_EXPLICIT_NOTIFY);
+
+  /**
+   * GtkPrintDialog:has-selected-pages:
+   *
+   * Whether there is a page selection that can be printed.
+   *
+   * Since: 4.22
+   */
+  properties[PROP_HAS_SELECTED_PAGES] =
+      g_param_spec_boolean ("has-selected-pages", NULL, NULL,
+                            FALSE,
+                            G_PARAM_READWRITE|G_PARAM_STATIC_STRINGS|G_PARAM_EXPLICIT_NOTIFY);
 
   g_object_class_install_properties (object_class, NUM_PROPERTIES, properties);
 }
@@ -661,6 +705,96 @@ gtk_print_dialog_set_print_settings (GtkPrintDialog   *self,
 
   if (g_set_object (&self->print_settings, print_settings))
     g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_PRINT_SETTINGS]);
+}
+
+/**
+ * gtk_print_dialog_get_has_current_page:
+ * @self: a `GtkPrintDialog`
+ *
+ * Returns whether the print dialog lets the
+ * user select 'current page' for what pages
+ * to print.
+ *
+ * Returns: whether 'current page' is an option
+ *
+ * Since: 4.22
+ */
+gboolean
+gtk_print_dialog_get_has_current_page (GtkPrintDialog *self)
+{
+  g_return_val_if_fail (GTK_IS_PRINT_DIALOG (self), FALSE);
+
+  return self->has_current_page;
+}
+
+/**
+ * gtk_print_dialog_set_has_current_page:
+ * @self: a `GtkPrintDialog`
+ * @has_current_page: the new value
+ *
+ * Set whether the print dialog lets the
+ * user select 'current page' for what pages
+ * to print.
+ *
+ * Since: 4.22
+ */
+void
+gtk_print_dialog_set_has_current_page (GtkPrintDialog *self,
+                                       gboolean        has_current_page)
+{
+  g_return_if_fail (GTK_IS_PRINT_DIALOG (self));
+
+  if (self->has_current_page == has_current_page)
+    return;
+
+  self->has_current_page = has_current_page;
+
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_HAS_CURRENT_PAGE]);
+}
+
+/**
+ * gtk_print_dialog_get_has_selected_pages:
+ * @self: a `GtkPrintDialog`
+ *
+ * Returns whether the print dialog lets the
+ * user select 'selection' for what pages
+ * to print.
+ *
+ * Returns: whether 'selection' is an option
+ *
+ * Since: 4.22
+ */
+gboolean
+gtk_print_dialog_get_has_selected_pages (GtkPrintDialog *self)
+{
+  g_return_val_if_fail (GTK_IS_PRINT_DIALOG (self), FALSE);
+
+  return self->has_selected_pages;
+}
+
+/**
+ * gtk_print_dialog_set_has_selected_pages:
+ * @self: a `GtkPrintDialog`
+ * @has_selected_pages: the new value
+ *
+ * Set whether the print dialog lets the
+ * user select 'selection' for what pages
+ * to print.
+ *
+ * Since: 4.22
+ */
+void
+gtk_print_dialog_set_has_selected_pages (GtkPrintDialog *self,
+                                         gboolean        has_selected_pages)
+{
+  g_return_if_fail (GTK_IS_PRINT_DIALOG (self));
+
+  if (self->has_selected_pages == has_selected_pages)
+    return;
+
+  self->has_selected_pages = has_selected_pages;
+
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_HAS_SELECTED_PAGES]);
 }
 
 /* }}} */
@@ -1029,6 +1163,7 @@ setup_window_handle_exported (GtkWindow  *window,
   GVariant *setup;
   GVariant *options;
   GVariantBuilder opt_builder;
+  GdkDisplay *display;
 
   g_assert (ptd->portal_handle == NULL);
   ptd->portal_handle = gtk_get_portal_request_path (connection, &handle_token);
@@ -1052,9 +1187,22 @@ setup_window_handle_exported (GtkWindow  *window,
                                         task, NULL);
 
   g_variant_builder_init (&opt_builder, G_VARIANT_TYPE_VARDICT);
+
   g_variant_builder_add (&opt_builder, "{sv}", "handle_token", g_variant_new_string (handle_token));
   if (self->accept_label)
     g_variant_builder_add (&opt_builder, "{sv}", "accept_label", g_variant_new_string (self->accept_label));
+
+  if (window)
+    display = gtk_widget_get_display (GTK_WIDGET (window));
+  else
+    display = gdk_display_get_default ();
+
+  if (gdk_display_should_use_portal (display, PORTAL_PRINT_INTERFACE, 4))
+    {
+      g_variant_builder_add (&opt_builder, "{sv}", "has_current_page", g_variant_new_boolean (self->has_current_page));
+      g_variant_builder_add (&opt_builder, "{sv}", "has_selected_pages", g_variant_new_boolean (self->has_selected_pages));
+    }
+
   options = g_variant_builder_end (&opt_builder);
 
   if (self->print_settings)
@@ -1300,6 +1448,10 @@ create_print_dialog (GtkPrintDialog   *self,
     gtk_print_unix_dialog_set_page_setup (dialog, page_setup);
 
   gtk_print_unix_dialog_set_embed_page_setup (dialog, TRUE);
+
+  gtk_print_unix_dialog_set_current_page (dialog, self->has_current_page ? 0 : -1);
+  gtk_print_unix_dialog_set_support_selection (dialog, self->has_selected_pages);
+  gtk_print_unix_dialog_set_has_selection (dialog, self->has_selected_pages);
 
   return dialog;
 }

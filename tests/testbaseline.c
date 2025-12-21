@@ -69,6 +69,30 @@ set_font_size (GtkWidget *widget, int size)
 }
 
 static void
+set_icon_size (GtkWidget *widget, int size)
+{
+  const char *class[3] = { "small-icon", "medium-icon", "large-icon" };
+
+  gtk_widget_add_css_class (widget, class[size]);
+}
+
+static void
+set_spacing_size_bottom (GtkWidget *widget, int size)
+{
+  const char *class[3] = { "small-spacing-bottom", "medium-spacing-bottom", "large-spacing-bottom" };
+
+  gtk_widget_add_css_class (widget, class[size]);
+}
+
+static void
+set_spacing_size_top (GtkWidget *widget, int size)
+{
+  const char *class[3] = { "small-spacing-top", "medium-spacing-top", "large-spacing-top" };
+
+  gtk_widget_add_css_class (widget, class[size]);
+}
+
+static void
 quit_cb (GtkWidget *widget,
          gpointer   data)
 {
@@ -77,6 +101,83 @@ quit_cb (GtkWidget *widget,
   *done = TRUE;
 
   g_main_context_wakeup (NULL);
+}
+
+static GtkWidget *
+build_spacing_row (gboolean top, gboolean bottom, GtkAlign valign)
+{
+  GtkWidget *hbox, *widget;
+  int i;
+
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+
+  for (i = 0; i < 3; i++)
+    {
+      int margin = (i + 1) * 4;
+      int icon_size = (i + 1) * 8;
+
+      /* Label with widget-side spacing */
+      widget = gtk_label_new ("│Xyj,Ö");
+      gtk_widget_add_css_class (widget, "green-background");
+      gtk_widget_set_margin_top (widget, margin * top);
+      gtk_widget_set_margin_bottom (widget, margin * bottom);
+      set_font_size (widget, i);
+      gtk_widget_set_valign (widget, valign);
+      gtk_box_append (GTK_BOX (hbox), widget);
+
+      /* Label with CSS spacing */
+      widget = gtk_label_new ("│Xyj,Ö");
+      gtk_widget_add_css_class (widget, "green-background");
+      if (top)
+	set_spacing_size_top (widget, i);
+      if (bottom)
+	set_spacing_size_bottom (widget, i);
+      set_font_size (widget, i);
+      gtk_widget_set_valign (widget, valign);
+      gtk_box_append (GTK_BOX (hbox), widget);
+
+      /* Image with widget-side spacing, widget-side sizing */
+      widget = gtk_image_new_from_icon_name ("face-sad");
+      gtk_widget_add_css_class (widget, "green-background");
+      gtk_widget_set_margin_top (widget, margin * top);
+      gtk_widget_set_margin_bottom (widget, margin * bottom);
+      gtk_image_set_pixel_size (GTK_IMAGE (widget), icon_size);
+      gtk_widget_set_valign (widget, valign);
+      gtk_box_append (GTK_BOX (hbox), widget);
+
+      /* Image with CSS spacing, widget-side sizing */
+      widget = gtk_image_new_from_icon_name ("face-sad");
+      gtk_widget_add_css_class (widget, "green-background");
+      if (top)
+	set_spacing_size_top (widget, i);
+      if (bottom)
+	set_spacing_size_bottom (widget, i);
+      gtk_image_set_pixel_size (GTK_IMAGE (widget), icon_size);
+      gtk_widget_set_valign (widget, valign);
+      gtk_box_append (GTK_BOX (hbox), widget);
+
+      /* Image with widget-side spacing, CSS sizing */
+      widget = gtk_image_new_from_icon_name ("face-sad");
+      gtk_widget_add_css_class (widget, "green-background");
+      gtk_widget_set_margin_top (widget, margin * top);
+      gtk_widget_set_margin_bottom (widget, margin * bottom);
+      set_icon_size (widget, i);
+      gtk_widget_set_valign (widget, valign);
+      gtk_box_append (GTK_BOX (hbox), widget);
+
+      /* Image with CSS spacing, CSS sizing */
+      widget = gtk_image_new_from_icon_name ("face-sad");
+      gtk_widget_add_css_class (widget, "green-background");
+      if (top)
+	set_spacing_size_top (widget, i);
+      if (bottom)
+	set_spacing_size_bottom (widget, i);
+      set_icon_size (widget, i);
+      gtk_widget_set_valign (widget, valign);
+      gtk_box_append (GTK_BOX (hbox), widget);
+    }
+
+  return hbox;
 }
 
 int
@@ -95,9 +196,19 @@ main (int    argc,
 
   provider = gtk_css_provider_new ();
   gtk_css_provider_load_from_data (provider,
+    ".green-background { background: #b0ffb0; }"
     ".small-font { font-size: 5px; }"
     ".medium-font { font-size: 10px; }"
-    ".large-font { font-size: 15px; }", -1);
+    ".large-font { font-size: 15px; }"
+    ".small-icon { -gtk-icon-size: 8px; }"
+    ".medium-icon { -gtk-icon-size: 16px; }"
+    ".large-icon { -gtk-icon-size: 24px; }"
+    ".small-spacing-bottom { margin-bottom: 4px; border-bottom: 4px; padding-bottom: 4px; }"
+    ".medium-spacing-bottom { margin-bottom: 8px; border-bottom: 8px; padding-bottom: 8px; }"
+    ".large-spacing-bottom { margin-bottom: 12px; border-bottom: 12px; padding-bottom: 12px; }"
+    ".small-spacing-top { margin-top: 4px; border-top: 4px; padding-top: 4px; }"
+    ".medium-spacing-top { margin-top: 8px; border-top: 8px; padding-top: 8px; }"
+    ".large-spacing-top { margin-top: 12px; border-top: 12px; padding-top: 12px; }", -1);
   gtk_style_context_add_provider_for_display (gdk_display_get_default (),
                                               GTK_STYLE_PROVIDER (provider),
                                               GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
@@ -400,6 +511,39 @@ main (int    argc,
 	  gtk_box_append (GTK_BOX (hbox), button);
 	}
     }
+
+  grid = gtk_grid_new ();
+  gtk_widget_set_valign (grid, GTK_ALIGN_BASELINE_FILL);
+  gtk_grid_set_column_spacing (GTK_GRID (grid), 8);
+  gtk_grid_set_row_spacing (GTK_GRID (grid), 8);
+  gtk_notebook_append_page (GTK_NOTEBOOK (notebook),
+			    grid, gtk_label_new ("spacing"));
+
+  gtk_grid_attach (GTK_GRID (grid),
+		   gtk_label_new ("GTK_ALIGN_BASELINE_FILL"),
+		   0, 0, 1, 3);
+  gtk_grid_attach (GTK_GRID (grid),
+		   build_spacing_row (TRUE, FALSE, GTK_ALIGN_BASELINE_FILL),
+		   1, 0, 1, 1);
+  gtk_grid_attach (GTK_GRID (grid),
+		   build_spacing_row (TRUE, TRUE, GTK_ALIGN_BASELINE_FILL),
+		   1, 1, 1, 1);
+  gtk_grid_attach (GTK_GRID (grid),
+		   build_spacing_row (FALSE, TRUE, GTK_ALIGN_BASELINE_FILL),
+		   1, 2, 1, 1);
+
+  gtk_grid_attach (GTK_GRID (grid),
+		   gtk_label_new ("GTK_ALIGN_BASELINE_CENTER"),
+		   0, 3, 1, 3);
+  gtk_grid_attach (GTK_GRID (grid),
+		   build_spacing_row (TRUE, FALSE, GTK_ALIGN_BASELINE_CENTER),
+		   1, 3, 1, 1);
+  gtk_grid_attach (GTK_GRID (grid),
+		   build_spacing_row (TRUE, TRUE, GTK_ALIGN_BASELINE_CENTER),
+		   1, 4, 1, 1);
+  gtk_grid_attach (GTK_GRID (grid),
+		   build_spacing_row (FALSE, TRUE, GTK_ALIGN_BASELINE_CENTER),
+		   1, 5, 1, 1);
 
   gtk_window_present (GTK_WINDOW (window));
 

@@ -21,7 +21,7 @@
 #include "gtkdroptarget.h"
 #include "gtkeditablelabel.h"
 #include "gtkeditable.h"
-#include "gtklabel.h"
+#include "gtkinscription.h"
 #include "gtkstack.h"
 #include "gtktext.h"
 #include "gtkbinlayout.h"
@@ -29,7 +29,6 @@
 #include "gtkprivate.h"
 #include "gtkshortcut.h"
 #include "gtkshortcuttrigger.h"
-#include "gtkpopovermenu.h"
 #include "gtkwidgetprivate.h"
 #include "gtkeventcontrollerfocus.h"
 
@@ -89,9 +88,8 @@ struct _GtkEditableLabel
   GtkWidget parent_instance;
 
   GtkWidget *stack;
-  GtkWidget *label;
+  GtkWidget *inscription;
   GtkWidget *entry;
-  GtkWidget *popup_menu;
 
   guint stop_editing_soon_id;
 };
@@ -155,40 +153,9 @@ clipboard_copy (GtkWidget  *widget,
   const char *text;
 
   clipboard = gtk_widget_get_clipboard (widget);
-  text = gtk_label_get_label (GTK_LABEL (self->label));
+  text = gtk_inscription_get_text (GTK_INSCRIPTION (self->inscription));
 
   gdk_clipboard_set_text (clipboard, text);
-}
-
-static GMenuModel *
-create_menu (void)
-{
-  GMenu *menu;
-
-  menu = g_menu_new ();
-
-  g_menu_append (menu, _("_Edit"), "editing.start");
-  g_menu_append (menu, _("_Copy"), "clipboard.copy");
-
-  return G_MENU_MODEL (menu);
-}
-
-static void
-do_popup (GtkEditableLabel *self,
-          double            x,
-          double            y)
-{
-  if (x != -1 && y != -1)
-    {
-      GdkRectangle rect = { x, y, 1, 1 };
-      gtk_popover_set_pointing_to (GTK_POPOVER (self->popup_menu), &rect);
-    }
-  else
-    {
-      gtk_popover_set_pointing_to (GTK_POPOVER (self->popup_menu), NULL);
-    }
-
-  gtk_popover_popup (GTK_POPOVER (self->popup_menu));
 }
 
 static void
@@ -199,33 +166,18 @@ clicked_cb (GtkGestureClick  *gesture,
             GtkEditableLabel *self)
 {
   guint button;
-  GdkEventSequence *sequence;
-  GdkEvent *event;
 
   button = gtk_gesture_single_get_current_button (GTK_GESTURE_SINGLE (gesture));
-  sequence = gtk_gesture_single_get_current_sequence (GTK_GESTURE_SINGLE (gesture));
-  event = gtk_gesture_get_last_event (GTK_GESTURE (gesture), sequence);
 
   if (button == GDK_BUTTON_PRIMARY)
     {
       gtk_gesture_set_state (GTK_GESTURE (gesture), GTK_EVENT_SEQUENCE_CLAIMED);
       gtk_widget_activate_action (GTK_WIDGET (self), "editing.start", NULL);
     }
-  else if (gdk_event_triggers_context_menu (event))
+  else if (button == GDK_BUTTON_MIDDLE)
     {
-      gtk_gesture_set_state (GTK_GESTURE (gesture), GTK_EVENT_SEQUENCE_CLAIMED);
-      do_popup (self, x, y);
+      gtk_widget_activate_action (GTK_WIDGET (self), "clipboard.copy", NULL);
     }
-}
-
-static void
-popup_menu (GtkWidget  *widget,
-            const char *action_name,
-            GVariant   *parameters)
-{
-  GtkEditableLabel *self = GTK_EDITABLE_LABEL (widget);
-
-  do_popup (self, -1, -1);
 }
 
 static void
@@ -245,7 +197,7 @@ text_changed (GtkEditableLabel *self)
   if (!gtk_editable_label_get_editing (self))
     {
       const char *text = gtk_editable_get_text (GTK_EDITABLE (self->entry));
-      gtk_label_set_label (GTK_LABEL (self->label), text);
+      gtk_inscription_set_text (GTK_INSCRIPTION (self->inscription), text);
     }
 }
 
@@ -288,7 +240,7 @@ gtk_editable_label_prepare_drag (GtkDragSource    *source,
     return NULL;
 
   return gdk_content_provider_new_typed (G_TYPE_STRING,
-                                         gtk_label_get_label (GTK_LABEL (self->label)));
+                                         gtk_inscription_get_text (GTK_INSCRIPTION (self->inscription)));
 }
 
 static gboolean
@@ -323,30 +275,14 @@ gtk_editable_label_init (GtkEditableLabel *self)
   GtkDropTarget *target;
   GtkDragSource *source;
   GtkEventController *controller;
-  GMenuModel *model;
 
   gtk_widget_set_focusable (GTK_WIDGET (self), TRUE);
 
   self->stack = gtk_stack_new ();
-  self->label = gtk_label_new ("");
-  gtk_label_set_xalign (GTK_LABEL (self->label), 0.0);
+  self->inscription = gtk_inscription_new ("");
   self->entry = gtk_text_new ();
 
-  model = create_menu ();
-  self->popup_menu = gtk_popover_menu_new_from_model (model);
-  gtk_widget_set_parent (self->popup_menu, GTK_WIDGET (self));
-  gtk_popover_set_position (GTK_POPOVER (self->popup_menu), GTK_POS_BOTTOM);
-
-  gtk_popover_set_has_arrow (GTK_POPOVER (self->popup_menu), FALSE);
-  gtk_widget_set_halign (self->popup_menu, GTK_ALIGN_START);
-
-  gtk_accessible_update_property (GTK_ACCESSIBLE (self->popup_menu),
-                                  GTK_ACCESSIBLE_PROPERTY_LABEL, _("Context menu"),
-                                  -1);
-
-  g_object_unref (model);
-
-  gtk_stack_add_named (GTK_STACK (self->stack), self->label, "label");
+  gtk_stack_add_named (GTK_STACK (self->stack), self->inscription, "label");
   gtk_stack_add_named (GTK_STACK (self->stack), self->entry, "entry");
 
   gtk_widget_set_parent (self->stack, GTK_WIDGET (self));
@@ -354,7 +290,7 @@ gtk_editable_label_init (GtkEditableLabel *self)
   gesture = gtk_gesture_click_new ();
   gtk_gesture_single_set_button (GTK_GESTURE_SINGLE (gesture), 0);
   g_signal_connect (gesture, "pressed", G_CALLBACK (clicked_cb), self);
-  gtk_widget_add_controller (self->label, GTK_EVENT_CONTROLLER (gesture));
+  gtk_widget_add_controller (self->inscription, GTK_EVENT_CONTROLLER (gesture));
 
   g_signal_connect_swapped (self->entry, "activate", G_CALLBACK (activate_cb), self);
   g_signal_connect_swapped (self->entry, "notify::text", G_CALLBACK (text_changed), self);
@@ -362,11 +298,11 @@ gtk_editable_label_init (GtkEditableLabel *self)
   target = gtk_drop_target_new (G_TYPE_STRING, GDK_ACTION_COPY | GDK_ACTION_MOVE);
   g_signal_connect (target, "accept", G_CALLBACK (gtk_editable_label_drag_accept), self);
   g_signal_connect (target, "drop", G_CALLBACK (gtk_editable_label_drag_drop), self);
-  gtk_widget_add_controller (self->label, GTK_EVENT_CONTROLLER (target));
+  gtk_widget_add_controller (self->inscription, GTK_EVENT_CONTROLLER (target));
 
   source = gtk_drag_source_new ();
   g_signal_connect (source, "prepare", G_CALLBACK (gtk_editable_label_prepare_drag), self);
-  gtk_widget_add_controller (self->label, GTK_EVENT_CONTROLLER (source));
+  gtk_widget_add_controller (self->inscription, GTK_EVENT_CONTROLLER (source));
 
   controller = gtk_event_controller_focus_new ();
   g_signal_connect (controller, "leave", G_CALLBACK (gtk_editable_label_focus_out), self);
@@ -399,19 +335,19 @@ gtk_editable_label_set_property (GObject      *object,
       switch (prop_id)
         {
         case NUM_PROPERTIES + GTK_EDITABLE_PROP_TEXT:
-          gtk_label_set_label (GTK_LABEL (self->label), g_value_get_string (value));
+          gtk_inscription_set_text (GTK_INSCRIPTION (self->inscription), g_value_get_string (value));
           break;
 
         case NUM_PROPERTIES + GTK_EDITABLE_PROP_WIDTH_CHARS:
-          gtk_label_set_width_chars (GTK_LABEL (self->label), g_value_get_int (value));
+          gtk_inscription_set_min_chars (GTK_INSCRIPTION (self->inscription), g_value_get_int (value));
           break;
 
         case NUM_PROPERTIES + GTK_EDITABLE_PROP_MAX_WIDTH_CHARS:
-          gtk_label_set_max_width_chars (GTK_LABEL (self->label), g_value_get_int (value));
+          gtk_inscription_set_nat_chars (GTK_INSCRIPTION (self->inscription), g_value_get_int (value));
           break;
 
         case NUM_PROPERTIES + GTK_EDITABLE_PROP_XALIGN:
-          gtk_label_set_xalign (GTK_LABEL (self->label), g_value_get_float (value));
+          gtk_inscription_set_xalign (GTK_INSCRIPTION (self->inscription), g_value_get_float (value));
           break;
 
         case NUM_PROPERTIES + GTK_EDITABLE_PROP_EDITABLE:
@@ -477,11 +413,10 @@ gtk_editable_label_dispose (GObject *object)
 
   gtk_editable_finish_delegate (GTK_EDITABLE (self));
 
-  g_clear_pointer (&self->popup_menu, gtk_widget_unparent);
   g_clear_pointer (&self->stack, gtk_widget_unparent);
 
   self->entry = NULL;
-  self->label = NULL;
+  self->inscription = NULL;
 
   g_clear_handle_id (&self->stop_editing_soon_id, g_source_remove);
 
@@ -563,16 +498,18 @@ gtk_editable_label_class_init (GtkEditableLabelClass *class)
                                        "b", FALSE);
 
   gtk_widget_class_install_action (widget_class, "clipboard.copy", NULL, clipboard_copy);
-  gtk_widget_class_install_action (widget_class, "menu.popup", NULL, popup_menu);
 
+#ifdef __APPLE__
   gtk_widget_class_add_binding_action (widget_class,
-                                       GDK_KEY_F10, GDK_SHIFT_MASK,
-                                       "menu.popup",
+                                       GDK_KEY_c, GDK_META_MASK,
+                                       "clipboard.copy",
                                        NULL);
+#else
   gtk_widget_class_add_binding_action (widget_class,
-                                       GDK_KEY_Menu, 0,
-                                       "menu.popup",
+                                       GDK_KEY_c, GDK_CONTROL_MASK,
+                                       "clipboard.copy",
                                        NULL);
+#endif
 
   gtk_widget_class_set_layout_manager_type (widget_class, GTK_TYPE_BIN_LAYOUT);
   gtk_widget_class_set_css_name (widget_class, "editablelabel");
@@ -655,7 +592,7 @@ gtk_editable_label_stop_editing (GtkEditableLabel *self,
 
   if (commit)
     {
-      gtk_label_set_label (GTK_LABEL (self->label),
+      gtk_inscription_set_text (GTK_INSCRIPTION (self->inscription),
                            gtk_editable_get_text (GTK_EDITABLE (self->entry)));
       gtk_stack_set_visible_child_name (GTK_STACK (self->stack), "label");
     }
@@ -663,7 +600,7 @@ gtk_editable_label_stop_editing (GtkEditableLabel *self,
     {
       gtk_stack_set_visible_child_name (GTK_STACK (self->stack), "label");
       gtk_editable_set_text (GTK_EDITABLE (self->entry),
-                             gtk_label_get_label (GTK_LABEL (self->label)));
+                             gtk_inscription_get_text (GTK_INSCRIPTION (self->inscription)));
     }
 
   gtk_widget_grab_focus (GTK_WIDGET (self));

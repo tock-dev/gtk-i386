@@ -83,6 +83,10 @@ struct _GtkListBasePrivate
   /* the item that has input focus */
   GtkListItemTracker *focus;
 
+  /* old page size for recalculating anchor align on resize */
+  int page_along;
+  int page_across;
+
   gboolean enable_rubberband;
   GtkGesture *drag_gesture;
   RubberbandData *rubberband;
@@ -2132,6 +2136,12 @@ gtk_list_base_update_adjustments (GtkListBase *self)
 
   page_across = gtk_widget_get_size (GTK_WIDGET (self), OPPOSITE_ORIENTATION (priv->orientation));
   page_along = gtk_widget_get_size (GTK_WIDGET (self), priv->orientation);
+
+  priv->anchor_align_across = priv->anchor_align_across * priv->page_across / page_across;
+  priv->anchor_align_along = priv->anchor_align_along * priv->page_along / page_along;
+
+  priv->page_across = page_across;
+  priv->page_along = page_along;
 
   pos = gtk_list_item_tracker_get_position (priv->item_manager, priv->anchor);
   if (pos == GTK_INVALID_LIST_POSITION)

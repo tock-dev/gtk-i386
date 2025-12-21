@@ -165,6 +165,7 @@
 #include <gtk/gtkheaderbar.h>
 #include <gtk/gtkicontheme.h>
 #include <gtk/gtkiconpaintable.h>
+#include <gtk/gtkiconprovider.h>
 #include <gtk/deprecated/gtkiconview.h>
 #include <gtk/gtkimage.h>
 #include <gtk/gtkimcontext.h>

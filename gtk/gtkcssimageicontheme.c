@@ -28,7 +28,7 @@
 #include "gtksnapshot.h"
 #include "gtkstyleproviderprivate.h"
 #include "gtksymbolicpaintable.h"
-#include "gtkiconthemeprivate.h"
+#include "gtkiconprovider.h"
 #include "gtkcsscolorvalueprivate.h"
 #include "gtkcsspalettevalueprivate.h"
 
@@ -48,7 +48,7 @@ gtk_css_image_icon_theme_snapshot (GtkCssImage *image,
                                    double       height)
 {
   GtkCssImageIconTheme *icon_theme = GTK_CSS_IMAGE_ICON_THEME (image);
-  GtkIconPaintable *icon;
+  GdkPaintable *icon;
   double icon_width, icon_height;
   int size;
   double x, y;
@@ -65,13 +65,11 @@ gtk_css_image_icon_theme_snapshot (GtkCssImage *image,
     }
   else
     {
-      icon = gtk_icon_theme_lookup_icon (icon_theme->icon_theme,
-                                         icon_theme->name,
-                                         NULL,
-                                         size,
-                                         icon_theme->scale,
-                                         GTK_TEXT_DIR_NONE,
-                                         0);
+      icon = gtk_lookup_icon (gdk_display_get_default (),
+                              icon_theme->name,
+                              size,
+                              icon_theme->scale,
+                              GTK_TEXT_DIR_LTR);
 
       g_assert (icon != NULL);
 
@@ -81,8 +79,8 @@ gtk_css_image_icon_theme_snapshot (GtkCssImage *image,
       icon_theme->cached_icon = icon;
     }
 
-  icon_width = (double) MIN (gdk_paintable_get_intrinsic_width (GDK_PAINTABLE (icon)), width);
-  icon_height = (double) MIN (gdk_paintable_get_intrinsic_height (GDK_PAINTABLE (icon)), height);
+  icon_width = (double) MIN (gdk_paintable_get_intrinsic_width (icon), width);
+  icon_height = (double) MIN (gdk_paintable_get_intrinsic_height (icon), height);
 
   x = (width - icon_width) / 2;
   y = (height - icon_height) / 2;
@@ -151,16 +149,10 @@ gtk_css_image_icon_theme_compute (GtkCssImage          *image,
 {
   GtkCssImageIconTheme *icon_theme = GTK_CSS_IMAGE_ICON_THEME (image);
   GtkCssImageIconTheme *copy;
-  GtkSettings *settings;
-  GdkDisplay *display;
   const char *names[4] = { NULL, "success", "warning", "error" };
 
   copy = g_object_new (GTK_TYPE_CSS_IMAGE_ICON_THEME, NULL);
   copy->name = g_strdup (icon_theme->name);
-  settings = gtk_style_provider_get_settings (context->provider);
-  display = _gtk_settings_get_display (settings);
-  copy->icon_theme = gtk_icon_theme_get_for_display (display);
-  copy->serial = gtk_icon_theme_get_serial (copy->icon_theme);
   copy->scale = gtk_style_provider_get_scale (context->provider);
 
   for (guint i = 0; i < 4; i++)
@@ -185,9 +177,7 @@ gtk_css_image_icon_theme_equal (GtkCssImage *image1,
   GtkCssImageIconTheme *icon_theme1 = (GtkCssImageIconTheme *) image1;
   GtkCssImageIconTheme *icon_theme2 = (GtkCssImageIconTheme *) image2;
 
-  return icon_theme1->serial == icon_theme2->serial &&
-         icon_theme1->icon_theme == icon_theme2->icon_theme &&
-         g_str_equal (icon_theme1->name, icon_theme2->name);
+  return g_str_equal (icon_theme1->name, icon_theme2->name);
 }
 
 static void
@@ -235,8 +225,6 @@ gtk_css_image_icon_theme_resolve (GtkCssImage          *image,
 
   copy = g_object_new (GTK_TYPE_CSS_IMAGE_ICON_THEME, NULL);
   copy->name = g_strdup (icon_theme->name);
-  copy->icon_theme = icon_theme->icon_theme;
-  copy->serial = icon_theme->serial;
   copy->scale = icon_theme->scale;
 
   for (guint i = 0; i < 4; i++)
@@ -265,7 +253,6 @@ _gtk_css_image_icon_theme_class_init (GtkCssImageIconThemeClass *klass)
 static void
 _gtk_css_image_icon_theme_init (GtkCssImageIconTheme *icon_theme)
 {
-  icon_theme->icon_theme = gtk_icon_theme_get_for_display (gdk_display_get_default ());
   icon_theme->scale = 1;
   icon_theme->cached_size = -1;
   icon_theme->cached_icon = NULL;

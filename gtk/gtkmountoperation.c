@@ -42,7 +42,7 @@
 #include "gtkgrid.h"
 #include "gtkwindow.h"
 #include "gtkscrolledwindow.h"
-#include "gtkicontheme.h"
+#include "gtkiconprovider.h"
 #include "gtkmain.h"
 #include "gtksettings.h"
 #include "deprecated/gtkdialogprivate.h"
@@ -1256,17 +1256,12 @@ add_pid_to_process_list_store (GtkMountOperation              *mount_operation,
 
   if (texture == NULL)
     {
-      GtkIconTheme *theme;
-      GtkIconPaintable *icon;
+      GdkPaintable *icon;
 
-      theme = gtk_icon_theme_get_for_display (gtk_widget_get_display (GTK_WIDGET (mount_operation->priv->dialog)));
-      icon = gtk_icon_theme_lookup_icon (theme,
-                                         "application-x-executable",
-                                         NULL,
-                                         24, 1,
-                                         gtk_widget_get_direction (GTK_WIDGET (mount_operation->priv->dialog)),
-                                         0);
-      texture = render_paintable_to_texture (GDK_PAINTABLE (icon));
+      icon = gtk_lookup_icon (gtk_widget_get_display (GTK_WIDGET (mount_operation->priv->dialog)),
+                              "application-x-executable",
+                              24, 1, GTK_TEXT_DIR_LTR);
+      texture = render_paintable_to_texture (icon);
       g_object_unref (icon);
     }
 

@@ -38,15 +38,13 @@ struct _GtkCssImageIconTheme
 {
   GtkCssImage parent;
 
-  GtkIconTheme *icon_theme;
   GtkCssValue *colors[4];
-  int serial;
   int scale;
   char *name;
 
   int cached_size;
   gboolean cached_symbolic;
-  GtkIconPaintable *cached_icon;
+  GdkPaintable *cached_icon;
 };
 
 struct _GtkCssImageIconThemeClass

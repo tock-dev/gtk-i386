@@ -135,6 +135,12 @@ void            gtk_column_view_scroll_to                       (GtkColumnView  
                                                                  GtkColumnViewColumn    *column,
                                                                  GtkListScrollFlags      flags,
                                                                  GtkScrollInfo          *scroll);
+GDK_AVAILABLE_IN_4_18
+void            gtk_column_view_set_show_header                 (GtkColumnView          *self,
+                                                                 gboolean                show);
+GDK_AVAILABLE_IN_4_18
+gboolean
+                gtk_column_view_get_show_header                 (GtkColumnView          *self);
 
 G_END_DECLS
 

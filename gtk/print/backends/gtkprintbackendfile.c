@@ -56,6 +56,12 @@ typedef struct _GtkPrintBackendFileClass GtkPrintBackendFileClass;
 
 #define _STREAM_MAX_CHUNK_SIZE 8192
 
+#if defined(CAIRO_HAS_PDF_SURFACE) || \
+    defined(CAIRO_HAS_PS_SURFACE) || \
+    defined(CAIRO_HAS_SVG_SURFACE)
+#define _CAIRO_HAS_SURFACE 1
+#endif
+
 struct _GtkPrintBackendFileClass
 {
   GtkPrintBackendClass parent_class;
@@ -205,8 +211,10 @@ output_file_from_settings (GtkPrintSettings *settings,
           format = format_from_settings (settings);
           switch (format)
             {
+#ifdef _CAIRO_HAS_SURFACE
               default:
               case N_FORMATS:
+#endif
 #ifdef CAIRO_HAS_PDF_SURFACE
               case FORMAT_PDF:
                 extension = "pdf";
@@ -327,8 +335,10 @@ file_printer_create_cairo_surface (GtkPrinter       *printer,
 
   switch (format)
     {
+#ifdef _CAIRO_HAS_SURFACE
       default:
       case N_FORMATS:
+#endif
 #ifdef CAIRO_HAS_PDF_SURFACE
       case FORMAT_PDF:
         surface = cairo_pdf_surface_create_for_stream (_cairo_write, cache_io, width, height);
@@ -695,8 +705,10 @@ file_printer_get_options (GtkPrinter           *printer,
     {
       switch (format)
         {
+#ifdef _CAIRO_HAS_SURFACE
           default:
           case N_FORMATS:
+#endif
 #ifdef CAIRO_HAS_PDF_SURFACE
           case FORMAT_PDF:
             current_format = FORMAT_PDF;
@@ -709,7 +721,7 @@ file_printer_get_options (GtkPrinter           *printer,
 #endif
 #ifdef CAIRO_HAS_SVG_SURFACE
           case FORMAT_SVG:
-            current_format = FORMAT_SVG;            
+            current_format = FORMAT_SVG;
             break;
 #endif
         }
@@ -822,7 +834,9 @@ file_printer_prepare_for_print (GtkPrinter       *printer,
 #ifdef CAIRO_HAS_PDF_SURFACE
       case FORMAT_PDF:
 #endif
+#ifdef _CAIRO_HAS_SURFACE
       case N_FORMATS:
+#endif
 	gtk_print_job_set_rotate (print_job, FALSE);
         break;
       default:

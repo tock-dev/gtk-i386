@@ -314,10 +314,11 @@ portal_end_run (GtkPrintOperation *op,
 }
 
 static void
-finish_print (PortalData        *portal,
-              GtkPrinter        *printer,
-              GtkPageSetup      *page_setup,
-              GtkPrintSettings  *settings)
+finish_print (PortalData           *portal,
+              GtkPrinter           *printer,
+              GtkPageSetup         *page_setup,
+              GtkPrintSettings     *settings,
+              GtkPrintCapabilities printer_capabilities)
 {
   GtkPrintOperation *op = portal->op;
   GtkPrintOperationPrivate *priv = op->priv;
@@ -363,13 +364,13 @@ finish_print (PortalData        *portal,
 
       priv->print_pages = gtk_print_job_get_pages (job);
       priv->page_ranges = gtk_print_job_get_page_ranges (job, &priv->num_page_ranges);
-      priv->manual_num_copies = gtk_print_job_get_num_copies (job);
+      priv->manual_num_copies = (printer_capabilities & GTK_PRINT_CAPABILITY_COPIES) ? 1 : gtk_print_job_get_num_copies (job);
       priv->manual_collation = gtk_print_job_get_collate (job);
       priv->manual_reverse = gtk_print_job_get_reverse (job);
       priv->manual_page_set = gtk_print_job_get_page_set (job);
       priv->manual_scale = gtk_print_job_get_scale (job);
       priv->manual_orientation = gtk_print_job_get_rotate (job);
-      priv->manual_number_up = gtk_print_job_get_n_up (job);
+      priv->manual_number_up = (printer_capabilities & GTK_PRINT_CAPABILITY_NUMBER_UP) ? 1 : gtk_print_job_get_n_up (job);
       priv->manual_number_up_layout = gtk_print_job_get_n_up_layout (job);
     }
 
@@ -435,6 +436,7 @@ prepare_print_response (GDBusConnection *connection,
       GtkPrintSettings *settings;
       GtkPageSetup *page_setup;
       GtkPrinter *printer;
+      GtkPrintCapabilities capabilities = 0;
 
       v = g_variant_lookup_value (options, "settings", G_VARIANT_TYPE_VARDICT);
       settings = gtk_print_settings_new_from_gvariant (v);
@@ -442,6 +444,23 @@ prepare_print_response (GDBusConnection *connection,
 
       v = g_variant_lookup_value (options, "page-setup", G_VARIANT_TYPE_VARDICT);
       page_setup = gtk_page_setup_new_from_gvariant (v);
+      g_variant_unref (v);
+
+      v = g_variant_lookup_value (options, "printer-info", G_VARIANT_TYPE_VARDICT);
+      if (v)
+        {
+          gboolean has_n_copies, has_number_up;
+          if (g_variant_lookup (v, "has-n-copies", "b", &has_n_copies) && has_n_copies)
+            {
+              capabilities |= GTK_PRINT_CAPABILITY_COPIES |
+                              GTK_PRINT_CAPABILITY_COLLATE;
+            }
+
+          if (g_variant_lookup (v, "has-number-up", "b", &has_number_up) && has_number_up)
+            {
+              capabilities |= GTK_PRINT_CAPABILITY_NUMBER_UP;
+            }
+        }
       g_variant_unref (v);
 
       g_variant_lookup (options, "token", "u", &portal->token);
@@ -461,7 +480,7 @@ prepare_print_response (GDBusConnection *connection,
 
           portal->result = GTK_PRINT_OPERATION_RESULT_APPLY;
 
-          finish_print (portal, printer, page_setup, settings);
+          finish_print (portal, printer, page_setup, settings, capabilities);
           g_free (filename);
         }
       else
@@ -637,6 +656,8 @@ call_prepare_print (GtkPrintOperation *op,
 
   g_variant_builder_init (&opt_builder, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&opt_builder, "{sv}", "handle_token", g_variant_new_string (token));
+  g_variant_builder_add (&opt_builder, "{sv}", "has_n_copies", g_variant_new_boolean (true));
+  g_variant_builder_add (&opt_builder, "{sv}", "has_number_up", g_variant_new_boolean (true));
   g_free (token);
   portal->options = g_variant_builder_end (&opt_builder);
 

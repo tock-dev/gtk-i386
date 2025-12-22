@@ -1366,12 +1366,7 @@ handle_dpi_changed (GdkSurface *surface,
 
   _gdk_win32_adjust_client_rect (surface, rect);
 
-  if (impl->drag_move_resize_context.op != GDK_WIN32_DRAGOP_NONE)
-    gdk_win32_surface_move_resize (surface,
-                                   surface->x, surface->y,
-                                   surface->width, surface->height);
-  else
-    gdk_win32_surface_resize (surface, surface->width, surface->height);
+  gdk_win32_surface_resize (surface, surface->width, surface->height);
 }
 
 static void
@@ -1410,85 +1405,10 @@ generate_button_event (GdkEventType  type,
   _gdk_win32_append_event (event);
 }
 
-static gboolean
-handle_wm_sysmenu (GdkSurface *surface,
-                   MSG        *msg,
-                   int *ret_valp)
-{
-  GdkWin32Surface *impl;
-  LONG_PTR style, tmp_style;
-  LONG_PTR additional_styles;
-
-  impl = GDK_WIN32_SURFACE (surface);
-
-  style = GetWindowLongPtr (msg->hwnd, GWL_STYLE);
-
-  additional_styles = 0;
-
-  if (!(style & WS_SYSMENU))
-    additional_styles |= WS_SYSMENU;
-
-  if (!(style & WS_MAXIMIZEBOX))
-    additional_styles |= WS_MAXIMIZEBOX;
-
-  if (!(style & WS_MINIMIZEBOX))
-    additional_styles |= WS_MINIMIZEBOX;
-
-  if (!(style & WS_SIZEBOX))
-    additional_styles |= WS_SIZEBOX;
-
-  if (!(style & WS_DLGFRAME))
-    additional_styles |= WS_DLGFRAME;
-
-  if (!(style & WS_BORDER))
-    additional_styles |= WS_BORDER;
-
-  if (additional_styles == 0)
-    /* The caller will eventually pass this to DefWindowProc (),
-     * only without the style dance, which isn't needed, as it turns out.
-     */
-    return FALSE;
-
-  /* Note: This code will enable resizing, maximizing and minimizing surfaces
-   * via window menu even if these are non-CSD windows that were explicitly
-   * forbidden from doing this by removing the appropriate styles,
-   * or if these are CSD windows that were explicitly forbidden from doing
-   * this by removing appropriate decorations from the headerbar and/or
-   * changing hints or properties.
-   *
-   * If doing this for non-CSD windows is not desired,
-   * do a _gdk_win32_surface_lacks_wm_decorations() check and return FALSE
-   * if it doesn't pass.
-   *
-   * If doing this for CSD windows with disabled decorations is not desired,
-   * tough luck - GDK can't know which CSD decorations are enabled, and which
-   * are not.
-   *
-   * If doing this for CSD windows with particular hints is not desired,
-   * check surface hints here and return FALSE (DefWindowProc() will return
-   * FALSE later) or set *ret_valp to 0 and return TRUE.
-   */
-  tmp_style = style | additional_styles;
-  GDK_NOTE (EVENTS, g_print (" Handling WM_SYSMENU: style 0x%" G_GINTPTR_MODIFIER "x -> 0x%" G_GINTPTR_MODIFIER "x\n", style, tmp_style));
-  impl->have_temp_styles = TRUE;
-  impl->temp_styles = additional_styles;
-  SetWindowLongPtr (msg->hwnd, GWL_STYLE, tmp_style);
-
-  *ret_valp = DefWindowProc (msg->hwnd, msg->message, msg->wParam, msg->lParam);
-
-  tmp_style = GetWindowLongPtr (msg->hwnd, GWL_STYLE);
-  style = tmp_style & ~additional_styles;
-
-  GDK_NOTE (EVENTS, g_print (" Handling WM_SYSMENU: style 0x%" G_GINTPTR_MODIFIER "x <- 0x%" G_GINTPTR_MODIFIER "x\n", style, tmp_style));
-  SetWindowLongPtr (msg->hwnd, GWL_STYLE, style);
-  impl->have_temp_styles = FALSE;
-
-  return TRUE;
-}
-
 gboolean
 _gdk_win32_surface_fill_min_max_info (GdkSurface *surface,
-                                      MINMAXINFO *mmi)
+                                      MINMAXINFO *mmi,
+                                      HMONITOR target_monitor)
 {
   GdkWin32Surface *impl;
   RECT rect;
@@ -1547,10 +1467,11 @@ _gdk_win32_surface_fill_min_max_info (GdkSurface *surface,
        * to maximize the window, catch WM_WINDOWPOSCHANGING and
        * adjust the size then.
        */
-      HMONITOR nearest_monitor;
+      HMONITOR nearest_monitor = target_monitor;
       MONITORINFO nearest_info;
 
-      nearest_monitor = MonitorFromWindow (GDK_SURFACE_HWND (surface), MONITOR_DEFAULTTONEAREST);
+      if (nearest_monitor == NULL)
+        nearest_monitor = MonitorFromWindow (GDK_SURFACE_HWND (surface), MONITOR_DEFAULTTONEAREST);
       nearest_info.cbSize = sizeof (nearest_info);
 
       if (GetMonitorInfo (nearest_monitor, &nearest_info))
@@ -2110,13 +2031,6 @@ gdk_event_translate (MSG *msg,
 
       generate_button_event (GDK_BUTTON_RELEASE, button, surface, msg);
 
-      impl = GDK_WIN32_SURFACE (surface);
-
-      /* End a drag op when the same button that started it is released */
-      if (impl->drag_move_resize_context.op != GDK_WIN32_DRAGOP_NONE &&
-          impl->drag_move_resize_context.button == button)
-        gdk_win32_surface_end_move_resize_drag (surface);
-
       if (release_implicit_grab)
         {
           ReleaseCapture ();
@@ -2217,9 +2131,7 @@ gdk_event_translate (MSG *msg,
       win32_display->event_record->current_root_x = msg->pt.x;
       win32_display->event_record->current_root_y = msg->pt.y;
 
-      if (impl->drag_move_resize_context.op != GDK_WIN32_DRAGOP_NONE)
-        gdk_win32_surface_do_move_resize_drag (surface, msg->pt.x, msg->pt.y);
-      else if (GDK_WIN32_DISPLAY (gdk_surface_get_display (surface))->pointer_device_items->input_ignore_core == 0)
+      if (GDK_WIN32_DISPLAY (gdk_surface_get_display (surface))->pointer_device_items->input_ignore_core == 0)
 	{
           double x = (double) GET_X_LPARAM (msg->lParam) / impl->surface_scale;
           double y = (double) GET_Y_LPARAM (msg->lParam) / impl->surface_scale;
@@ -2346,12 +2258,6 @@ gdk_event_translate (MSG *msg,
 
       gdk_winpointer_input_events (surface, NULL, msg);
 
-      impl = GDK_WIN32_SURFACE (surface);
-      if (impl->drag_move_resize_context.op != GDK_WIN32_DRAGOP_NONE)
-        {
-          gdk_win32_surface_end_move_resize_drag (surface);
-        }
-
       *ret_valp = 0;
       return_val = TRUE;
       break;
@@ -2380,18 +2286,7 @@ gdk_event_translate (MSG *msg,
       if (IS_POINTER_PRIMARY_WPARAM (msg->wParam) && win32_display->event_record->mouse_surface != surface)
         crossing_cb = make_crossing_event;
 
-      impl = GDK_WIN32_SURFACE (surface);
-
-      if (impl->drag_move_resize_context.op != GDK_WIN32_DRAGOP_NONE)
-        {
-          gdk_win32_surface_do_move_resize_drag (surface,
-                                                 win32_display->event_record->current_root_x,
-                                                 win32_display->event_record->current_root_y);
-        }
-      else
-        {
-          gdk_winpointer_input_events (surface, crossing_cb, msg);
-        }
+      gdk_winpointer_input_events (surface, crossing_cb, msg);
 
       *ret_valp = 0;
       return_val = TRUE;
@@ -2695,30 +2590,6 @@ gdk_event_translate (MSG *msg,
 
       break;
 
-    case WM_SYSMENU:
-      return_val = handle_wm_sysmenu (surface, msg, ret_valp);
-      break;
-
-    case WM_INITMENU:
-      impl = GDK_WIN32_SURFACE (surface);
-
-      if (impl->have_temp_styles)
-        {
-          LONG_PTR hwnd_style;
-
-          hwnd_style = GetWindowLongPtr (GDK_SURFACE_HWND (surface),
-                                           GWL_STYLE);
-          /* Handling WM_SYSMENU added extra styles to this surface,
-           * remove them now.
-           */
-          hwnd_style &= ~impl->temp_styles;
-          SetWindowLongPtr (GDK_SURFACE_HWND (surface),
-                            GWL_STYLE,
-                            hwnd_style);
-        }
-
-      break;
-
     case WM_SYSCOMMAND:
       /* From: https://learn.microsoft.com/en-us/windows/win32/menurc/wm-syscommand?redirectedfrom=MSDN
        * To obtain the correct result when testing the value of wParam,
@@ -2728,11 +2599,6 @@ gdk_event_translate (MSG *msg,
         case SC_MINIMIZE:
         case SC_RESTORE:
           do_show_surface (surface, msg->wParam == SC_MINIMIZE ? TRUE : FALSE);
-          break;
-
-        case SC_MAXIMIZE:
-          impl = GDK_WIN32_SURFACE (surface);
-          impl->maximizing = TRUE;
           break;
         }
 
@@ -2792,10 +2658,6 @@ gdk_event_translate (MSG *msg,
 	  _gdk_win32_end_modal_call (surface, GDK_WIN32_MODAL_OP_SIZEMOVE_MASK);
 	}
 
-
-      impl = GDK_WIN32_SURFACE (surface);
-      if (impl->drag_move_resize_context.op != GDK_WIN32_DRAGOP_NONE)
-        gdk_win32_surface_end_move_resize_drag (surface);
       break;
 
     case WM_WINDOWPOSCHANGING:
@@ -2819,13 +2681,15 @@ gdk_event_translate (MSG *msg,
 
           impl = GDK_WIN32_SURFACE (surface);
 
-          if (impl->maximizing)
+          if (IsZoomed (GDK_SURFACE_HWND (surface)))
             {
               MINMAXINFO our_mmi;
 
-              if (_gdk_win32_surface_fill_min_max_info (surface, &our_mmi))
+              hwndpos = (WINDOWPOS *) msg->lParam;
+              POINT point = { hwndpos->x + hwndpos->cx / 2, hwndpos->y + hwndpos->cy / 2 };
+              HMONITOR monitor = MonitorFromPoint (point, MONITOR_DEFAULTTONEAREST);
+              if (_gdk_win32_surface_fill_min_max_info (surface, &our_mmi, monitor))
                 {
-                  hwndpos = (WINDOWPOS *) msg->lParam;
                   hwndpos->cx = our_mmi.ptMaxSize.x;
                   hwndpos->cy = our_mmi.ptMaxSize.y;
 
@@ -2837,8 +2701,6 @@ gdk_event_translate (MSG *msg,
                       impl->inhibit_configure = TRUE;
                     }
                 }
-
-              impl->maximizing = FALSE;
             }
         }
 
@@ -2982,7 +2844,7 @@ gdk_event_translate (MSG *msg,
 				 mmi->ptMaxPosition.x, mmi->ptMaxPosition.y,
 				 mmi->ptMaxSize.x, mmi->ptMaxSize.y));
 
-      if (_gdk_win32_surface_fill_min_max_info (surface, mmi))
+      if (_gdk_win32_surface_fill_min_max_info (surface, mmi, NULL))
         {
           /* Don't call DefWindowProcW() */
           GDK_NOTE (EVENTS,
@@ -3133,6 +2995,30 @@ gdk_event_translate (MSG *msg,
       return_val = handle_nchittest (msg->hwnd, surface,
                                      GET_X_LPARAM (msg->lParam),
                                      GET_Y_LPARAM (msg->lParam), ret_valp);
+      break;
+
+    case WM_NCCALCSIZE:
+      if (msg->wParam == 0 || GDK_WIN32_SURFACE (surface)->decorate_all)
+        break;
+      if( IsZoomed(msg->hwnd) )
+        {
+          /*
+          * Add a margin on each side of our maximized window to compensate
+          * for Windows' quirk of maximized windows being larger than the
+          * monitor's workspace. See:
+          * https://devblogs.microsoft.com/oldnewthing/20150304-00/?p=44543
+          */
+          RECT *client_area = &((NCCALCSIZE_PARAMS *)msg->lParam)->rgrc[0];
+          int padded_border = GetSystemMetrics(SM_CXPADDEDBORDER);
+          int margin_x = GetSystemMetrics(SM_CXFRAME) + padded_border;
+          int margin_y = GetSystemMetrics(SM_CYFRAME) + padded_border;
+          client_area->left += margin_x;
+          client_area->top += margin_y;
+          client_area->right -= margin_x;
+          client_area->bottom -= margin_y;
+        }
+      *ret_valp = 0;
+      return_val = TRUE;
       break;
 
     case WM_TABLET_QUERYSYSTEMGESTURESTATUS:

@@ -292,14 +292,9 @@ void _gdk_win32_append_event (GdkEvent *event);
 
 gboolean gdk_win32_get_surface_hwnd_rect        (GdkSurface  *surface,
                                                  RECT       *rect);
-void     _gdk_win32_do_emit_configure_event     (GdkSurface  *surface,
-                                                 RECT        rect);
-void      gdk_win32_surface_do_move_resize_drag  (GdkSurface  *surface,
-                                                  int         x,
-                                                  int         y);
-void      gdk_win32_surface_end_move_resize_drag (GdkSurface  *surface);
-gboolean _gdk_win32_surface_fill_min_max_info    (GdkSurface  *surface,
-                                                  MINMAXINFO *mmi);
+gboolean _gdk_win32_surface_fill_min_max_info (GdkSurface *surface,
+                                               MINMAXINFO *mmi,
+                                               HMONITOR target_monitor);
 
 gboolean _gdk_win32_surface_lacks_wm_decorations (GdkSurface *surface);
 

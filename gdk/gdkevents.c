@@ -1908,7 +1908,7 @@ gdk_key_event_matches (GdkEvent        *event,
       for (i = 0; i < n_keys; i++)
         {
           if (keys[i].keycode == keycode &&
-              keys[i].level == level &&
+              keys[i].level == ((modifiers & GDK_SHIFT_MASK) ? level - 1 : level) &&
               /* Only match for group if it's an accel mod */
               (keys[i].group == layout ||
                (!group_mod_is_accel_mod && !keyval_in_group (keymap, keyval, layout))))

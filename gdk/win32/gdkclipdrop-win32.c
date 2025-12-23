@@ -1297,6 +1297,13 @@ inner_clipboard_hwnd_procedure (HWND   hwnd,
 
         return 0;
       }
+    case WM_QUERYENDSESSION:
+      {
+        if (lparam & ENDSESSION_LOGOFF)
+          return !gdk_win32_is_logout_inhibited();
+
+        return TRUE;
+      }
     default:
       /* Otherwise call DefWindowProcW(). */
       GDK_NOTE (EVENTS, g_print (" DefWindowProcW"));

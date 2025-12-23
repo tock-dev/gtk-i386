@@ -1017,6 +1017,10 @@ winpointer_notifications_window_procedure (HWND hWnd,
       device_manager = (GdkDeviceManagerWin32 *) GetWindowLongPtr (hWnd, GWLP_USERDATA);
       winpointer_enumerate_devices (device_manager);
       return 0;
+    case WM_QUERYENDSESSION:
+      if (lParam & ENDSESSION_LOGOFF)
+        return !gdk_win32_is_logout_inhibited();
+      return TRUE;
     }
 
   return DefWindowProcW (hWnd, uMsg, wParam, lParam);

@@ -548,12 +548,21 @@ gtk_im_context_filter_keypress (GtkIMContext *context,
 				GdkEvent     *key)
 {
   GtkIMContextClass *klass;
+  GdkEventType type;
+  gboolean retval;
   
   g_return_val_if_fail (GTK_IS_IM_CONTEXT (context), FALSE);
   g_return_val_if_fail (key != NULL, FALSE);
 
+  type = gdk_event_get_event_type (key);
   klass = GTK_IM_CONTEXT_GET_CLASS (context);
-  return klass->filter_keypress (context, key);
+  retval = klass->filter_keypress (context, key);
+  if (type == GDK_KEY_PRESS || type == GDK_KEY_RELEASE)
+    {
+      GdkKeyEvent *_key = (GdkKeyEvent *) key;
+      _key->state |= GDK_IM_FILTERED_MASK;
+    }
+  return retval;
 }
 
 /**

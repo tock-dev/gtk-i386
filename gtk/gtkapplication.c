@@ -454,6 +454,16 @@ static void
 gtk_application_add_platform_data (GApplication    *application,
                                    GVariantBuilder *builder)
 {
+  GdkDisplay *display = gdk_display_get_default ();
+  const char *startup_id = NULL;
+
+  if (display)
+    {
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+    startup_id = gdk_display_get_startup_notification_id (display);
+G_GNUC_END_IGNORE_DEPRECATIONS
+    }
+
   /* This is slightly evil.
    *
    * We don't have an impl here because we're remote so we can't figure
@@ -461,7 +471,8 @@ gtk_application_add_platform_data (GApplication    *application,
    *
    * So we do all the things... which currently is just one thing.
    */
-  const char *startup_id = gdk_get_startup_notification_id ();
+  if (!startup_id)
+    startup_id = gdk_get_startup_notification_id ();
 
   if (startup_id && g_utf8_validate (startup_id, -1, NULL))
     {

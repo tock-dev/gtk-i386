@@ -918,7 +918,17 @@ gtk_popover_key_released (GtkWidget       *widget,
 
   root = GTK_WINDOW (gtk_widget_get_root (GTK_WIDGET (popover)));
   _gtk_window_update_focus_visible (root, keyval, state, FALSE);
-  update_mnemonics_visible (popover, keyval, state, FALSE);
+
+  /* Show mnemonics if popover was triggered by keyboard */
+  if (keyval == GDK_KEY_Menu ||
+      (keyval == GDK_KEY_F10 && (state & GDK_SHIFT_MASK)))
+    {
+      gtk_popover_set_mnemonics_visible (popover, TRUE);
+    }
+  else
+    {
+      update_mnemonics_visible (popover, keyval, state, FALSE);
+    }
 
   return FALSE;
 }

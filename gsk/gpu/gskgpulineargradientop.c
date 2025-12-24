@@ -39,13 +39,19 @@ static const GskGpuShaderOpClass GSK_GPU_LINEAR_GRADIENT_OP_CLASS = {
 #ifdef GDK_RENDERING_VULKAN
     gsk_gpu_shader_op_vk_command,
 #endif
-    gsk_gpu_shader_op_gl_command
+    gsk_gpu_shader_op_gl_command,
+#ifdef GDK_WINDOWING_WIN32
+    gsk_gpu_shader_op_d3d12_command,
+#endif
   },
   "gskgpulineargradient",
   gsk_gpu_lineargradient_n_textures,
   sizeof (GskGpuLineargradientInstance),
 #ifdef GDK_RENDERING_VULKAN
   &gsk_gpu_lineargradient_info,
+#endif
+#ifdef GDK_WINDOWING_WIN32
+  &gsk_gpu_lineargradient_input_layout,
 #endif
   gsk_gpu_linear_gradient_op_print_instance,
   gsk_gpu_lineargradient_setup_attrib_locations,

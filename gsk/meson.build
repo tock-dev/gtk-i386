@@ -44,6 +44,7 @@ gsk_public_sources = files([
   'gskstrokenode.c',
   'gsksubsurfacenode.c',
   'gsktransform.c',
+  'gpu/gskd3d12renderer.c',
   'gpu/gskglrenderer.c',
   'gpu/gskvulkanrenderer.c',
 ])
@@ -159,8 +160,9 @@ install_headers(gsk_public_gl_headers, subdir: 'gtk-4.0/gsk/gl')
 gsk_public_headers += gsk_public_gl_headers
 
 gsk_public_gpu_headers = files([
-  'gpu/gskvulkanrenderer.h',
-  'gpu/gskglrenderer.h'
+  'gpu/gskd3d12renderer.h',
+  'gpu/gskglrenderer.h',
+  'gpu/gskvulkanrenderer.h'
 ])
 install_headers(gsk_public_gpu_headers, subdir: 'gtk-4.0/gsk/gpu')
 gsk_public_headers += gsk_public_gpu_headers
@@ -189,6 +191,15 @@ if have_vulkan
   ])
 endif # have_vulkan
 
+if get_variable('win32_enabled')
+  gsk_private_sources += files([
+    'gpu/gskd3d12buffer.c',
+    'gpu/gskd3d12device.c',
+    'gpu/gskd3d12frame.c',
+    'gpu/gskd3d12image.c',
+  ])
+endif
+
 subdir('gpu/shaders')
 
 if get_variable('broadway_enabled')
@@ -206,6 +217,7 @@ gsk_resources_xml = custom_target(output: 'gsk.resources.xml',
     gsk_private_vulkan_shaders,
     gsk_private_gpu_gl_shaders,
     gsk_private_gpu_vulkan_shaders,
+    gsk_private_gpu_d3d12_shaders,
   ],
 )
 

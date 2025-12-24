@@ -13,6 +13,10 @@
 #include "gskvulkandeviceprivate.h"
 #include "gskvulkanimageprivate.h"
 #endif
+#ifdef GDK_WINDOWING_WIN32
+#include "gskd3d12deviceprivate.h"
+#include "gskd3d12imageprivate.h"
+#endif
 
 #include "gdkglcontextprivate.h"
 
@@ -249,6 +253,102 @@ gsk_gpu_shader_op_gl_command (GskGpuOp          *op,
 {
   return gsk_gpu_shader_op_gl_command_n (op, frame, state, 1);
 }
+
+#ifdef GDK_WINDOWING_WIN32
+GskGpuOp *
+gsk_gpu_shader_op_d3d12_command_n (GskGpuOp             *op,
+                                   GskGpuFrame          *frame,
+                                   GskD3d12CommandState *state,
+                                   gsize                 instance_scale)
+{
+  GskGpuShaderOp *self = (GskGpuShaderOp *) op;
+  GskGpuShaderOpClass *shader_op_class = (GskGpuShaderOpClass *) op->op_class;
+  GskGpuOp *next;
+  gsize i, n_ops, max_ops_per_draw;
+  ID3D12PipelineState *pipeline;
+
+  if (gsk_gpu_frame_should_optimize (frame, GSK_GPU_OPTIMIZE_MERGE))
+    max_ops_per_draw = MAX_MERGE_OPS;
+  else
+    max_ops_per_draw = 1;
+
+  n_ops = self->n_ops;
+  for (next = op->next; next; next = next->next)
+    {
+      GskGpuShaderOp *next_shader = (GskGpuShaderOp *) next;
+
+      if (next->op_class != op->op_class ||
+          next_shader->flags != self->flags ||
+          next_shader->color_states != self->color_states ||
+          next_shader->variation != self->variation ||
+          next_shader->vertex_offset != self->vertex_offset + n_ops * shader_op_class->vertex_size ||
+          (shader_op_class->n_textures > 0 && (next_shader->images[0] != self->images[0] || next_shader->samplers[0] != self->samplers[0])) ||
+          (shader_op_class->n_textures > 1 && (next_shader->images[1] != self->images[1] || next_shader->samplers[1] != self->samplers[1])))
+        break;
+
+      n_ops += next_shader->n_ops;
+    }
+
+  if (state->vertex_buffer_view.StrideInBytes != shader_op_class->vertex_size)
+    {
+      state->vertex_buffer_view.StrideInBytes = shader_op_class->vertex_size;
+      ID3D12GraphicsCommandList_IASetVertexBuffers (state->command_list,
+                                                    0,
+                                                    1,
+                                                    &state->vertex_buffer_view);
+    }
+  pipeline = gsk_d3d12_device_get_d3d12_pipeline_state (GSK_D3D12_DEVICE (gsk_gpu_frame_get_device (frame)),
+                                                        shader_op_class,
+                                                        self->flags,
+                                                        self->color_states,
+                                                        self->variation,
+                                                        state->blend,
+                                                        state->rtv_format);
+  ID3D12GraphicsCommandList_SetPipelineState (state->command_list, pipeline);
+
+  for (i = 0; i < shader_op_class->n_textures; i++)
+    {
+      if (state->current_images[i] != self->images[i])
+        {
+          gsk_d3d12_image_transition (GSK_D3D12_IMAGE (self->images[i]),
+                                      state->command_list,
+                                      D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+          ID3D12GraphicsCommandList_SetGraphicsRootDescriptorTable (state->command_list,
+                                                                    GSK_D3D12_ROOT_TEXTURE_0 + i,
+                                                                    *gsk_d3d12_image_get_srv (GSK_D3D12_IMAGE (self->images[i])));
+          state->current_images[i] = self->images[i];
+        }
+      if (state->current_samplers[i] != self->samplers[i])
+        {
+          D3D12_GPU_DESCRIPTOR_HANDLE descriptor;
+          gsk_d3d12_device_get_sampler (GSK_D3D12_DEVICE (gsk_gpu_frame_get_device (frame)),
+                                        self->samplers[i],
+                                        &descriptor);
+          ID3D12GraphicsCommandList_SetGraphicsRootDescriptorTable (state->command_list,
+                                                                    GSK_D3D12_ROOT_SAMPLER_0 + i,
+                                                                    descriptor);
+          state->current_samplers[i] = self->samplers[i];
+        }
+    }
+
+  for (i = 0; i < n_ops; i += max_ops_per_draw)
+    {
+      ID3D12GraphicsCommandList_DrawInstanced (state->command_list,
+                                               6 * instance_scale, MIN (max_ops_per_draw, n_ops - i),
+                                               0, self->vertex_offset / shader_op_class->vertex_size + i);
+    }
+
+  return next;
+}
+
+GskGpuOp *
+gsk_gpu_shader_op_d3d12_command (GskGpuOp             *op,
+                                 GskGpuFrame          *frame,
+                                 GskD3d12CommandState *state)
+{
+  return gsk_gpu_shader_op_d3d12_command_n (op, frame, state, 1);
+}
+#endif
 
 void
 gsk_gpu_shader_op_alloc (GskGpuFrame               *frame,

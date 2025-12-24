@@ -17,6 +17,7 @@ gdk_win32_sources = gdk_win32_public_sources + files([
   'gdkcairocontext-win32.c',
   'gdkclipboard-win32.c',
   'gdkclipdrop-win32.c',
+  'gdkd3d12context.c',
   'gdkd3d12utils.c',
   'gdkdevicemanager-win32.c',
   'gdkdevice-virtual.c',
@@ -61,6 +62,7 @@ endif
 d3d12_dep = [
   cc.find_library('d3d11'),
   cc.find_library('d3d12'),
+  cc.find_library('d3dcompiler'),
   cc.find_library('dcomp'),
   cc.find_library('dxgi'),
   cc.find_library('dxguid'),

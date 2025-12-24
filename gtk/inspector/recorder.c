@@ -270,6 +270,7 @@ get_roles (GskRenderNodeType node_type)
   static const char *cross_fade_node_roles[] = { "Start", "End", NULL };
   static const char *composite_node_roles[] = { "Child", "Mask", NULL };
   static const char *displacement_node_roles[] = { "Child", "Displacement", NULL };
+  static const char *arithmetic_node_roles[] = { "First", "Second", NULL };
 
   switch (node_type)
     {
@@ -283,6 +284,8 @@ get_roles (GskRenderNodeType node_type)
       return composite_node_roles;
     case GSK_DISPLACEMENT_NODE:
       return displacement_node_roles;
+    case GSK_ARITHMETIC_NODE:
+      return arithmetic_node_roles;
     case GSK_CONTAINER_NODE:
     case GSK_CAIRO_NODE:
     case GSK_LINEAR_GRADIENT_NODE:
@@ -499,6 +502,8 @@ node_type_name (GskRenderNodeType type)
       return "Isolation";
     case GSK_DISPLACEMENT_NODE:
       return "Displacement";
+    case GSK_ARITHMETIC_NODE:
+      return "Arithmetic";
     }
 }
 
@@ -542,6 +547,7 @@ node_name (GskRenderNode *node)
     case GSK_COMPOSITE_NODE:
     case GSK_ISOLATION_NODE:
     case GSK_DISPLACEMENT_NODE:
+    case GSK_ARITHMETIC_NODE:
       return g_strdup (node_type_name (gsk_render_node_get_node_type (node)));
 
     case GSK_DEBUG_NODE:
@@ -1759,6 +1765,18 @@ G_GNUC_END_IGNORE_DEPRECATIONS
 
     case GSK_DISPLACEMENT_NODE:
       {
+      }
+      break;
+
+    case GSK_ARITHMETIC_NODE:
+      {
+        float factors[4];
+        char *tmp;
+
+        gsk_arithmetic_node_get_factors (node, factors);
+        tmp = g_strdup_printf ("%f %f %f %f", factors[0], factors[1], factors[2], factors[3]);
+        add_text_row (store, "Factors", "%s", tmp);
+        g_free (tmp);
       }
       break;
 

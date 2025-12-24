@@ -1,4 +1,5 @@
 gsk_public_sources = files([
+  'gskarithmeticnode.c',
   'gskblendnode.c',
   'gskblurnode.c',
   'gskbordernode.c',
@@ -113,6 +114,7 @@ gsk_f16c_sources = files([
 ])
 
 gsk_public_headers = files([
+  'gskarithmeticnode.h',
   'gskblendnode.h',
   'gskblurnode.h',
   'gskbordernode.h',

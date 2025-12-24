@@ -259,6 +259,20 @@ G_GNUC_END_IGNORE_DEPRECATIONS
         return res;
       }
 
+    case GSK_ARITHMETIC_NODE:
+      {
+        GskRenderNode *first, *second;
+        float factors[4];
+        first = node_attach (gsk_arithmetic_node_get_first_child (node), surface, idx);
+        second = node_attach (gsk_arithmetic_node_get_second_child (node), surface, idx);
+        gsk_arithmetic_node_get_factors (node, factors);
+
+        res = gsk_arithmetic_node_new (first, second, factors);
+        gsk_render_node_unref (first);
+        gsk_render_node_unref (second);
+        return res;
+      }
+
     case GSK_NOT_A_RENDER_NODE:
     default:
       g_assert_not_reached ();

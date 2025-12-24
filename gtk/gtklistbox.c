@@ -1115,8 +1115,8 @@ gtk_list_box_set_placeholder (GtkListBox *box,
   if (placeholder)
     {
       gtk_widget_set_parent (placeholder, GTK_WIDGET (box));
-      gtk_widget_set_child_visible (placeholder,
-                                    box->n_visible_rows == 0);
+      gtk_widget_set_visible (placeholder,
+                              box->n_visible_rows == 0);
     }
 }
 
@@ -2166,7 +2166,7 @@ list_box_add_visible_rows (GtkListBox *box,
 
   if (box->placeholder &&
       (was_zero || box->n_visible_rows == 0))
-    gtk_widget_set_child_visible (GTK_WIDGET (box->placeholder),
+    gtk_widget_set_visible (GTK_WIDGET (box->placeholder),
                                   box->n_visible_rows == 0);
 }
 
@@ -2184,7 +2184,7 @@ update_row_is_visible (GtkListBox    *box,
 
   row_priv->visible =
     gtk_widget_get_visible (GTK_WIDGET (row)) &&
-    gtk_widget_get_child_visible (GTK_WIDGET (row));
+    gtk_widget_get_visible (GTK_WIDGET (row));
 
   if (was_visible && !row_priv->visible)
     list_box_add_visible_rows (box, -1);
@@ -2202,7 +2202,7 @@ gtk_list_box_apply_filter (GtkListBox    *box,
   if (box->filter_func != NULL)
     do_show = box->filter_func (row, box->filter_func_target);
 
-  gtk_widget_set_child_visible (GTK_WIDGET (row), do_show);
+  gtk_widget_set_visible (GTK_WIDGET (row), do_show);
 
   update_row_is_visible (box, row);
 }
@@ -2568,7 +2568,7 @@ gtk_list_box_get_request_mode (GtkWidget *widget)
   GSequenceIter *iter;
   GtkListBoxRow *row;
 
-  if (box->placeholder && gtk_widget_get_child_visible (box->placeholder))
+  if (box->placeholder && gtk_widget_get_visible (box->placeholder))
     return gtk_widget_get_request_mode (box->placeholder);
 
   /* Return constant-size, unless any of the children do hfw (or wfh) */
@@ -2602,7 +2602,7 @@ gtk_list_box_measure_height_for_width (GtkListBox       *box,
   GtkListBoxRow *row;
   int i = 0;
 
-  if (box->placeholder && gtk_widget_get_child_visible (box->placeholder))
+  if (box->placeholder && gtk_widget_get_visible (box->placeholder))
     {
       gtk_widget_measure (box->placeholder, GTK_ORIENTATION_VERTICAL,
                           for_width, minimum, natural, NULL, NULL);
@@ -2664,7 +2664,7 @@ gtk_list_box_measure_width_for_height (GtkListBox *box,
   int n_vexpand_children = 0;
   int extra_height;
 
-  if (box->placeholder && gtk_widget_get_child_visible (box->placeholder))
+  if (box->placeholder && gtk_widget_get_visible (box->placeholder))
     {
       gtk_widget_measure (box->placeholder, GTK_ORIENTATION_HORIZONTAL,
                           for_height, minimum, natural, NULL, NULL);
@@ -2850,7 +2850,7 @@ gtk_list_box_size_allocate (GtkWidget *widget,
   header_allocation.width = width;
   header_allocation.height = 0;
 
-  if (box->placeholder && gtk_widget_get_child_visible (box->placeholder))
+  if (box->placeholder && gtk_widget_get_visible (box->placeholder))
     {
       gtk_widget_measure (box->placeholder, GTK_ORIENTATION_VERTICAL,
                           width,
@@ -3096,7 +3096,7 @@ gtk_list_box_insert (GtkListBox *box,
   gtk_widget_insert_after (GTK_WIDGET (row), GTK_WIDGET (box),
                            prev != iter ? g_sequence_get (prev) : NULL);
 
-  gtk_widget_set_child_visible (GTK_WIDGET (row), TRUE);
+  gtk_widget_set_visible (GTK_WIDGET (row), TRUE);
   ROW_PRIV (row)->visible = gtk_widget_get_visible (GTK_WIDGET (row));
   if (ROW_PRIV (row)->visible)
     list_box_add_visible_rows (box, 1);

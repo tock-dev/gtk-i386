@@ -29,6 +29,24 @@
 
 #include "gsk/gl/fp16private.h"
 
+#ifndef VK_FORMAT_X6G10_X6B10_X6R10_3PLANE_420_UNORM_3PACK16
+#define VK_FORMAT_X6G10_X6B10_X6R10_3PLANE_420_UNORM_3PACK16 1000625001
+#endif
+#ifndef VK_FORMAT_X6G10_X6B10_X6R10_3PLANE_422_UNORM_3PACK16
+#define VK_FORMAT_X6G10_X6B10_X6R10_3PLANE_422_UNORM_3PACK16 1000625002
+#endif
+#ifndef VK_FORMAT_X6G10_X6B10_X6R10_3PLANE_444_UNORM_3PACK16
+#define VK_FORMAT_X6G10_X6B10_X6R10_3PLANE_444_UNORM_3PACK16 1000625003
+#endif
+#ifndef VK_FORMAT_X4G12_X4B12_X4R12_3PLANE_420_UNORM_3PACK16
+#define VK_FORMAT_X4G12_X4B12_X4R12_3PLANE_420_UNORM_3PACK16 1000625004
+#endif
+#ifndef VK_FORMAT_X4G12_X4B12_X4R12_3PLANE_422_UNORM_3PACK16
+#define VK_FORMAT_X4G12_X4B12_X4R12_3PLANE_422_UNORM_3PACK16 1000625005
+#endif
+#ifndef VK_FORMAT_X4G12_X4B12_X4R12_3PLANE_444_UNORM_3PACK16
+#define VK_FORMAT_X4G12_X4B12_X4R12_3PLANE_444_UNORM_3PACK16 1000625006
+#endif
 
 /* Don't report quick (< 0.5 msec) runs */
 #define MIN_MARK_DURATION 500000
@@ -4699,9 +4717,9 @@ static const GdkMemoryFormatDescription memory_formats[] = {
     },
 #ifdef GDK_RENDERING_VULKAN
     .vulkan = {
-        .vk_format = VK_FORMAT_UNDEFINED,
+        .vk_format = VK_FORMAT_X6G10_X6B10_X6R10_3PLANE_420_UNORM_3PACK16,
         .vk_srgb_format = VK_FORMAT_UNDEFINED,
-        .ycbcr_swizzle = -1,
+        .ycbcr_swizzle = GDK_SWIZZLE_IDENTITY,
     },
 #endif
     .win32 = {
@@ -4786,9 +4804,9 @@ static const GdkMemoryFormatDescription memory_formats[] = {
     },
 #ifdef GDK_RENDERING_VULKAN
     .vulkan = {
-        .vk_format = VK_FORMAT_UNDEFINED,
+        .vk_format = VK_FORMAT_X6G10_X6B10_X6R10_3PLANE_422_UNORM_3PACK16,
         .vk_srgb_format = VK_FORMAT_UNDEFINED,
-        .ycbcr_swizzle = -1,
+        .ycbcr_swizzle = GDK_SWIZZLE_IDENTITY,
     },
 #endif
     .win32 = {
@@ -4873,9 +4891,9 @@ static const GdkMemoryFormatDescription memory_formats[] = {
     },
 #ifdef GDK_RENDERING_VULKAN
     .vulkan = {
-        .vk_format = VK_FORMAT_UNDEFINED,
+        .vk_format = VK_FORMAT_X6G10_X6B10_X6R10_3PLANE_444_UNORM_3PACK16,
         .vk_srgb_format = VK_FORMAT_UNDEFINED,
-        .ycbcr_swizzle = -1,
+        .ycbcr_swizzle = GDK_SWIZZLE_IDENTITY,
     },
 #endif
     .win32 = {
@@ -4960,9 +4978,9 @@ static const GdkMemoryFormatDescription memory_formats[] = {
     },
 #ifdef GDK_RENDERING_VULKAN
     .vulkan = {
-        .vk_format = VK_FORMAT_UNDEFINED,
+        .vk_format = VK_FORMAT_X4G12_X4B12_X4R12_3PLANE_420_UNORM_3PACK16,
         .vk_srgb_format = VK_FORMAT_UNDEFINED,
-        .ycbcr_swizzle = -1,
+        .ycbcr_swizzle = GDK_SWIZZLE_IDENTITY,
     },
 #endif
     .win32 = {
@@ -5047,9 +5065,9 @@ static const GdkMemoryFormatDescription memory_formats[] = {
     },
 #ifdef GDK_RENDERING_VULKAN
     .vulkan = {
-        .vk_format = VK_FORMAT_UNDEFINED,
+        .vk_format = VK_FORMAT_X4G12_X4B12_X4R12_3PLANE_422_UNORM_3PACK16,
         .vk_srgb_format = VK_FORMAT_UNDEFINED,
-        .ycbcr_swizzle = -1,
+        .ycbcr_swizzle = GDK_SWIZZLE_IDENTITY,
     },
 #endif
     .win32 = {
@@ -5134,9 +5152,9 @@ static const GdkMemoryFormatDescription memory_formats[] = {
     },
 #ifdef GDK_RENDERING_VULKAN
     .vulkan = {
-        .vk_format = VK_FORMAT_UNDEFINED,
+        .vk_format = VK_FORMAT_X4G12_X4B12_X4R12_3PLANE_444_UNORM_3PACK16,
         .vk_srgb_format = VK_FORMAT_UNDEFINED,
-        .ycbcr_swizzle = -1,
+        .ycbcr_swizzle = GDK_SWIZZLE_IDENTITY,
     },
 #endif
     .win32 = {

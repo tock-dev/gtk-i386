@@ -24,6 +24,7 @@
 #include "gtkcssnodeprivate.h"
 #include "gtkcssnumbervalueprivate.h"
 #include "gtkcssstyleprivate.h"
+#include "gtkorientable.h"
 #include "gtkprivate.h"
 #include "gtksnapshot.h"
 #include "gtktypebuiltins.h"
@@ -73,9 +74,11 @@
  * that paintables are never made smaller than their ideal size - but
  * be careful if you do not know the size of the paintable in use (like
  * when displaying user-loaded images). This can easily cause the picture to
- * grow larger than the screen. And [property@Gtk.Widget:halign] and
  * [property@Gtk.Widget:valign] can be used to make sure the paintable doesn't
  * fill all available space but is instead displayed at its original size.
+ *
+ * Whether `GtkPicture` requests height-for-width or width-for-height geometry
+ * management is set via the [property@Gtk.Orientable:orientation] property.
  *
  * ## CSS nodes
  *
@@ -96,7 +99,11 @@ enum
   PROP_CAN_SHRINK,
   PROP_CONTENT_FIT,
   PROP_ISOLATE_CONTENTS,
-  NUM_PROPERTIES
+
+  /* From GtkOrientable */
+  PROP_ORIENTATION,
+
+  NUM_PROPERTIES = PROP_ORIENTATION
 };
 
 struct _GtkPicture
@@ -108,6 +115,7 @@ struct _GtkPicture
 
   char *alternative_text;
   GtkContentFit content_fit;
+  GtkOrientation orientation;
   guint can_shrink : 1;
   guint isolate_contents : 1;
 };
@@ -119,7 +127,8 @@ struct _GtkPictureClass
 
 static GParamSpec *properties[NUM_PROPERTIES] = { NULL, };
 
-G_DEFINE_TYPE (GtkPicture, gtk_picture, GTK_TYPE_WIDGET)
+G_DEFINE_TYPE_WITH_CODE (GtkPicture, gtk_picture, GTK_TYPE_WIDGET,
+                         G_IMPLEMENT_INTERFACE (GTK_TYPE_ORIENTABLE, NULL))
 
 static void
 gtk_picture_snapshot (GtkWidget   *widget,
@@ -217,7 +226,17 @@ gtk_picture_snapshot (GtkWidget   *widget,
 static GtkSizeRequestMode
 gtk_picture_get_request_mode (GtkWidget *widget)
 {
-  return GTK_SIZE_REQUEST_HEIGHT_FOR_WIDTH;
+  switch (gtk_orientable_get_orientation (GTK_ORIENTABLE (widget)))
+    {
+    case GTK_ORIENTATION_HORIZONTAL:
+      return GTK_SIZE_REQUEST_HEIGHT_FOR_WIDTH;
+
+    case GTK_ORIENTATION_VERTICAL:
+      return GTK_SIZE_REQUEST_WIDTH_FOR_HEIGHT;
+
+    default:
+      g_assert_not_reached ();
+    }
 }
 
 static void
@@ -332,6 +351,19 @@ gtk_picture_set_property (GObject      *object,
       gtk_picture_set_isolate_contents (self, g_value_get_boolean (value));
       break;
 
+    case PROP_ORIENTATION:
+      {
+        GtkOrientation orientation = g_value_get_enum (value);
+        if (self->orientation != orientation)
+          {
+            self->orientation = orientation;
+            gtk_widget_update_orientation (GTK_WIDGET (self), orientation);
+            g_object_notify_by_pspec (G_OBJECT (self), pspec);
+            gtk_widget_queue_resize (GTK_WIDGET (self));
+          }
+      }
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -376,6 +408,10 @@ gtk_picture_get_property (GObject     *object,
 
     case PROP_ISOLATE_CONTENTS:
       g_value_set_boolean (value, self->isolate_contents);
+      break;
+
+    case PROP_ORIENTATION:
+      g_value_set_enum (value, self->orientation);
       break;
 
     default:
@@ -463,6 +499,10 @@ gtk_picture_class_init (GtkPictureClass *class)
   widget_class->get_request_mode = gtk_picture_get_request_mode;
   widget_class->measure = gtk_picture_measure;
   widget_class->css_changed = gtk_picture_css_changed;
+
+  g_object_class_override_property (gobject_class,
+                                    PROP_ORIENTATION,
+                                    "orientation");
 
   /**
    * GtkPicture:paintable:
@@ -558,6 +598,7 @@ gtk_picture_init (GtkPicture *self)
   self->isolate_contents = TRUE;
 
   gtk_widget_set_overflow (GTK_WIDGET (self), GTK_OVERFLOW_HIDDEN);
+  gtk_widget_update_orientation (GTK_WIDGET (self), GTK_ORIENTATION_HORIZONTAL);
 }
 
 /**

@@ -17,7 +17,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-i686-linux-gnu g++-i686-linux-gnu \
-                                 libc6-dev-i686-cross \
+                                 libc6-dev-i386-cross \
                                  ninja-build pkg-config python3-pip \
                                  gettext flex bison gperf libxml2-utils \
                                  python3-jinja2 python3-mako

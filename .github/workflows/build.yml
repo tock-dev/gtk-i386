@@ -13,6 +13,23 @@ jobs:
         with:
           submodules: recursive # Important: gets all subprojects
 
+      - name: Restore Cache (ccache & subprojects)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            subprojects
+            ~/.cache/ccache
+          key: ${{ runner.os }}-gtk-i386-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-gtk-i386-
+
+      - name: Install Build Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-i686-linux-gnu g++-i686-linux-gnu \
+                                 libc6-dev-i386-cross zlib1g-dev-i386-cross \
+                                 ninja-build pkg-config ccache # Added ccache!
+
       - name: Install Cross-Compilers & Tools
         run: |
           sudo apt-get update
@@ -51,20 +68,18 @@ jobs:
           meson setup build-i386 \
             --cross-file i386-cross.txt \
             --wrap-mode=forcefallback \
+            --force-fallback-for=glib,pango,cairo,gdk-pixbuf,graphene \
             -Dprefix=/tmp/gtk-install \
-            -Dbuild-examples=false \
-            -Dbuild-demos=false \
-            -Dbuild-tests=false \
-            -Dx11-backend=false \
-            -Dwayland-backend=false \
             -Dintrospection=disabled \
             -Dsysprof=disabled \
             -Dglib:introspection=disabled \
             -Dglib:sysprof=disabled \
             -Dglib:libmount=disabled \
-            -Dgraphene:introspection=disabled \
-            -Dpango:introspection=disabled \
-            -Dgdk-pixbuf:introspection=disabled \
+            -Dbuild-examples=false \
+            -Dbuild-demos=false \
+            -Dbuild-tests=false \
+            -Dx11-backend=false \
+            -Dwayland-backend=false \
             -Dglib:libmount=disabled
 
       - name: Meson Compile
@@ -78,3 +93,12 @@ jobs:
         with:
           name: gtk4-i386-static
           path: /tmp/gtk-install/ # This is what you'll download
+
+      - name: Save Cache (Always)
+        uses: actions/cache/save@v4
+        if: always() # This is the magic line
+        with:
+          path: |
+            subprojects
+            ~/.cache/ccache
+          key: ${{ runner.os }}-gtk-i386-${{ github.run_id }}

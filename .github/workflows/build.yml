@@ -44,7 +44,7 @@ jobs:
           # We don't need a sysroot because it builds the dependencies for us!
           meson setup build-i386 \
             --cross-file i386-cross.txt \
-            --wrap-mode=force-fallback \
+            --wrap-mode=forcefallback \
             -Dprefix=/tmp/gtk-install \
             -Dbuild-examples=false \
             -Dbuild-demos=false \

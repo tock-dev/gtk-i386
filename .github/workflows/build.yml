@@ -40,25 +40,31 @@ jobs:
           endian = 'little'
           EOF
 
+      - name: Kill Recursive Wraps
+        # This prevents Meson from even trying to download the loops
+        run: |
+          rm -f subprojects/gobject-introspection.wrap
+          rm -f subprojects/sysprof.wrap
+
       - name: Meson Setup
         run: |
-          # We use --wrap-mode=force-fallback so it builds its own GLib/etc.
-          # We don't need a sysroot because it builds the dependencies for us!
           meson setup build-i386 \
             --cross-file i386-cross.txt \
             --wrap-mode=forcefallback \
             -Dprefix=/tmp/gtk-install \
             -Dbuild-examples=false \
             -Dbuild-demos=false \
+            -Dbuild-tests=false \
             -Dx11-backend=false \
             -Dwayland-backend=false \
             -Dintrospection=disabled \
             -Dsysprof=disabled \
             -Dglib:introspection=disabled \
             -Dglib:sysprof=disabled \
-            -Dgdk-pixbuf:introspection=disabled \
-            -Dpango:introspection=disabled \
+            -Dglib:libmount=disabled \
             -Dgraphene:introspection=disabled \
+            -Dpango:introspection=disabled \
+            -Dgdk-pixbuf:introspection=disabled \
             -Dglib:libmount=disabled
 
       - name: Meson Compile

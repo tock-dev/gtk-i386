@@ -1,0 +1,64 @@
+name: i386 GTK4 Build
+on: [push, workflow_dispatch] # workflow_dispatch lets you click a button to start it
+
+permissions:
+  contents: write
+
+jobs:
+  cross-build:
+    runs-on: ubuntu-latest # Use the latest Ubuntu runner
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive # Important: gets all subprojects
+
+      - name: Install Cross-Compilers & Tools
+        run: |
+          sudo apt-get update
+          # Install the i686 (i386) cross compilers
+          sudo apt-get install -y gcc-i686-linux-gnu g++-i686-linux-gnu \
+                                 ninja-build pkg-config python3-pip
+          sudo pip3 install meson --break-system-packages
+
+      - name: Create i386 Cross File
+        run: |
+          cat <<EOF > i386-cross.txt
+          [binaries]
+          c = 'i686-linux-gnu-gcc'
+          cpp = 'i686-linux-gnu-g++'
+          ar = 'i686-linux-gnu-ar'
+          strip = 'i686-linux-gnu-strip'
+          pkgconfig = 'pkg-config'
+
+          [host_machine]
+          system = 'linux'
+          cpu_family = 'x86'
+          cpu = 'i686'
+          endian = 'little'
+          EOF
+
+      - name: Meson Setup
+        run: |
+          # We use --wrap-mode=force-fallback so it builds its own GLib/etc.
+          # We don't need a sysroot because it builds the dependencies for us!
+          meson setup build-i386 \
+            --cross-file i386-cross.txt \
+            --wrap-mode=force-fallback \
+            -Dprefix=/tmp/gtk-install \
+            -Dbuild-examples=false \
+            -Dbuild-demos=false \
+            -Dx11-backend=false \
+            -Dwayland-backend=false
+
+      - name: Meson Compile
+        run: ninja -C build-i386 -j$(nproc)
+
+      - name: Meson Install
+        run: ninja install -C build-i386
+
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: gtk4-i386-static
+          path: /tmp/gtk-install/ # This is what you'll download

@@ -427,6 +427,11 @@ gtk_search_bar_set_entry (GtkSearchBar *bar,
                             G_CALLBACK (stop_search_cb), bar);
           gtk_search_entry_set_key_capture_widget (GTK_SEARCH_ENTRY (bar->entry),
                                                    GTK_WIDGET (bar));
+          gtk_accessible_reset_relation (GTK_ACCESSIBLE (bar),
+                                         GTK_ACCESSIBLE_RELATION_LABELLED_BY);
+          gtk_accessible_update_relation (GTK_ACCESSIBLE (bar),
+                                          GTK_ACCESSIBLE_RELATION_LABELLED_BY, GTK_WIDGET (entry), NULL,
+                                          -1);
         }
 
     }

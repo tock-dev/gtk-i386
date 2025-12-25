@@ -224,10 +224,7 @@ gtk_search_entry_set_property (GObject      *object,
     {
     case PROP_PLACEHOLDER_TEXT:
       text = g_value_get_string (value);
-      gtk_text_set_placeholder_text (GTK_TEXT (entry->entry), text);
-      gtk_accessible_update_property (GTK_ACCESSIBLE (entry),
-                                      GTK_ACCESSIBLE_PROPERTY_PLACEHOLDER, text,
-                                      -1);
+      gtk_search_entry_set_placeholder_text (entry, text);
       break;
 
     case PROP_INPUT_PURPOSE:
@@ -269,7 +266,7 @@ gtk_search_entry_get_property (GObject    *object,
   switch (prop_id)
     {
     case PROP_PLACEHOLDER_TEXT:
-      g_value_set_string (value, gtk_text_get_placeholder_text (GTK_TEXT (entry->entry)));
+      g_value_set_string (value, gtk_search_entry_get_placeholder_text (entry));
       break;
 
     case PROP_INPUT_PURPOSE:
@@ -473,6 +470,9 @@ gtk_search_entry_class_init (GtkSearchEntryClass *klass)
    *
    * The text that will be displayed in the `GtkSearchEntry`
    * when it is empty and unfocused.
+   *
+   * The placeholder text will be used to update the
+   * [enum@Gtk.AccessibleProperty.LABEL] of the entry.
    */
   props[PROP_PLACEHOLDER_TEXT] =
       g_param_spec_string ("placeholder-text", NULL, NULL,
@@ -1081,6 +1081,10 @@ gtk_search_entry_set_placeholder_text (GtkSearchEntry *entry,
   g_return_if_fail (GTK_IS_SEARCH_ENTRY (entry));
 
   gtk_text_set_placeholder_text (GTK_TEXT (entry->entry), text);
+  gtk_accessible_update_property (GTK_ACCESSIBLE (entry),
+                                  GTK_ACCESSIBLE_PROPERTY_PLACEHOLDER, text,
+                                  GTK_ACCESSIBLE_PROPERTY_LABEL, text,
+                                  -1);
 }
 
 /**

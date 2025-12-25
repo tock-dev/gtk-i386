@@ -16,9 +16,10 @@ jobs:
       - name: Install Cross-Compilers & Tools
         run: |
           sudo apt-get update
-          # Install the i686 (i386) cross compilers
           sudo apt-get install -y gcc-i686-linux-gnu g++-i686-linux-gnu \
-                                 ninja-build pkg-config python3-pip
+                                 ninja-build pkg-config python3-pip \
+                                 gettext flex bison gperf libxml2-utils \
+                                 python3-jinja2 python3-mako
           sudo pip3 install meson --break-system-packages
 
       - name: Create i386 Cross File
@@ -49,7 +50,12 @@ jobs:
             -Dbuild-examples=false \
             -Dbuild-demos=false \
             -Dx11-backend=false \
-            -Dwayland-backend=false
+            -Dwayland-backend=false \
+            -Dintrospection=disabled \
+            -Dglib:introspection=disabled \
+            -Dgraphene:introspection=disabled \
+            -Dpango:introspection=disabled \
+            -Dgdk-pixbuf:introspection=disabled
 
       - name: Meson Compile
         run: ninja -C build-i386 -j$(nproc)

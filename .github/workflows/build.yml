@@ -56,7 +56,8 @@ jobs:
             -Dglib:introspection=disabled \
             -Dgraphene:introspection=disabled \
             -Dpango:introspection=disabled \
-            -Dgdk-pixbuf:introspection=disabled
+            -Dgdk-pixbuf:introspection=disabled \
+            -Dglib:libmount=disabled
 
       - name: Meson Compile
         run: ninja -C build-i386 -j$(nproc)

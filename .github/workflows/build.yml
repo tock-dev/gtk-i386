@@ -89,9 +89,8 @@ jobs:
             -Dbuild-tests=false \
             -Dx11-backend=false \
             -Dwayland-backend=false \
-            -Dcairo:spectre=disabled \
-            -Dcairo:tee=disabled \
-            -Dcairo:svg=disabled
+            -Dpango:xft=disabled \
+            -Dpango:fontconfig=disabled
 
       - name: Meson Compile
         run: ninja -C build-i386 -j$(nproc)

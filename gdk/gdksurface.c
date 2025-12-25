@@ -45,6 +45,7 @@
 #include "gdktoplevelprivate.h"
 #include "gdkvulkancontext.h"
 #include "gdksubsurfaceprivate.h"
+#include "gdkseatprivate.h"
 
 #include "gsk/gskrectprivate.h"
 
@@ -1727,6 +1728,11 @@ G_GNUC_END_IGNORE_DEPRECATIONS
         }
 
       g_list_free (devices);
+
+      if (seat && surface->parent && surface->parent->autohide)
+        gdk_seat_grab (seat, surface->parent,
+                       GDK_SEAT_CAPABILITY_ALL,
+                       TRUE, NULL, NULL, NULL, NULL);
     }
 
   GDK_SURFACE_GET_CLASS (surface)->hide (surface);

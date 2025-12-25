@@ -53,10 +53,12 @@ jobs:
             -Dx11-backend=false \
             -Dwayland-backend=false \
             -Dintrospection=disabled \
+            -Dsysprof=disabled \
             -Dglib:introspection=disabled \
-            -Dgraphene:introspection=disabled \
-            -Dpango:introspection=disabled \
+            -Dglib:sysprof=disabled \
             -Dgdk-pixbuf:introspection=disabled \
+            -Dpango:introspection=disabled \
+            -Dgraphene:introspection=disabled \
             -Dglib:libmount=disabled
 
       - name: Meson Compile

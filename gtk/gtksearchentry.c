@@ -1081,6 +1081,9 @@ gtk_search_entry_set_placeholder_text (GtkSearchEntry *entry,
   g_return_if_fail (GTK_IS_SEARCH_ENTRY (entry));
 
   gtk_text_set_placeholder_text (GTK_TEXT (entry->entry), text);
+  gtk_accessible_update_property (GTK_ACCESSIBLE (entry),
+                                  GTK_ACCESSIBLE_PROPERTY_PLACEHOLDER, text,
+                                  -1);
 }
 
 /**

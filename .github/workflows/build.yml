@@ -23,23 +23,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gtk-i386-
 
-      - name: Install Build Tools
+      - name: Install Cross-Compilers & Dependencies
         run: |
           sudo dpkg --add-architecture i386
           sudo apt-get update
           sudo apt-get install -y gcc-i686-linux-gnu g++-i686-linux-gnu \
                                  libc6-dev-i386-cross \
                                  ninja-build pkg-config ccache \
+                                 python3-pip gettext flex bison gperf \
+                                 libxml2-utils python3-jinja2 python3-mako \
                                  zlib1g-dev:i386
-
-      - name: Install Cross-Compilers & Tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-i686-linux-gnu g++-i686-linux-gnu \
-                                 libc6-dev-i386-cross \
-                                 ninja-build pkg-config python3-pip \
-                                 gettext flex bison gperf libxml2-utils \
-                                 python3-jinja2 python3-mako
           sudo pip3 install meson --break-system-packages
 
       - name: Create i386 Cross File
@@ -51,12 +44,26 @@ jobs:
           ar = 'i686-linux-gnu-ar'
           strip = 'i686-linux-gnu-strip'
           pkgconfig = 'pkg-config'
-
+          
+          [properties]
+          sizeof_int = 4
+          sizeof_wchar_t = 4
+          sizeof_void* = 4
+          alignment_char = 1
+          alignment_void* = 4
+          alignment_double = 4
+          
           [host_machine]
           system = 'linux'
           cpu_family = 'x86'
           cpu = 'i686'
           endian = 'little'
+          
+          [built-in options]
+          c_args = ['-m32']
+          cpp_args = ['-m32']
+          c_link_args = ['-m32']
+          cpp_link_args = ['-m32']
           EOF
 
       - name: Kill Recursive Wraps
